@@ -1,0 +1,1 @@
+The select_next_item function takes as input the remaining capacity, a numpy array of item values, and a numpy array of item weights, and returns the next item to pick.

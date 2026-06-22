@@ -1,0 +1,2 @@
+def priority_v1(el: tuple[int], n: int, w: int) -> float:
+    return 1

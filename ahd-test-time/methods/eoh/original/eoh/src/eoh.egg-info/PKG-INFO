@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: eoh
+Version: 0.1
+Summary: Evolutionary Computation + Large Language Model for automatic algorithm design
+Author: MetaAI Group, CityU
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Requires-Dist: numba
+Requires-Dist: joblib
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

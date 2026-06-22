@@ -1,0 +1,51 @@
+# Local secrets and machine settings
+apikey
+sudo
+scripts/settings.local.env
+.env
+*.env.local
+
+# Python/cache artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs and runtime outputs
+logs/
+runs/
+cache/
+results.xlsx
+Dynamic-Agent.pptx
+Dynamic_Agent__Evolution_Strategy_Breaks_the_Boundary_of_LLM_Agentic_Reasoning/
+*.log
+*.pid
+*.tfevents.*
+*.jsonl.tmp
+
+# Downloaded external repos, datasets, and generated experiment results
+data/ahd/datasets/
+data/jericho/
+data/webarena/
+ahd-test-time/results/
+webarena-train-time/methods/skillopt/source/
+webarena-train-time/methods/trace2skill/source/
+
+# Nested repositories copied from external sources
+**/.git/
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+~$*
+.idea/
+
+# Large model/checkpoint artifacts
+*.safetensors
+*.ckpt
+*.bin
+*.pt
+*.pth
+*.onnx

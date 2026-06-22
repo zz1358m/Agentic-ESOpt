@@ -1,0 +1,6 @@
+problem_name: kp_constructive
+problem_type: constructive
+obj_type: max
+problem_size: 100 # problem size for training
+func_name: select_next_item
+description: Solving 0-1 Knapsack Problem (KP) with constructive heuristics. KP requires the selection of a number of items to maximize the total value under a given weight constraint (i.e., capacity), and each item can be selected only once.

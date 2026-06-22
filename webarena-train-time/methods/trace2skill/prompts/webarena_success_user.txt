@@ -1,0 +1,11 @@
+Here is the target WebArena browser-agent execution log. The task instruction, site, score, page observations, and action responses are included when available.
+
+<agent_log>
+{agent_log}
+</agent_log>
+
+Please analyze this log and produce:
+1. A Lean Solution Path: the minimal, clean action sequence that led to success, with unnecessary or failed attempts removed.
+2. A set of Success Memory Items, at most 3, capturing generalizable WebArena strategies for future tasks.
+
+Follow the output format defined in the system prompt exactly.

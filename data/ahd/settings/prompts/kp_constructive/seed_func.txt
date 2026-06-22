@@ -1,0 +1,4 @@
+def select_next_item_v1(remaining_capacity: int, weights: np.ndarray, values: np.ndarray) -> int:
+# Useless for the reported results. Both greedy and random seed functions will lead ReEvo to errors (All algorithms in the population have the same objective value)
+    next_item = 0
+    return next_item

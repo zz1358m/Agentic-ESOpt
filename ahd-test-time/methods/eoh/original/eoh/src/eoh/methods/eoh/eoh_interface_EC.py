@@ -1,0 +1,491 @@
+import numpy as np
+import time
+from .eoh_evolution import Evolution
+import warnings
+from joblib import Parallel, delayed
+from .evaluator_accelerate import add_numba_decorator
+import re
+import concurrent.futures
+import multiprocessing as mp
+import random
+
+from es import ModelESClient
+
+DEFAULT_INVALID_OBJECTIVE = 100.0
+
+class InterfaceEC():
+    def __init__(self, pop_size, m, api_endpoint, api_key, llm_model,llm_use_local,llm_local_url, debug_mode, interface_prob, select,n_p,timeout,use_numba,**kwargs):
+
+        # LLM settings
+        self.pop_size = pop_size
+        self.interface_eval = interface_prob
+        prompts = interface_prob.prompts
+        self.evol = Evolution(api_endpoint, api_key, llm_model,llm_use_local,llm_local_url, debug_mode,prompts, **kwargs)
+        self.m = m
+        self.debug = debug_mode
+
+        if not self.debug:
+            warnings.filterwarnings("ignore")
+
+        self.select = select
+        self.n_p = n_p
+        
+        self.timeout = timeout
+        self.use_numba = use_numba
+        self.paras = kwargs.get("paras", None)
+        self.invalid_objective = float(getattr(self.paras, "eva_invalid_objective", DEFAULT_INVALID_OBJECTIVE))
+        self.llm_use_local = llm_use_local
+        self.llm_local_url = llm_local_url
+        self.model_es_enabled = bool(getattr(self.paras, "llm_es_enabled", False))
+        self.model_es_client = None
+        self.model_es_clients = []
+        self.model_es_evolutions = []
+        self.model_es_rng = random.Random(int(getattr(self.paras, "llm_es_seed", 2024)))
+
+        if self.model_es_enabled:
+            if not self.llm_use_local:
+                raise ValueError("llm_es_enabled=True requires llm_use_local=True.")
+            es_urls = getattr(self.paras, "llm_es_engine_urls", None) or [self.llm_local_url]
+            self.model_es_clients = [
+                ModelESClient(url, timeout=max(float(self.timeout) * 20, 600.0))
+                for url in es_urls
+            ]
+            self.model_es_evolutions = [
+                Evolution(api_endpoint, api_key, llm_model, llm_use_local, url, debug_mode, prompts, **kwargs)
+                for url in es_urls
+            ]
+            init_info = []
+            for client in self.model_es_clients:
+                init_info.append(client.init(
+                    parameter_scope=getattr(self.paras, "llm_es_parameter_scope", "full"),
+                    target_modules=getattr(self.paras, "llm_es_target_modules", None),
+                    verbose=not self.debug,
+                ))
+            self.model_es_client = self.model_es_clients[0]
+            print(f"- Model ES initialized: {init_info}")
+        
+    def code2file(self,code):
+        with open("./ael_alg.py", "w") as file:
+        # Write the code to the file
+            file.write(code)
+        return 
+    
+    def add2pop(self,population,offspring):
+        for ind in population:
+            if ind['objective'] == offspring['objective']:
+                if self.debug:
+                    print("duplicated result, retrying ... ")
+                return False
+        population.append(offspring)
+        return True
+    
+    def check_duplicate(self,population,code):
+        for ind in population:
+            if code == ind['code']:
+                return True
+        return False
+
+    # def population_management(self,pop):
+    #     # Delete the worst individual
+    #     pop_new = heapq.nsmallest(self.pop_size, pop, key=lambda x: x['objective'])
+    #     return pop_new
+    
+    # def parent_selection(self,pop,m):
+    #     ranks = [i for i in range(len(pop))]
+    #     probs = [1 / (rank + 1 + len(pop)) for rank in ranks]
+    #     parents = random.choices(pop, weights=probs, k=m)
+    #     return parents
+
+    def population_generation(self):
+        population = []
+        max_attempts = max(10, self.pop_size * 5)
+        attempts = 0
+
+        while len(population) < self.pop_size and attempts < max_attempts:
+            attempts += 1
+            _, pop = self.get_algorithm([], 'i1')
+            for p in pop:
+                if len(population) >= self.pop_size:
+                    break
+                if p.get('objective') is None or not np.isfinite(float(p.get('objective', self.invalid_objective))):
+                    p['objective'] = self.invalid_objective
+                if p.get('code') is not None and self.check_duplicate(population, p['code']):
+                    continue
+                population.append(p)
+
+        if len(population) < self.pop_size:
+            print(f"Warning: initialized {len(population)} of {self.pop_size} individuals after {attempts} attempts.")
+             
+        return population
+    
+    def population_generation_seed(self,seeds,n_p):
+
+        population = []
+
+        fitness = Parallel(n_jobs=n_p)(delayed(self.interface_eval.evaluate)(seed['code']) for seed in seeds)
+
+        for i in range(len(seeds)):
+            try:
+                seed_alg = {
+                    'algorithm': seeds[i]['algorithm'],
+                    'code': seeds[i]['code'],
+                    'objective': None,
+                    'other_inf': None
+                }
+
+                obj = np.array(fitness[i])
+                seed_alg['objective'] = np.round(obj, 5)
+                population.append(seed_alg)
+
+            except Exception as e:
+                print("Error in seed algorithm")
+                exit()
+
+        print("Initiliazation finished! Get "+str(len(seeds))+" seed algorithms")
+
+        return population
+    
+
+    def _get_alg(self,pop,operator):
+        offspring = {
+            'algorithm': None,
+            'code': None,
+            'objective': None,
+            'other_inf': None
+        }
+        if operator == "i1":
+            parents = None
+            [offspring['code'],offspring['algorithm']] =  self.evol.i1()            
+        elif operator == "e1":
+            parents = self.select.parent_selection(pop,self.m)
+            [offspring['code'],offspring['algorithm']] = self.evol.e1(parents)
+        elif operator == "e2":
+            parents = self.select.parent_selection(pop,self.m)
+            [offspring['code'],offspring['algorithm']] = self.evol.e2(parents) 
+        elif operator == "m1":
+            parents = self.select.parent_selection(pop,1)
+            [offspring['code'],offspring['algorithm']] = self.evol.m1(parents[0])   
+        elif operator == "m2":
+            parents = self.select.parent_selection(pop,1)
+            [offspring['code'],offspring['algorithm']] = self.evol.m2(parents[0]) 
+        else:
+            print(f"Evolution operator [{operator}] has not been implemented ! \n") 
+
+        return parents, offspring
+
+    def get_offspring(self, pop, operator):
+
+        try:
+            p, offspring = self._get_alg(pop, operator)
+            
+            if self.use_numba:
+                
+                # Regular expression pattern to match function definitions
+                pattern = r"def\s+(\w+)\s*\(.*\):"
+
+                # Search for function definitions in the code
+                match = re.search(pattern, offspring['code'])
+
+                function_name = match.group(1)
+
+                code = add_numba_decorator(program=offspring['code'], function_name=function_name)
+            else:
+                code = offspring['code']
+
+            n_retry= 1
+            while self.check_duplicate(pop, offspring['code']):
+                
+                n_retry += 1
+                if self.debug:
+                    print("duplicated code, wait 1 second and retrying ... ")
+                    
+                p, offspring = self._get_alg(pop, operator)
+
+                if self.use_numba:
+                    # Regular expression pattern to match function definitions
+                    pattern = r"def\s+(\w+)\s*\(.*\):"
+
+                    # Search for function definitions in the code
+                    match = re.search(pattern, offspring['code'])
+
+                    function_name = match.group(1)
+
+                    code = add_numba_decorator(program=offspring['code'], function_name=function_name)
+                else:
+                    code = offspring['code']
+                    
+                if n_retry > 1:
+                    break
+                
+                
+            fitness = self._evaluate_code_with_timeout(code)
+            offspring['objective'] = np.round(fitness, 5)
+                
+
+        except Exception as e:
+
+            offspring = {
+                'algorithm': None,
+                'code': None,
+                'objective': self.invalid_objective,
+                'other_inf': {'error': str(e)}
+            }
+            p = None
+
+        # Round the objective values
+        return p, offspring
+
+    def _get_offspring_from_parent(self, parent, operator, evol=None):
+        evol = self.evol if evol is None else evol
+        offspring = {
+            'algorithm': None,
+            'code': None,
+            'objective': None,
+            'other_inf': None
+        }
+        if operator == "m1":
+            offspring['code'], offspring['algorithm'] = evol.m1(parent)
+        elif operator == "m2":
+            offspring['code'], offspring['algorithm'] = evol.m2(parent)
+        else:
+            raise ValueError(f"Model ES only supports mutation operators, got {operator}")
+
+        code = self._prepare_code_for_evaluation(offspring['code'])
+        fitness = self._evaluate_code_with_timeout(code)
+        offspring['objective'] = np.round(fitness, 5)
+        return offspring
+
+    def _evaluate_code_with_timeout(self, code):
+        ctx = mp.get_context("fork")
+        queue = ctx.Queue(maxsize=1)
+
+        def run_eval(out_queue):
+            try:
+                out_queue.put(self.interface_eval.evaluate(code))
+            except Exception:
+                out_queue.put(None)
+
+        proc = ctx.Process(target=run_eval, args=(queue,))
+        proc.daemon = True
+        proc.start()
+        proc.join(self.timeout)
+        if proc.is_alive():
+            proc.terminate()
+            proc.join(2)
+            if proc.is_alive():
+                proc.kill()
+                proc.join()
+            return self.invalid_objective
+
+        try:
+            fitness = queue.get_nowait()
+        except Exception:
+            return self.invalid_objective
+        if fitness is None or not np.isfinite(float(fitness)):
+            return self.invalid_objective
+        return fitness
+
+    def _prepare_code_for_evaluation(self, code):
+        if not self.use_numba:
+            return code
+
+        pattern = r"def\s+(\w+)\s*\(.*\):"
+        match = re.search(pattern, code)
+        if match is None:
+            return code
+        function_name = match.group(1)
+        return add_numba_decorator(program=code, function_name=function_name)
+
+    def _objective_to_reward(self, offspring, parent):
+        objective = offspring.get('objective')
+        if objective is None:
+            objective = self.invalid_objective
+        objective = float(objective)
+        if not np.isfinite(objective):
+            objective = self.invalid_objective
+        reward_mode = str(getattr(self.paras, "llm_es_reward_mode", "improvement")).lower()
+        if reward_mode == "negative_objective":
+            return -objective
+
+        parent_objective = None if parent is None else parent.get('objective')
+        if parent_objective is None:
+            return -objective
+        parent_objective = float(parent_objective)
+        if not np.isfinite(parent_objective):
+            return -objective
+        return parent_objective - objective
+
+    def _sample_model_es_seeds(self, n=None):
+        directions = self.pop_size if n is None else int(n)
+        directions = max(1, directions)
+        return [self.model_es_rng.randrange(0, 2**31 - 1) for _ in range(directions)]
+
+    def _operator_uses_model_es(self, operator):
+        if not self.model_es_enabled:
+            return False
+        operators = getattr(self.paras, "llm_es_operators", ['m1', 'm2'])
+        return operator in operators
+
+    def _get_algorithm_with_model_es(self, pop, operator):
+        if len(pop) == 0:
+            return [], []
+
+        sigma = float(getattr(self.paras, "llm_es_sigma", 1e-3))
+        alpha = float(getattr(self.paras, "llm_es_alpha", 5e-4))
+        seeds = self._sample_model_es_seeds(self.pop_size)
+        rewards = [None] * len(seeds)
+        offsprings = [None] * len(seeds)
+        out_parents = [None] * len(seeds)
+        tasks = []
+
+        for i, seed in enumerate(seeds):
+            parents = self.select.parent_selection(pop, 1)
+            tasks.append((i, seed, parents, parents[0]))
+
+        def eval_direction(i, seed, parents, parent):
+            engine_id = i % len(self.model_es_clients)
+            client = self.model_es_clients[engine_id]
+            evol = self.model_es_evolutions[engine_id]
+            try:
+                client.apply_perturbation(seed=seed, sigma=sigma)
+                try:
+                    offspring = self._get_offspring_from_parent(parent, operator, evol=evol)
+                finally:
+                    client.revert_perturbation(seed=seed, sigma=sigma)
+
+                reward = self._objective_to_reward(offspring, parent)
+                parent_objective = parent.get('objective')
+                if parent_objective is not None:
+                    parent_objective = float(parent_objective)
+                offspring['other_inf'] = {
+                    'model_es_seed': int(seed),
+                    'model_es_sigma': sigma,
+                    'model_es_reward': float(reward),
+                    'model_es_parent_objective': parent_objective,
+                    'model_es_operator': operator,
+                    'model_es_batch_size': len(seeds),
+                    'model_es_engine_id': engine_id,
+                }
+            except Exception as e:
+                if self.debug:
+                    print(f"Model ES direction failed: seed={seed}, error={e}")
+                offspring = {
+                    'algorithm': None,
+                    'code': None,
+                    'objective': self.invalid_objective,
+                    'other_inf': {
+                        'model_es_seed': int(seed),
+                        'model_es_sigma': sigma,
+                        'model_es_reward': None,
+                        'model_es_error': str(e),
+                        'model_es_operator': operator,
+                        'model_es_batch_size': len(seeds),
+                        'model_es_engine_id': engine_id,
+                    }
+                }
+                reward = self._objective_to_reward(offspring, parent)
+                offspring['other_inf']['model_es_reward'] = float(reward)
+            return i, parents, offspring, float(reward)
+
+        max_workers = min(len(self.model_es_clients), len(tasks))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(eval_direction, *task) for task in tasks]
+            for future in concurrent.futures.as_completed(futures):
+                i, parents, offspring, reward = future.result()
+                rewards[i] = reward
+                offsprings[i] = offspring
+                out_parents[i] = parents
+
+        update_info = [
+            client.update(
+                seeds=seeds,
+                rewards=rewards,
+                alpha=alpha,
+                reward_normalization=getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+                reward_normalization_ddof=getattr(self.paras, "llm_es_reward_normalization_ddof", 0),
+                reward_normalization_eps=getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8),
+            )
+            for client in self.model_es_clients
+        ]
+        if self.debug:
+            print(f"Model ES update: {update_info}")
+
+        return out_parents, offsprings
+    # def process_task(self,pop, operator):
+    #     result =  None, {
+    #             'algorithm': None,
+    #             'code': None,
+    #             'objective': None,
+    #             'other_inf': None
+    #         }
+    #     with concurrent.futures.ThreadPoolExecutor() as executor:
+    #         future = executor.submit(self.get_offspring, pop, operator)
+    #         try:
+    #             result = future.result(timeout=self.timeout)
+    #             future.cancel()
+    #             #print(result)
+    #         except:
+    #             future.cancel()
+                
+    #     return result
+
+    
+    def get_algorithm(self, pop, operator):
+        if self._operator_uses_model_es(operator):
+            return self._get_algorithm_with_model_es(pop, operator)
+
+        results = []
+        try:
+            results = Parallel(n_jobs=self.n_p,timeout=self.timeout+15)(delayed(self.get_offspring)(pop, operator) for _ in range(self.pop_size))
+        except Exception as e:
+            if self.debug:
+                print(f"Error: {e}")
+            print("Parallel time out .")
+            
+        time.sleep(2)
+
+
+        out_p = []
+        out_off = []
+
+        for p, off in results:
+            out_p.append(p)
+            out_off.append(off)
+            if self.debug:
+                print(f">>> check offsprings: \n {off}")
+        return out_p, out_off
+    # def get_algorithm(self,pop,operator, pop_size, n_p):
+        
+    #     # perform it pop_size times with n_p processes in parallel
+    #     p,offspring = self._get_alg(pop,operator)
+    #     while self.check_duplicate(pop,offspring['code']):
+    #         if self.debug:
+    #             print("duplicated code, wait 1 second and retrying ... ")
+    #         time.sleep(1)
+    #         p,offspring = self._get_alg(pop,operator)
+    #     self.code2file(offspring['code'])
+    #     try:
+    #         fitness= self.interface_eval.evaluate()
+    #     except:
+    #         fitness = None
+    #     offspring['objective'] =  fitness
+    #     #offspring['other_inf'] =  first_gap
+    #     while (fitness == None):
+    #         if self.debug:
+    #             print("warning! error code, retrying ... ")
+    #         p,offspring = self._get_alg(pop,operator)
+    #         while self.check_duplicate(pop,offspring['code']):
+    #             if self.debug:
+    #                 print("duplicated code, wait 1 second and retrying ... ")
+    #             time.sleep(1)
+    #             p,offspring = self._get_alg(pop,operator)
+    #         self.code2file(offspring['code'])
+    #         try:
+    #             fitness= self.interface_eval.evaluate()
+    #         except:
+    #             fitness = None
+    #         offspring['objective'] =  fitness
+    #         #offspring['other_inf'] =  first_gap
+    #     offspring['objective'] = np.round(offspring['objective'],5) 
+    #     #offspring['other_inf'] = np.round(offspring['other_inf'],3)
+    #     return p,offspring

@@ -1,0 +1,1 @@
+def select_next_item(remaining_capacity: int, weights: np.ndarray, values: np.ndarray) -> int:

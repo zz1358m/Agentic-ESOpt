@@ -1,0 +1,1 @@
+The priority function takes as input a tuple `el` with int numbers, an int number n, and an int number w, and returns a float priority for the tuple `el`.

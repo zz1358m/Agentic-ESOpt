@@ -1,0 +1,32 @@
+{
+  "llama31_8b": {
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "dtype": "float16",
+    "trust_remote_code": false,
+    "chat_template_enable_thinking": "auto",
+    "default_gpus": ["0"],
+    "multi_gpu_example": ["0", "1", "2", "3"],
+    "recommended_for_es": true,
+    "notes": "Stable default local model target. Full-parameter ES is most practical on 8B."
+  },
+  "qwen3_14b": {
+    "model_id": "Qwen/Qwen3-14B",
+    "dtype": "bfloat16",
+    "trust_remote_code": false,
+    "chat_template_enable_thinking": "false",
+    "default_gpus": ["0", "1", "2", "3"],
+    "multi_gpu_example": ["0", "1", "2", "3"],
+    "recommended_for_es": true,
+    "notes": "Use thinking=false for EoH code-generation prompts. If loading fails, upgrade transformers before changing this template."
+  },
+  "qwen3_32b": {
+    "model_id": "Qwen/Qwen3-32B",
+    "dtype": "bfloat16",
+    "trust_remote_code": false,
+    "chat_template_enable_thinking": "false",
+    "default_gpus": ["0", "1", "2", "3", "4", "5", "6", "7"],
+    "multi_gpu_example": ["0", "1", "2", "3", "4", "5", "6", "7"],
+    "recommended_for_es": false,
+    "notes": "Use for stronger generation comparison runs first. Full-parameter ES on 32B is expensive; prefer all_linear or a narrower target_modules list for ES trials."
+  }
+}

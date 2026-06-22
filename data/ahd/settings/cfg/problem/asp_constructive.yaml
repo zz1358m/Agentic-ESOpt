@@ -1,0 +1,6 @@
+problem_name: asp_constructive
+problem_type: constructive
+obj_type: max
+problem_size: 10 # problem size fpriorityor training
+func_name: priority
+description: Admissible sets problem (ASP) aims at finding the largest possible set of n-length vectors from {0, 1, 2}^n where each vector has exactly w non-zero elements with unique positions, and for any three distinct vectors, there exists a coordinate in {1,...,n} where their values are either {0, 1, 2}, {0, 0, 1}, or {0, 0, 2}. Now you need to design heuristics to score each vector to show the priority with which we want to add eah vector to the admissible set.
