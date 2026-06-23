@@ -43,7 +43,7 @@ def read_openai_key() -> str:
 def ensure_split(split_dir: Path) -> None:
     cmd = [
         sys.executable,
-        str(ROOT / "webarena-train-time" / "scripts" / "prepare_webarena_nonlite_skillopt_split.py"),
+        str(ROOT / "webarena-train-time" / "scripts" / "prepare_trace2skill_webarena_split.py"),
         "--output-dir",
         str(split_dir),
     ]
@@ -296,7 +296,7 @@ def run_analysis_and_evolve(
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = read_openai_key()
     env["OPENAI_BASE_URL"] = env.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    max_skill_lines = env.get("TRACE2SKILL_MAX_SKILL_LINES", "100")
+    max_skill_lines = env.get("TRACE2SKILL_MAX_SKILL_LINES", "20")
     if not official_prompts:
         prompts = ROOT / "webarena-train-time" / "methods" / "trace2skill" / "prompts"
         env["TRACE2SKILL_ERROR_SYSTEM_PROMPT"] = str(prompts / "webarena_error_system.txt")
@@ -421,7 +421,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=3, help="Deprecated name; interpreted as eval steps.")
     parser.add_argument("--steps", type=int, default=None, help="Number of Trace2Skill eval steps.")
     parser.add_argument("--run-id", default="trace2skill_webarena_sft")
-    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "skillopt_nonlite_sft"))
+    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "trace2skill_nonlite_sft"))
     parser.add_argument("--train-instances-per-epoch", type=int, default=8)
     parser.add_argument("--instances-per-eval-step", type=int, default=None)
     parser.add_argument(
@@ -473,7 +473,7 @@ def main() -> None:
         ),
     )
     parser.add_argument("--optimizer-model", default="gpt-4.1-mini")
-    parser.add_argument("--target-model-name", default="Qwen3-14B")
+    parser.add_argument("--target-model-name", default="Qwen3.5-27B")
     parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl_chat.json")
     parser.add_argument("--mode", default="chat")
     parser.add_argument("--stop-token", default="")

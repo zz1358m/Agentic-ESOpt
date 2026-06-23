@@ -367,19 +367,16 @@ def main() -> None:
     parser.add_argument("--webrl-trajectories", default=str(DEFAULT_WEBRL_TRAJECTORIES))
     parser.add_argument("--sites", default="shopping,shopping_admin,reddit,gitlab,wikipedia,map")
     parser.add_argument("--episodes", type=int, default=0)
-    parser.add_argument("--generations", type=int, default=3)
-    parser.add_argument("--population", type=int, default=16)
-    parser.add_argument("--case-batch-size", type=int, default=16)
+    parser.add_argument("--generations", type=int, default=1)
+    parser.add_argument("--population", type=int, default=8)
+    parser.add_argument("--case-batch-size", type=int, default=8)
     parser.add_argument("--case-workers-per-sample", type=int, default=4)
     parser.add_argument("--eval-workers-per-endpoint", type=int, default=4)
-    parser.add_argument("--sigma", type=float, default=1e-3)
-    parser.add_argument("--alpha", type=float, default=1e-3)
+    parser.add_argument("--sigma", type=float, default=5e-4)
+    parser.add_argument("--alpha", type=float, default=5e-4)
     parser.add_argument("--seed", type=int, default=20260605)
     parser.add_argument("--reward-normalization", default="zscore")
-    parser.add_argument(
-        "--skill-file",
-        default=str(ROOT / "webarena-train-time/skills/webarena_default_skill_v2.md"),
-    )
+    parser.add_argument("--skill-file", default="")
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--eval-limit", type=int, default=0)
     parser.add_argument(
@@ -390,10 +387,10 @@ def main() -> None:
     )
     parser.add_argument("--skip-initial-eval", action="store_true")
     parser.add_argument("--eval-only", action="store_true")
-    parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl.json")
-    parser.add_argument("--model-name", default="Llama-3.1-8B-Instruct")
-    parser.add_argument("--mode", default="completion", choices=["completion", "chat"])
-    parser.add_argument("--stop-token", default="<|eot_id|>")
+    parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl_chat_qwen_action.json")
+    parser.add_argument("--model-name", default="Qwen3.5-27B")
+    parser.add_argument("--mode", default="chat", choices=["completion", "chat"])
+    parser.add_argument("--stop-token", default="")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=0.9)
     parser.add_argument("--top-k", type=int, default=None)
@@ -439,7 +436,7 @@ def main() -> None:
         if not trajectory_path.exists():
             raise FileNotFoundError(
                 f"WebRL SFT trajectories not found: {trajectory_path}. "
-                "Run webarena-train-time/scripts/prepare_standard_webarena_data.py after placing WebRL raw data."
+                "Prepare data/webarena/vab_lite_split/items.json or pass --split/--eval-split explicitly."
             )
         raise NotImplementedError(
             "Offline WebRL-SFT ES training is not implemented in this runner. "

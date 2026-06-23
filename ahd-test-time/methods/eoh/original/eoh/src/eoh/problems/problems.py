@@ -12,10 +12,6 @@ class Probs():
             from .optimization.tsp_greedy import run
             self.prob = run.TSPCONST()
             print("- Prob "+paras.problem+" loaded ")
-        elif paras.problem == "bp_online":
-            from .optimization.bp_online import run
-            self.prob = run.BPONLINE()
-            print("- Prob "+paras.problem+" loaded ")
         else:
             print("problem "+paras.problem+" not found!")
 

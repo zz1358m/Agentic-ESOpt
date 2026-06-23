@@ -1,6 +1,5 @@
-
-from .selection import prob_rank,equal,roulette_wheel,tournament
-from .management import pop_greedy,ls_greedy,ls_sa
+from .selection import prob_rank, equal, roulette_wheel, tournament
+from .management import pop_greedy
 
 class Methods():
     def __init__(self,paras,problem) -> None:
@@ -18,34 +17,17 @@ class Methods():
             print("selection method "+paras.selection+" has not been implemented !")
             exit()
 
-        if paras.management == "pop_greedy":
-            self.manage = pop_greedy
-        elif paras.management == 'ls_greedy':
-            self.manage = ls_greedy
-        elif paras.management == 'ls_sa':
-            self.manage = ls_sa
-        else:
-            print("management method "+paras.management+" has not been implemented !")
+        if paras.management != "pop_greedy":
+            print("management method "+paras.management+" has not been kept in this paper release!")
             exit()
+        self.manage = pop_greedy
 
         
     def get_method(self):
 
-        if self.paras.method == "ael":
-            from .ael.ael import AEL
-            return AEL(self.paras,self.problem,self.select,self.manage)
-        elif self.paras.method == "eoh":   
+        if self.paras.method == "eoh":
             from .eoh.eoh import EOH
             return EOH(self.paras,self.problem,self.select,self.manage)
-        elif self.paras.method in ['ls','sa']:   
-            from .localsearch.ls import LS
-            return LS(self.paras,self.problem,self.select,self.manage)
-        elif self.paras.method == "funsearch":   
-            from .funsearch.funsearch import FunSearch
-            return FunSearch(self.paras,self.problem,self.select,self.manage)
-        elif self.paras.method == "reevo":
-            from .reevo.reevo import ReEVO
-            return ReEVO(self.paras,self.problem,self.select,self.manage)
         else:
-            print("method "+self.method+" has not been implemented!")
+            print("method "+self.paras.method+" has not been kept in this paper release!")
             exit()

@@ -1,409 +1,164 @@
 # Dynamic-Agent
 
-This repository studies applying evolution strategies (ES) to existing
-test-time and train-time agents.
+This repository contains the minimal code and configuration used for the
+Dynamic-Agent paper experiments. The public repo is intentionally scoped to the
+reported AHD and WebArena-Lite settings; historical Jericho, JITRL, SkillOpt,
+large datasets, external source checkouts, and run outputs are kept out of git.
 
-The active scope follows `EXPERIMENT_README.md` and is organized around three
-settings:
+## Scope
 
-- AHD test-time optimization.
-- Jericho test-time agents.
-- WebArena/WebRL train-time agents.
+Tracked experiment code:
 
-## Directory Layout
+- `ahd-test-time/`: EoH-based automatic heuristic design with optional model ES.
+- `webarena-train-time/`: WebArena-Lite wrappers for Trace2Skill and model ES.
+- `es/`: shared ES client and seeded perturbation utilities.
+- `data/ahd/settings/`: AHD problem cfgs and prompts used by the paper.
+- `scripts/`: compact launchers and machine-local configuration template.
 
-```text
-data/
-ahd-test-time/
-jericho-test-time/
-webarena-train-time/
-es/
-scripts/
-```
-
-### `data/`
-
-Vendored source snapshots, cached datasets, and prepared split data.
-
-Data is split by active setting:
-
-- `data/ahd`
-- `data/jericho`
-- `data/webarena`
-
-### `ahd-test-time/`
-
-AHD test-time experiments built around EoH plus model ES.
-
-The active AHD scope is:
+External data and sources are expected locally and are ignored by git:
 
 ```text
-construct/tsp -> data/ahd/datasets/tsp_constructive
-construct/kp  -> data/ahd/datasets/kp_constructive
-construct/asp -> data/ahd/settings/prompts/asp_constructive
-aco/tsp       -> data/ahd/datasets/tsp_aco
-aco/cvrp      -> data/ahd/datasets/cvrp_aco
-aco/bpp       -> data/ahd/datasets/bpp_offline_aco
-```
-
-MCTS-AHD problem source code is not duplicated here. Only active datasets and
-settings are extracted into the working layout.
-
-AHD cfg and prompt settings live in:
-
-```text
-data/ahd/settings/
-```
-
-### `jericho-test-time/`
-
-Jericho test-time agent wrappers, examples, and notes.
-
-Current Jericho experiment status and historical run details are tracked in
-`EXPERIMENT_README.md`.
-
-### `webarena-train-time/`
-
-WebArena/WebRL train-time ES harness, WebArena eval scripts, SkillOpt and
-Trace2Skill method slots, skill prompts, and local model server templates.
-
-Key scripts live in:
-
-```text
-webarena-train-time/scripts/
-```
-
-Skill prompt files live in:
-
-```text
-webarena-train-time/skills/
-```
-
-### `es/`
-
-Shared ES implementation and model-server client utilities.
-
-This is the common location for:
-
-- ES method registry.
-- ES model client.
-- Full/all-linear parameter perturbation flow.
-- LoRA-capable ES flow.
-
-### `scripts/`
-
-Shell launchers for running the setting matrix. Machine-specific paths should
-go in `scripts/settings.local.env`, using `scripts/settings.example.env` as the
-template.
-
-Launchers are split by setting:
-
-```text
-scripts/ahd/
-scripts/jericho/
-scripts/webarena/
-```
-
-Examples:
-
-```text
-scripts/ahd/run.sh construct_tsp train eoh
-scripts/ahd/run.sh construct_asp test es
-scripts/jericho/run.sh library memory
-METHOD=skillopt STAGE=train_test scripts/webarena/run.sh
-METHOD=trace2skill STAGE=test scripts/webarena/run.sh
-```
-
-## Active Settings
-
-The active settings are:
-
-```text
-construct_tsp
-construct_kp
-construct_asp
-aco_tsp
-aco_cvrp
-aco_bpp
-jericho
-webarena
-```
-
-Packaged methods:
-
-```text
-AHD      -> EoH; ES builds on EoH
-Jericho  -> EvoTest; ES builds on EvoTest
-WebArena -> SkillOpt and Trace2Skill; ES builds on WebArena methods where enabled
-```
-
-## Detailed Flow
-
-### 1. AHD Test-Time
-
-Code location:
-
-```text
-ahd-test-time/
-  methods/eoh/
-  envs/
-  scripts/run_eoh_ahd.py
-```
-
-Data and settings:
-
-```text
-data/ahd/
-  datasets/
-  settings/
-```
-
-Supported AHD settings:
-
-```text
-construct_tsp
-construct_kp
-construct_asp
-aco_tsp
-aco_cvrp
-aco_bpp
-```
-
-Top-level AHD entry:
-
-```text
-scripts/ahd/run.sh <task> <train|test> <eoh|es>
-scripts/ahd/grid.sh
-scripts/ahd/start_llama31_8b_servers.sh
-```
-
-Flow without ES:
-
-```text
-data/ahd datasets/settings
-  -> ahd-test-time/scripts/run_eoh_ahd.py
-  -> ahd-test-time/methods/eoh
-  -> EoH proposes heuristic code
-  -> AHD evaluator scores candidate
-```
-
-Flow with ES:
-
-```text
-data/ahd datasets/settings
-  -> EoH proposes heuristic code
-  -> es applies model perturbation through /es/apply
-  -> AHD evaluator scores candidate
-  -> es reverts perturbation through /es/revert
-  -> rewards update model through /es/update
-```
-
-EoH is the method ES builds on. It is not an ES baseline directory.
-
-### 2. Jericho Test-Time
-
-Code and data:
-
-```text
-data/jericho/
-  source/
-  jitrl/
-```
-
-Packaged method:
-
-```text
-EvoTest
-```
-
-Packaged tasks:
-
-```text
-detective
-library
-ludicorp
-balances
-```
-
-Top-level Jericho entry:
-
-```text
-scripts/jericho/run.sh <game> <agent_type>
-```
-
-Flow:
-
-```text
-data/jericho/jitrl/main.py
-  -> EvoTest-style memory agent
-  -> local policy /completions endpoint
-  -> Jericho game ROM
-  -> rollout reward/score
-```
-
-Jericho/EvoTest calls a local policy model server exposing `/completions`. The
-script defaults to:
-
-```text
-http://127.0.0.1:11013/completions
-```
-
-Override it with:
-
-```text
-POLICY_COMPLETIONS_URL=http://host:port/completions scripts/jericho/run.sh library memory
-```
-
-With ES, ES builds on EvoTest:
-
-```text
-EvoTest rollout segments
-  -> /es/apply LoRA perturbation on policy endpoint
-  -> segment reward/advantage
-  -> /es/revert
-  -> episode-level /es/update
-```
-
-### 3. WebArena Train-Time
-
-Code and data:
-
-```text
+data/ahd/datasets/
 data/webarena/
-  source/
-  jitrl/
-  vab-lite/
-  webrl/
-
-webarena-train-time/
-  methods/skillopt/
-  methods/trace2skill/
-  scripts/
-  skills/
+webarena-train-time/methods/trace2skill/source/
 ```
 
-Runtime source locations:
+Copy `scripts/settings.example.env` to `scripts/settings.local.env` and edit
+machine-specific paths, ports, and model locations there.
+
+## AHD
+
+Supported paper settings:
 
 ```text
-data/webarena/source                 # official WebArena source
-data/webarena/jitrl                  # JitRL/WebArena source
-data/webarena/lite                   # prepared WebArena-Lite 165-task test set
-data/webarena/webrl                  # WebRL SFT/experience source and derived train/val
-data/webarena/skillopt_splits        # train/val/test interface for SkillOpt and Trace2Skill
-data/webarena/vab-lite               # optional VAB/WebArena-Lite runtime source
-webarena-train-time/methods/skillopt/source
-webarena-train-time/methods/trace2skill/source
+construct_tsp
+construct_kp
+construct_asp
+aco_tsp
+aco_cvrp
 ```
 
-External source locations can be overridden with `VAB_ROOT`, `SKILLOPT_ROOT`,
-and `TRACE2SKILL_ROOT`.
-
-Packaged methods:
+Tracked settings:
 
 ```text
-SkillOpt
-Trace2Skill
+data/ahd/settings/cfg/problem/
+data/ahd/settings/prompts/
 ```
 
-Top-level WebArena entry:
+External datasets should be placed under:
 
 ```text
-METHOD=skillopt STAGE=train scripts/webarena/run.sh
-METHOD=skillopt STAGE=test scripts/webarena/run.sh
-METHOD=skillopt STAGE=train_test scripts/webarena/run.sh
+data/ahd/datasets/
+```
 
+Run examples:
+
+```bash
+scripts/ahd/run.sh construct_tsp train eoh
+scripts/ahd/run.sh construct_tsp train es
+scripts/ahd/grid.sh
+```
+
+Paper AHD defaults:
+
+```text
+Backbone: Llama-3.1-8B-Instruct
+Population: 10
+Generations: 25
+Workers: 4
+ES directions: 10
+ES operators: e1,e2,m1,m2
+ES scope: full
+sigma: 1e-3
+alpha: 5e-4
+Reward normalization: z-score
+Reward mode: improvement
+```
+
+## WebArena-Lite
+
+Supported paper settings:
+
+```text
+No skill baseline
+Dynamic-Agent + No skill
+Trace2Skill baseline
+Dynamic-Agent + Trace2Skill
+```
+
+Required local sources/data:
+
+```text
+data/webarena/vab-lite/
+data/webarena/vab_lite_split/items.json
+data/webarena/skillopt_splits/{train,val,test}/
+webarena-train-time/methods/trace2skill/source/
+```
+
+The `skillopt_splits` path name is retained as the shared split interface used
+by the wrappers; SkillOpt method code itself is not part of the public scope.
+
+Prepare the VAB/WebArena-Lite split:
+
+```bash
+python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
+```
+
+Run Trace2Skill:
+
+```bash
 METHOD=trace2skill STAGE=train scripts/webarena/run.sh
 METHOD=trace2skill STAGE=test scripts/webarena/run.sh
 METHOD=trace2skill STAGE=train_test scripts/webarena/run.sh
 ```
 
-SkillOpt flow:
-
-```text
-data/webarena/skillopt_splits/train + val
-  -> SkillOpt method wrapper
-  -> generated/selected skill prompt
-  -> WebArena-Lite 165 test runner
-  -> validation/test scores
-```
-
-SkillOpt training and validation use WebRL SFT/experience data. Final testing
-uses `data/webarena/lite`, the WebArena-Lite 165-task benchmark.
-
-The SkillOpt launcher keeps the policy/rollout model local and targets it
-through the OpenAI-compatible route:
-
-```text
-http://127.0.0.1:11013/v1/chat/completions
-```
-
-The attribution/optimizer side may use a stronger OpenAI-compatible model via
-`SKILLOPT_OPTIMIZER_BACKEND` and `SKILLOPT_OPTIMIZER_MODEL`. The rollout policy
-side remains controlled by `SKILLOPT_TARGET_BACKEND`, `SKILLOPT_TARGET_MODEL`,
-and `SKILLOPT_TARGET_BASE_URL`.
-
-WebArena website URLs are configured through `WEBARENA_HOST` or explicit
-`SHOPPING`, `SHOPPING_ADMIN`, `REDDIT`, `GITLAB`, `MAP`, `WIKIPEDIA`, and
-`HOMEPAGE`. JitRL also accepts the `WA_*` equivalents; the WebArena environment
-adapter mirrors both forms.
-
-Trace2Skill flow:
-
-```text
-data/webarena/skillopt_splits train/val/test
-  -> Trace2Skill method source
-  -> skill extraction
-  -> WebArena-Lite 165 test runner
-  -> train/test scores
-```
-
-Trace2Skill source is expected at:
-
-```text
-webarena-train-time/methods/trace2skill/source
-```
-
-or via:
+Run Dynamic-Agent ES:
 
 ```bash
-TRACE2SKILL_ROOT=/path/to/Trace2Skill
+METHOD=no_skill_es STAGE=train scripts/webarena/run.sh
+METHOD=trace2skill_es STAGE=train scripts/webarena/run.sh
+METHOD=no_skill_es STAGE=test scripts/webarena/run.sh
+METHOD=trace2skill_es STAGE=test scripts/webarena/run.sh
 ```
 
-With ES, ES builds on the WebArena method/prompt policy:
+Paper WebArena-Lite defaults:
 
 ```text
-WebArena train batch
-  -> /es/apply model perturbation
-  -> evaluate batch reward
-  -> /es/revert
-  -> /es/update
+Backbone: Qwen3.5-27B
+Population: 8
+Case batch: 8
+Generations: 1
+sigma: 5e-4
+alpha: 5e-4
+ES scope: full
+Max steps: 30
+Decoding temperature: 0.0
+Max tokens: 2048
+Action format: WebRL id actions
+Trace2Skill max skill lines: 20
+Generated skill file: webarena-train-time/skills/dynamic_agent_trace2skill_generation.md
 ```
 
-Current WebArena ES runners support environment-interaction ES: a perturbed
-policy is evaluated in executable WebArena browser tasks and the resulting
-scores are used as rewards. Offline ES training directly on WebRL SFT
-trajectories is intentionally not enabled yet; the runner exposes
-`--train-source webrl_sft` only as a guarded interface and raises until a real
-trajectory-scoring objective is implemented.
-
-### 4. ES
-
-Shared ES code:
+The top-level WebArena launcher reads these environment variables:
 
 ```text
-es/
-  model_es_client.py
-  seeded_model_es.py
-  registry.py
-  README.md
+WEBARENA_ES_ENDPOINTS
+WEBARENA_ES_POPULATION
+WEBARENA_ES_CASE_BATCH
+WEBARENA_ES_GENERATIONS
+WEBARENA_ES_SIGMA
+WEBARENA_ES_ALPHA
+WEBARENA_ES_SCOPE
+WEBARENA_MODEL_NAME
+WEBARENA_HOST
+TRACE2SKILL_MAX_SKILL_LINES
+TRACE2SKILL_SKILL_FILE
 ```
 
-`model_es_client.py` is intentionally short: it only sends HTTP requests to the
-local model server. The executable ES logic lives in `seeded_model_es.py`; it
-selects model parameters, applies deterministic seeded Gaussian noise, replays
-the same seeds for ES updates, and resets accumulated ES updates.
+## ES Endpoints
 
-The model server endpoints are:
+The local policy servers must expose OpenAI-compatible completion/chat routes
+and the ES control routes:
 
 ```text
 /es/init
@@ -414,19 +169,17 @@ The model server endpoints are:
 /es/status
 ```
 
-Supported parameter scopes:
+The shared ES client lives in `es/`. See `es/README.md` for the perturbation and
+update contract.
 
-```text
-full
-all_linear
-lora
-```
+## Repository Hygiene
 
-The detailed ES perturbation/update process is documented in `es/README.md`.
+Not uploaded to GitHub:
 
-## Experiment Log
-
-Use `EXPERIMENT_README.md` for run status, current WebArena/WebRL split
-decisions, ES settings, and completed result notes.
-
-Use `PROJECT_LAYOUT.md` for a shorter structure summary.
+- local secrets and machine settings
+- downloaded external repos
+- AHD/WebArena datasets
+- run outputs, caches, logs, tensorboard files
+- Jericho/JITRL/SkillOpt historical code
+- unused AHD BPP settings
+- the paper source directory

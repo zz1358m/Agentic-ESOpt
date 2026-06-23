@@ -14,7 +14,7 @@ RUN_ROOT="${RUN_ROOT:-$ROOT/runs/ahd_es_grid_${STAMP}}"
 LOGDIR="$RUN_ROOT/logs"
 PROGRESS_JSONL="$RUN_ROOT/progress.jsonl"
 
-TASKS=(${TASKS:-construct_tsp construct_kp construct_asp aco_tsp aco_cvrp aco_bpp})
+TASKS=(${TASKS:-construct_tsp construct_kp construct_asp aco_tsp aco_cvrp})
 SIGMAS=(${SIGMAS:-1e-4 5e-4 1e-3})
 ALPHAS=(${ALPHAS:-5e-4 1e-3})
 REPS=(${REPS:-1 2 3})

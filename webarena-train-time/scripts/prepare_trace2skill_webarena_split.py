@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Prepare a WebArena non-Lite train/val split for SkillOpt.
+"""Prepare a WebArena non-Lite train/val split for Trace2Skill.
 
 The source is VAB's full WebArena config directory. The held-out WebArena-Lite
 tasks are removed by matching their ``old_task_id`` values against full
@@ -78,7 +78,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--full-dir", default="data/webarena/vab-lite/config_files/wa/test_webarena")
     parser.add_argument("--lite-dir", default="data/webarena/vab-lite/config_files/wa/test_webarena_lite")
-    parser.add_argument("--output-dir", default="data/webarena/skillopt_nonlite_sft")
+    parser.add_argument("--output-dir", default="data/webarena/trace2skill_nonlite_sft")
     parser.add_argument("--seed", type=int, default=20260605)
     parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--test-ratio", type=float, default=0.0, help="Deprecated; kept for compatibility and must stay 0.")
@@ -122,7 +122,7 @@ def main() -> None:
     write_json(output_dir / "val" / "items.json", val_items)
     write_json(output_dir / "test" / "items.json", test_items)
     manifest = {
-        "name": "webarena-nonlite-sft-skillopt",
+        "name": "webarena-nonlite-sft-trace2skill",
         "source_full_dir": str(full_dir.resolve()),
         "source_lite_dir": str(lite_dir.resolve()),
         "excluded_lite_old_task_count": len(lite_old_ids),

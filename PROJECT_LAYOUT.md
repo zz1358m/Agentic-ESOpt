@@ -1,17 +1,23 @@
 # Project Layout
 
-The active experiment code is organized by setting:
+The tracked repository is the paper-facing Dynamic-Agent codebase.
 
-- `data/`: vendored source snapshots, cached datasets, and prepared split data.
-- `ahd-test-time/`: AHD test-time experiments with EoH plus model ES.
-  - supported construct problems: `tsp_constructive`, `kp_constructive`, `asp_constructive`.
-  - supported ACO problems: `tsp_aco`, `cvrp_aco`, `bpp_offline_aco`.
-- `jericho-test-time/`: Jericho test-time agent wrappers and experiment notes.
-- `webarena-train-time/`: WebArena/WebRL train-time harness for SkillOpt, Trace2Skill, and ES.
-- `es/`: shared ES client/registry and model-server ES endpoints, including LoRA-capable flow.
-- `scripts/`: compact shell launchers plus `scripts/settings.example.env`.
-  Per-machine paths belong in an untracked `scripts/settings.local.env`, not in
-  individual launch scripts.
+- `data/ahd/settings/`: AHD cfg and prompt files used by the reported tables.
+- `ahd-test-time/`: EoH-based AHD runner and task environments for TSP, KP,
+  ASP, and CVRP.
+- `webarena-train-time/`: WebArena-Lite environment wrapper, Trace2Skill
+  adapter, ES runners, and the generated Trace2Skill skill.
+- `es/`: shared ES client, registry, and seeded perturbation helpers.
+- `scripts/`: top-level launchers plus `settings.example.env`.
 
-Environment, setting, scenario, and method code is not kept at the repository
-root. It lives inside the corresponding setting directory.
+The following are intentionally not tracked:
+
+- `data/ahd/datasets/`
+- `data/webarena/`
+- `webarena-train-time/methods/trace2skill/source/`
+- run outputs under `runs/`, `cache/`, and `logs/`
+- Jericho/JITRL/SkillOpt historical code
+- paper source files
+
+Machine-specific configuration belongs in `scripts/settings.local.env`, which is
+ignored by git.

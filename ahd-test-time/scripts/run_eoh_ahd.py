@@ -55,13 +55,6 @@ TASKS = {
         "prompt": SETTING_ROOT / "prompts" / "cvrp_aco",
         "implemented": True,
     },
-    "aco_bpp": {
-        "problem": "bpp_offline_aco",
-        "data": DATA_ROOT / "bpp_offline_aco",
-        "cfg": SETTING_ROOT / "cfg" / "problem" / "bpp_offline_aco.yaml",
-        "prompt": SETTING_ROOT / "prompts" / "bpp_offline_aco",
-        "implemented": True,
-    },
 }
 
 
