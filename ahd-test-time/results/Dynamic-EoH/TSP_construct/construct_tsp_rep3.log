@@ -1,0 +1,1292 @@
+[ahd] task=construct_tsp split=train method=es
+[ahd] data=/home/zhi/Dynamic-Agent/data/ahd/datasets/tsp_constructive
+[ahd] cfg=/home/zhi/Dynamic-Agent/data/ahd/settings/cfg/problem/tsp_constructive.yaml
+[ahd] prompt=/home/zhi/Dynamic-Agent/data/ahd/settings/prompts/tsp_constructive
+----------------------------------------- 
+---              Start EoH            ---
+-----------------------------------------
+- output folder created -
+-  parameters loaded -
+- Prob tsp_construct loaded 
+- EoH parameters loaded -
+- Evolution Start -
+- check LLM API
+local llm delopyment is used ...
+<Response [200]>
+- check LLM API
+local llm delopyment is used ...
+<Response [200]>
+- check LLM API
+local llm delopyment is used ...
+<Response [200]>
+- check LLM API
+local llm delopyment is used ...
+<Response [200]>
+- check LLM API
+local llm delopyment is used ...
+<Response [200]>
+- Model ES initialized: [{'n_tensors': 291, 'ok': True, 'parameter_scope': 'full', 'total_params': 8030261248}, {'n_tensors': 291, 'ok': True, 'parameter_scope': 'full', 'total_params': 8030261248}, {'n_tensors': 291, 'ok': True, 'parameter_scope': 'full', 'total_params': 8030261248}, {'n_tensors': 291, 'ok': True, 'parameter_scope': 'full', 'total_params': 8030261248}]
+creating initial population:
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+Warning: initialized 2 of 10 individuals after 1 attempts.
+Pop initial: 
+ Obj:  7.00437| Obj:  36.64594|
+initial population has been created!
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  6.69191| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  26.4272| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  11.47289| Obj:  26.51354| Obj:  inf| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+ Obj:  26.42234| Obj:  7.50833| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  24.93275| Obj:  33.25698| Obj:  inf| Obj:  inf| Obj:  7.99477|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  7.50833| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  26.42234|
+--- 1 of 25 populations finished. Time Cost:  6.8 m
+Pop Objs:  6.69191 7.00437 7.50833 7.99477 11.47289 24.93275 26.42234 26.4272 26.51354 33.25698 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  32.06483| Obj:  36.64594| Obj:  inf| Obj:  29.35514| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  15.54383| Obj:  7.50833| Obj:  inf| Obj:  inf| Obj:  7.74606| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  7.01376|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  27.42344| Obj:  26.56345| Obj:  36.64594| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  36.61492|
+--- 2 of 25 populations finished. Time Cost:  12.4 m
+Pop Objs:  6.69191 7.00437 7.01376 7.50833 7.74606 7.99477 11.47289 15.54383 24.93275 26.42234 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  35.51493| Obj:  20.89781| Obj:  36.64594| Obj:  inf| Obj:  7.99477| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  28.71651|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  18.84834| Obj:  24.87252| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  25.35948| Obj:  22.68378| Obj:  7.00437| Obj:  7.00437| Obj:  36.64594|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  23.30564| Obj:  inf| Obj:  inf| Obj:  11.88895| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  26.8694| Obj:  7.00437|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+ Obj:  inf| Obj:  32.06483| Obj:  inf| Obj:  18.84834| Obj:  inf| Obj:  18.84834| Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  inf|
+--- 3 of 25 populations finished. Time Cost:  17.8 m
+Pop Objs:  6.69191 7.00437 7.01376 7.50833 7.74606 7.99477 11.47289 11.88895 15.54383 18.84834 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  27.82074| Obj:  14.93855| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  18.84834| Obj:  inf| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.12464| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  7.00437| Obj:  inf| Obj:  7.99477|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  25.78786| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+ Obj:  8.65949| Obj:  inf| Obj:  7.00437| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  23.91747|
+--- 4 of 25 populations finished. Time Cost:  23.1 m
+Pop Objs:  6.69191 7.00437 7.01376 7.12464 7.50833 7.74606 7.99477 8.65949 11.47289 11.88895 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  8.1717| Obj:  inf| Obj:  6.66389| Obj:  16.12631| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  16.6762| Obj:  7.46224| Obj:  30.9046| Obj:  27.77402| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  24.28572| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  9.0148| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  7.00437|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  10.39793| Obj:  inf| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  26.75581| Obj:  inf| Obj:  inf|
+--- 5 of 25 populations finished. Time Cost:  28.3 m
+Pop Objs:  6.66389 6.69191 7.00437 7.01376 7.12464 7.46224 7.50833 7.74606 7.99477 8.1717 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  17.19994| Obj:  15.00821| Obj:  inf| Obj:  7.61606| Obj:  inf| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  8.28428| Obj:  7.09535|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  27.13181| Obj:  27.94215| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  21.55792| Obj:  inf| Obj:  7.00437| Obj:  25.81174| Obj:  27.80476| Obj:  7.42237| Obj:  inf| Obj:  36.29679| Obj:  inf|
+--- 6 of 25 populations finished. Time Cost:  33.3 m
+Pop Objs:  6.66389 6.69191 7.00437 7.01376 7.09535 7.12464 7.42237 7.46224 7.50833 7.61606 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  23.06988| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  7.0052| Obj:  7.00437| Obj:  inf| Obj:  7.00437|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  25.91862| Obj:  inf| Obj:  7.99477| Obj:  7.52221| Obj:  26.07194| Obj:  inf| Obj:  25.34925| Obj:  inf| Obj:  7.13792| Obj:  25.97547|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  6.66389| Obj:  36.63607| Obj:  16.6242| Obj:  15.94924| Obj:  24.46131| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  27.76965| Obj:  inf| Obj:  6.73407| Obj:  24.10058| Obj:  inf| Obj:  18.18224| Obj:  inf| Obj:  inf| Obj:  19.77546| Obj:  inf|
+--- 7 of 25 populations finished. Time Cost:  38.6 m
+Pop Objs:  6.66389 6.69191 6.73407 7.00437 7.0052 7.01376 7.09535 7.12464 7.13792 7.42237 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  33.56385| Obj:  7.03643| Obj:  9.09087| Obj:  inf| Obj:  7.00437| Obj:  24.46889|
+ OP: e2, [2 / 4] |<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  36.64594| Obj:  25.70799| Obj:  inf| Obj:  inf| Obj:  26.84876| Obj:  inf| Obj:  36.64594| Obj:  7.13792| Obj:  20.17464| Obj:  8.11698|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+ Obj:  7.09535| Obj:  7.57936| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  27.78714| Obj:  7.00437| Obj:  7.12464| Obj:  36.64594| Obj:  31.10868|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  17.93489| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.62256| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437|
+--- 8 of 25 populations finished. Time Cost:  43.7 m
+Pop Objs:  6.66389 6.69191 6.73407 7.00437 7.0052 7.01376 7.03643 7.09535 7.12464 7.13792 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  36.53876| Obj:  7.00437|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  8.47275| Obj:  29.98126| Obj:  12.23937| Obj:  inf| Obj:  27.33384| Obj:  7.99477| Obj:  36.52837| Obj:  17.58847|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  7.00437| Obj:  28.44097| Obj:  inf| Obj:  24.10058| Obj:  inf| Obj:  inf| Obj:  26.56345| Obj:  7.57936| Obj:  inf|
+--- 9 of 25 populations finished. Time Cost:  48.7 m
+Pop Objs:  6.66389 6.69191 6.73407 7.00437 7.0052 7.01376 7.03643 7.09535 7.12464 7.13792 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  27.48148| Obj:  29.30569| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  18.26662|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+ Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  27.4347| Obj:  7.99477| Obj:  inf| Obj:  36.14811| Obj:  9.39643| Obj:  inf| Obj:  6.8641|
+ OP: m1, [3 / 4] |<Response [200]>
+2
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  6.69191| Obj:  7.00437| Obj:  31.93352| Obj:  inf| Obj:  7.00437| Obj:  26.06055| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+[[5 0 3 3 7]
+ [9 3 5 2 4]
+ [7 6 8 8 1]
+ [6 7 7 8 1]
+ [5 9 8 9 4]]
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  inf| Obj:  31.88515| Obj:  14.91831| Obj:  inf| Obj:  31.65536| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  20.42113|
+--- 10 of 25 populations finished. Time Cost:  54.2 m
+Pop Objs:  6.66389 6.69191 6.73407 6.8641 7.00437 7.0052 7.01376 7.03643 7.09535 7.12464 
+ OP: e1, [1 / 4] |<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  29.31115| Obj:  19.08545| Obj:  inf| Obj:  9.42842| Obj:  24.60615| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  18.48882| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  21.69656| Obj:  7.00437| Obj:  7.25965| Obj:  7.00437| Obj:  35.84306| Obj:  6.64305| Obj:  7.00437| Obj:  16.86744| Obj:  36.56479|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  27.76965| Obj:  28.55851| Obj:  7.46224| Obj:  36.64594| Obj:  inf| Obj:  24.60603| Obj:  7.00437| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  27.67119| Obj:  inf| Obj:  9.78471| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  25.97189| Obj:  inf| Obj:  7.00437| Obj:  7.00437|
+--- 11 of 25 populations finished. Time Cost:  59.5 m
+Pop Objs:  6.64305 6.66389 6.69191 6.73407 6.8641 7.00437 7.0052 7.01376 7.03643 7.09535 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  25.15418| Obj:  11.54755| Obj:  29.30569| Obj:  inf| Obj:  25.31203| Obj:  20.77142| Obj:  27.80476| Obj:  12.99256| Obj:  inf| Obj:  6.66389|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+-1
+<Response [200]>
+<Response [200]>
+ Obj:  8.06533| Obj:  18.84834| Obj:  21.33442| Obj:  7.00437| Obj:  11.47289| Obj:  inf| Obj:  inf| Obj:  36.64594| Obj:  7.99477| Obj:  7.00437|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  7.00437| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  7.00864| Obj:  7.00437| Obj:  27.80476| Obj:  27.48148| Obj:  6.89922|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.57936| Obj:  inf| Obj:  13.54917| Obj:  26.38287| Obj:  9.71874| Obj:  18.84834| Obj:  inf| Obj:  7.57936| Obj:  inf| Obj:  inf|
+--- 12 of 25 populations finished. Time Cost:  64.9 m
+Pop Objs:  6.64305 6.66389 6.69191 6.73407 6.8641 6.89922 7.00437 7.0052 7.00864 7.01376 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+ Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  29.32464| Obj:  26.67242| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  28.51447| Obj:  7.00437|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  7.00437| Obj:  36.64594| Obj:  27.4347| Obj:  inf| Obj:  7.00437| Obj:  7.00437| Obj:  7.00437| Obj:  19.39233| Obj:  33.37992|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.2829| Obj:  14.11367| Obj:  inf| Obj:  17.15249| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+0
+<Response [200]>
+ Obj:  inf| Obj:  7.00437| Obj:  17.49439| Obj:  36.64594| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  22.07609| Obj:  inf| Obj:  inf|
+--- 13 of 25 populations finished. Time Cost:  70.5 m
+Pop Objs:  6.64305 6.66389 6.69191 6.73407 6.8641 6.89922 7.00437 7.0052 7.00864 7.01376 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  14.98538| Obj:  28.04343| Obj:  inf| Obj:  7.00437| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  23.47761| Obj:  inf| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+ Obj:  7.09535| Obj:  inf| Obj:  6.62736| Obj:  7.50833| Obj:  inf| Obj:  20.7237| Obj:  27.28311| Obj:  7.99477| Obj:  7.00437| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  7.99477| Obj:  inf| Obj:  inf| Obj:  24.41216|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  20.12139| Obj:  inf| Obj:  7.00864| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  26.56345| Obj:  inf|
+--- 14 of 25 populations finished. Time Cost:  75.6 m
+Pop Objs:  6.62736 6.64305 6.66389 6.69191 6.73407 6.8641 6.89922 7.00437 7.0052 7.00864 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+ Obj:  18.84834| Obj:  18.84834| Obj:  inf| Obj:  9.4835| Obj:  24.60971| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  21.8348| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  36.64594| Obj:  18.84834| Obj:  30.79922| Obj:  inf| Obj:  22.28647| Obj:  31.32683| Obj:  7.09535| Obj:  18.62283| Obj:  18.67766|
+ OP: m1, [3 / 4] |<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  27.97655| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  7.99477| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  23.98127| Obj:  inf| Obj:  7.00437| Obj:  37.26178| Obj:  6.66389| Obj:  7.08888| Obj:  35.27406| Obj:  7.00864| Obj:  6.66389| Obj:  inf|
+--- 15 of 25 populations finished. Time Cost:  81.8 m
+Pop Objs:  6.62736 6.64305 6.66389 6.69191 6.73407 6.8641 6.89922 7.00437 7.0052 7.00864 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+ Obj:  7.99477| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  36.64594| Obj:  inf| Obj:  28.91027|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  25.15409| Obj:  7.78128| Obj:  14.47987| Obj:  7.00437| Obj:  10.54712| Obj:  inf| Obj:  27.4347| Obj:  7.09535| Obj:  inf| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  24.10058| Obj:  inf| Obj:  inf| Obj:  6.98542| Obj:  inf| Obj:  36.63607| Obj:  7.00437| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+ Obj:  6.88847| Obj:  26.0234| Obj:  6.66389| Obj:  34.47872| Obj:  18.86886| Obj:  23.23218| Obj:  7.00437| Obj:  inf| Obj:  7.19984| Obj:  inf|
+--- 16 of 25 populations finished. Time Cost:  87.9 m
+Pop Objs:  6.62736 6.64305 6.66389 6.69191 6.73407 6.8641 6.88847 6.89922 6.98542 7.00437 
+ OP: e1, [1 / 4] |<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+ Obj:  24.64306| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  25.15418| Obj:  14.2673| Obj:  18.84834| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+3
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+ Obj:  6.66389| Obj:  inf| Obj:  23.98101| Obj:  26.51097| Obj:  7.00437| Obj:  27.80476| Obj:  27.80476| Obj:  6.69191| Obj:  6.83614| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  25.41689| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.57936| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  6.66389| Obj:  13.99421| Obj:  6.98542| Obj:  7.00437|
+--- 17 of 25 populations finished. Time Cost:  93.9 m
+Pop Objs:  6.62736 6.64305 6.66389 6.69191 6.73407 6.83614 6.8641 6.88847 6.89922 6.98542 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  37.03206| Obj:  inf| Obj:  8.11698| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.07895| Obj:  7.00437| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+ Obj:  11.39011| Obj:  6.7282| Obj:  inf| Obj:  inf| Obj:  6.62201| Obj:  inf| Obj:  6.74064| Obj:  inf| Obj:  inf| Obj:  7.99477|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  17.08515| Obj:  inf| Obj:  6.66389| Obj:  inf| Obj:  6.90501| Obj:  6.73407| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  8.97191| Obj:  6.80103| Obj:  inf| Obj:  7.40786| Obj:  7.00437| Obj:  inf| Obj:  35.45145| Obj:  6.69191| Obj:  36.31782| Obj:  inf|
+--- 18 of 25 populations finished. Time Cost:  99.3 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.69191 6.7282 6.73407 6.74064 6.80103 6.83614 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+ Obj:  inf| Obj:  32.01287| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  25.15418| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+Parallel time out .
+
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  13.54917| Obj:  7.09535| Obj:  22.86904| Obj:  26.34495| Obj:  7.00437| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  36.63607| Obj:  18.84834| Obj:  26.51845| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  27.80476| Obj:  inf| Obj:  inf|
+--- 19 of 25 populations finished. Time Cost:  104.8 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.69191 6.7282 6.73407 6.74064 6.80103 6.83614 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  29.32464| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.99477| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.01002| Obj:  24.68048| Obj:  35.29352| Obj:  7.09535| Obj:  7.00437| Obj:  7.99477| Obj:  7.00437| Obj:  7.00396| Obj:  7.00437| Obj:  6.90801|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  27.76965| Obj:  7.04422| Obj:  inf| Obj:  26.42234| Obj:  36.64594| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  26.93732| Obj:  34.43821|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  35.27571| Obj:  18.8196| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+--- 20 of 25 populations finished. Time Cost:  110.3 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.69191 6.7282 6.73407 6.74064 6.80103 6.83614 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+ Obj:  inf| Obj:  7.57936| Obj:  10.93038| Obj:  6.69191| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  28.07687| Obj:  27.01188| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  26.97543| Obj:  7.57579| Obj:  7.92792| Obj:  30.23938| Obj:  7.00437| Obj:  27.80476| Obj:  inf| Obj:  7.00437| Obj:  24.79532| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  12.76787| Obj:  7.0158| Obj:  7.01167| Obj:  inf| Obj:  inf| Obj:  18.84834| Obj:  inf| Obj:  28.6608| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  29.19361| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  6.73407| Obj:  inf|
+--- 21 of 25 populations finished. Time Cost:  116.0 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.69191 6.7282 6.73407 6.74064 6.80103 6.83614 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  7.00437| Obj:  26.0306| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  6.66389| Obj:  7.99477| Obj:  6.66389| Obj:  7.83123|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  7.00437| Obj:  inf| Obj:  6.74297| Obj:  9.67882| Obj:  22.70801| Obj:  inf| Obj:  6.8075| Obj:  9.14474| Obj:  33.40771|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+ Obj:  14.93575| Obj:  10.05897| Obj:  7.10231| Obj:  7.00437| Obj:  7.77075| Obj:  21.62647| Obj:  inf| Obj:  6.80103| Obj:  8.09623| Obj:  7.00437|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  6.83725| Obj:  9.95955| Obj:  inf| Obj:  inf|
+--- 22 of 25 populations finished. Time Cost:  121.7 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.69191 6.7282 6.73407 6.74064 6.74297 6.80103 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  21.75292| Obj:  inf| Obj:  6.91597| Obj:  inf| Obj:  18.84834| Obj:  25.19349| Obj:  inf| Obj:  7.45248| Obj:  inf| Obj:  36.64594|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.00437| Obj:  25.64996| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  11.24415| Obj:  7.57936| Obj:  inf| Obj:  26.51097| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  26.65274| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  35.27406| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+1
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  30.76856| Obj:  6.73407| Obj:  7.57936| Obj:  7.00437| Obj:  33.2712| Obj:  7.00437| Obj:  inf| Obj:  18.67343| Obj:  inf| Obj:  6.68786|
+--- 23 of 25 populations finished. Time Cost:  127.7 m
+Pop Objs:  6.62201 6.62736 6.64305 6.66389 6.68786 6.69191 6.7282 6.73407 6.74064 6.74297 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.09535| Obj:  22.26265| Obj:  inf| Obj:  14.75288| Obj:  inf| Obj:  36.64| Obj:  inf| Obj:  30.97624| Obj:  inf| Obj:  inf|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  36.64594| Obj:  7.00437| Obj:  7.57313| Obj:  8.11698| Obj:  inf| Obj:  inf| Obj:  7.99477| Obj:  6.69036| Obj:  27.80476| Obj:  26.00203|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  32.92822| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  11.47289| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  7.00437| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+2
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  7.60229| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  6.56071| Obj:  inf| Obj:  26.24822| Obj:  inf| Obj:  7.99477|
+--- 24 of 25 populations finished. Time Cost:  132.5 m
+Pop Objs:  6.56071 6.62201 6.62736 6.64305 6.66389 6.68786 6.69036 6.69191 6.7282 6.73407 
+ OP: e1, [1 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  inf| Obj:  inf| Obj:  7.00437| Obj:  inf| Obj:  8.22581| Obj:  7.00437| Obj:  18.84834| Obj:  inf| Obj:  7.00437|
+ OP: e2, [2 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+3
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+4
+<Response [200]>
+ Obj:  27.80476| Obj:  inf| Obj:  7.89132| Obj:  6.66389| Obj:  7.00437| Obj:  inf| Obj:  28.05561| Obj:  9.33988| Obj:  21.30862| Obj:  inf|
+ OP: m1, [3 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  36.3783| Obj:  inf| Obj:  9.16265| Obj:  inf| Obj:  inf| Obj:  inf| Obj:  27.76965| Obj:  inf| Obj:  inf| Obj:  inf|
+ OP: m2, [4 / 4] |<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+<Response [200]>
+ Obj:  inf| Obj:  6.73407| Obj:  27.04511| Obj:  25.86588| Obj:  7.00437| Obj:  7.00437| Obj:  6.80405| Obj:  inf| Obj:  inf| Obj:  inf|
+--- 25 of 25 populations finished. Time Cost:  137.3 m
+Pop Objs:  6.56071 6.62201 6.62736 6.64305 6.66389 6.68786 6.69036 6.69191 6.7282 6.73407 
+> End of Evolution! 
+----------------------------------------- 
+---     EoH successfully finished !   ---
+-----------------------------------------

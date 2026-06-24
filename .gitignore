@@ -17,6 +17,7 @@ __pycache__/
 logs/
 runs/
 cache/
+tmp/
 results.xlsx
 Dynamic-Agent.pptx
 Dynamic_Agent__Evolution_Strategy_Breaks_the_Boundary_of_LLM_Agentic_Reasoning/
@@ -29,7 +30,13 @@ Dynamic_Agent__Evolution_Strategy_Breaks_the_Boundary_of_LLM_Agentic_Reasoning/
 data/ahd/datasets/
 data/jericho/
 data/webarena/
-ahd-test-time/results/
+ahd-test-time/results/*
+!ahd-test-time/results/EoH/
+!ahd-test-time/results/EoH/**
+!ahd-test-time/results/Dynamic-EoH/
+!ahd-test-time/results/Dynamic-EoH/**
+ahd-test-time/results/**/__pycache__/
+ahd-test-time/results/**/*.py[cod]
 webarena-train-time/methods/skillopt/source/
 webarena-train-time/methods/trace2skill/source/
 
