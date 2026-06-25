@@ -29,9 +29,19 @@ class Evolution():
         self.api_key = api_key
         self.model_LLM = model_LLM
         self.debug_mode = debug_mode # close prompt checking
+        paras = kwargs.get("paras", None)
+        local_timeout = getattr(paras, "llm_local_timeout", None)
 
 
-        self.interface_llm = InterfaceLLM(self.api_endpoint, self.api_key, self.model_LLM,llm_use_local,llm_local_url, self.debug_mode)
+        self.interface_llm = InterfaceLLM(
+            self.api_endpoint,
+            self.api_key,
+            self.model_LLM,
+            llm_use_local,
+            llm_local_url,
+            self.debug_mode,
+            local_timeout=local_timeout,
+        )
 
     def get_prompt_i1(self):
         
@@ -123,9 +133,7 @@ The description must be inside a brace. Next, implement it in Python as a functi
             else:
                 algorithm = re.findall(r'^.*?(?=def)', response,re.DOTALL)
 
-        code = re.findall(r"import.*return", response, re.DOTALL)
-        if len(code) == 0:
-            code = re.findall(r"def.*return", response, re.DOTALL)
+        code = self._extract_code(response)
 
         n_retry = 1
         while (len(algorithm) == 0 or len(code) == 0):
@@ -143,9 +151,7 @@ The description must be inside a brace. Next, implement it in Python as a functi
                 else:
                     algorithm = re.findall(r'^.*?(?=def)', response,re.DOTALL)
 
-            code = re.findall(r"import.*return", response, re.DOTALL)
-            if len(code) == 0:
-                code = re.findall(r"def.*return", response, re.DOTALL)
+            code = self._extract_code(response)
                 
             if n_retry > 3:
                 break
@@ -154,10 +160,29 @@ The description must be inside a brace. Next, implement it in Python as a functi
         algorithm = algorithm[0]
         code = code[0] 
 
-        code_all = code+" "+", ".join(s for s in self.prompt_func_outputs) 
+        code_all = code
+        if re.search(r"\breturn\s*$", code_all):
+            code_all = code_all + " " + ", ".join(s for s in self.prompt_func_outputs)
 
 
         return [code_all, algorithm]
+
+    def _extract_code(self, response):
+        blocks = re.findall(r"```(?:python)?\s*(.*?)```", response, re.DOTALL | re.IGNORECASE)
+        for block in blocks:
+            block = block.strip()
+            if re.search(r"\bdef\s+\w+\s*\(", block):
+                return [block]
+
+        match = re.search(r"((?:import .*?\n|from .*? import .*?\n)*\s*def\s+\w+\s*\(.*)", response, re.DOTALL)
+        if match is None:
+            match = re.search(r"((?:import|from)\s+.*)", response, re.DOTALL)
+        if match is None:
+            return []
+
+        code = match.group(1).strip()
+        code = re.sub(r"```.*$", "", code, flags=re.DOTALL).strip()
+        return [code]
 
 
     def i1(self):

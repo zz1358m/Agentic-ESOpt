@@ -46,10 +46,17 @@ from flask_cors import CORS
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 _repo_root = next(
-    (parent for parent in Path(__file__).resolve().parents if (parent / "es").is_dir()),
+    (
+        parent
+        for parent in Path(__file__).resolve().parents
+        if (parent / "es").is_dir() and (parent / "PROJECT_LAYOUT.md").is_file()
+    ),
     None,
 )
 if _repo_root is not None and str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+elif _repo_root is not None:
+    sys.path.remove(str(_repo_root))
     sys.path.insert(0, str(_repo_root))
 
 from es import SeedReplayModelES

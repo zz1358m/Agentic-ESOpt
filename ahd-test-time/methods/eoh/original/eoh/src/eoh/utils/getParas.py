@@ -8,6 +8,8 @@ class Paras():
         self.problem = 'tsp_construct'
         self.selection = None
         self.management = None
+        self.data_split = 'train'
+        self.problem_data_root = None
 
         #####################
         ###  EC settings  ###
@@ -17,17 +19,19 @@ class Paras():
         self.ec_operators = None # evolution operators: ['e1','e2','m1','m2'], default = ['e1','m1']
         self.ec_m = 2  # number of parents for 'e1' and 'e2' operators, default = 2
         self.ec_operator_weights = None  # weights for operators, i.e., the probability of use the operator in each iteration, default = [1,1,1,1]
+        self.ec_operator_attempts = 1  # number of offspring attempts per operator per generation
         
         #####################
         ### LLM settings  ###
         #####################
         self.llm_use_local = False  # if use local model
         self.llm_local_url = None  # your local server 'http://127.0.0.1:11012/completions'
+        self.llm_local_timeout = 180.0
         self.llm_api_endpoint = None # endpoint for remote LLM, e.g., api.deepseek.com
         self.llm_api_key = None  # API key for remote LLM, e.g., sk-xxxx
         self.llm_model = None  # model type for remote LLM, e.g., deepseek-chat
         self.llm_es_enabled = False  # if update the local LLM itself with evolutionary strategy
-        self.llm_es_operators = ['m1', 'm2']  # EoH operators that trigger model ES updates
+        self.llm_es_operators = ['e1', 'e2', 'm1', 'm2']  # EoH operators that trigger model ES updates
         self.llm_es_directions = 8  # number of perturbation directions per ES model update
         self.llm_es_sigma = 1e-3  # model perturbation scale
         self.llm_es_alpha = 5e-4  # model update step size
@@ -39,6 +43,8 @@ class Paras():
         self.llm_es_target_modules = None
         self.llm_es_seed = 2024
         self.llm_es_engine_urls = None
+        self.llm_es_reward_floor = -1.0
+        self.llm_es_disable_update = False
 
         #####################
         ###  Exp settings  ###
@@ -57,7 +63,7 @@ class Paras():
         #####################
         self.eva_timeout = 30
         self.eva_numba_decorator = False
-        self.eva_invalid_objective = 100.0
+        self.eva_invalid_objective = float("inf")
 
 
     def set_parallel(self):

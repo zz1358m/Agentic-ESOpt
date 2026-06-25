@@ -38,6 +38,7 @@ class EOH:
 
         self.operators = paras.ec_operators
         self.operator_weights = paras.ec_operator_weights
+        self.operator_attempts = max(1, int(getattr(paras, "ec_operator_attempts", 1)))
         if paras.ec_m > self.pop_size or paras.ec_m == 1:
             print("m should not be larger than pop size or smaller than 2, adjust it to m=2")
             paras.ec_m = 2
@@ -68,11 +69,15 @@ class EOH:
     # add new individual to population
     def add2pop(self, population, offspring):
         for off in offspring:
+            if off.get('objective') is None:
+                continue
             for ind in population:
-                if ind['objective'] == off['objective']:
+                if ind.get('objective') == off.get('objective'):
                     if (self.debug_mode):
                         print("duplicated result, retrying ... ")
-            population.append(off)
+                    break
+            else:
+                population.append(off)
     
 
     # run eoh 
@@ -150,11 +155,12 @@ class EOH:
                 op = self.operators[i]
                 print(f" OP: {op}, [{i + 1} / {n_op}] ", end="|") 
                 op_w = self.operator_weights[i]
-                if (np.random.rand() < op_w):
-                    parents, offsprings = interface_ec.get_algorithm(population, op)
-                self.add2pop(population, offsprings)  # Check duplication, and add the new offspring
-                for off in offsprings:
-                    print(" Obj: ", off['objective'], end="|")
+                for attempt in range(self.operator_attempts):
+                    if np.random.rand() < op_w:
+                        parents, offsprings = interface_ec.get_algorithm(population, op)
+                        self.add2pop(population, offsprings)  # Check duplication, and add the new offspring
+                        for off in offsprings:
+                            print(" Obj: ", off['objective'], end="|")
                 # if is_add:
                 #     data = {}
                 #     for i in range(len(parents)):

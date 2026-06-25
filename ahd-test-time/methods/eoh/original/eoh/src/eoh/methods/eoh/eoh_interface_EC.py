@@ -7,11 +7,12 @@ from .evaluator_accelerate import add_numba_decorator
 import re
 import concurrent.futures
 import multiprocessing as mp
+import os
 import random
 
 from es import ModelESClient
 
-DEFAULT_INVALID_OBJECTIVE = 100.0
+DEFAULT_INVALID_OBJECTIVE = float("inf")
 
 class InterfaceEC():
     def __init__(self, pop_size, m, api_endpoint, api_key, llm_model,llm_use_local,llm_local_url, debug_mode, interface_prob, select,n_p,timeout,use_numba,**kwargs):
@@ -21,6 +22,7 @@ class InterfaceEC():
         self.interface_eval = interface_prob
         prompts = interface_prob.prompts
         self.evol = Evolution(api_endpoint, api_key, llm_model,llm_use_local,llm_local_url, debug_mode,prompts, **kwargs)
+        self.local_evolutions = []
         self.m = m
         self.debug = debug_mode
 
@@ -33,6 +35,10 @@ class InterfaceEC():
         self.timeout = timeout
         self.use_numba = use_numba
         self.paras = kwargs.get("paras", None)
+        self.generation_timeout = max(
+            float(getattr(self.paras, "llm_local_timeout", 180.0)),
+            float(self.timeout) + 15.0,
+        )
         self.invalid_objective = float(getattr(self.paras, "eva_invalid_objective", DEFAULT_INVALID_OBJECTIVE))
         self.llm_use_local = llm_use_local
         self.llm_local_url = llm_local_url
@@ -41,6 +47,14 @@ class InterfaceEC():
         self.model_es_clients = []
         self.model_es_evolutions = []
         self.model_es_rng = random.Random(int(getattr(self.paras, "llm_es_seed", 2024)))
+
+        if self.llm_use_local and not self.model_es_enabled:
+            local_urls = [url.strip() for url in str(self.llm_local_url).split(",") if url.strip()]
+            if len(local_urls) > 1:
+                self.local_evolutions = [
+                    Evolution(api_endpoint, api_key, llm_model, llm_use_local, url, debug_mode, prompts, **kwargs)
+                    for url in local_urls
+                ]
 
         if self.model_es_enabled:
             if not self.llm_use_local:
@@ -54,6 +68,8 @@ class InterfaceEC():
                 Evolution(api_endpoint, api_key, llm_model, llm_use_local, url, debug_mode, prompts, **kwargs)
                 for url in es_urls
             ]
+            if len(es_urls) > 1:
+                self.local_evolutions = self.model_es_evolutions
             init_info = []
             for client in self.model_es_clients:
                 init_info.append(client.init(
@@ -85,6 +101,12 @@ class InterfaceEC():
                 return True
         return False
 
+    def check_duplicate_objective(self, population, objective):
+        for ind in population:
+            if objective == ind.get('objective'):
+                return True
+        return False
+
     # def population_management(self,pop):
     #     # Delete the worst individual
     #     pop_new = heapq.nsmallest(self.pop_size, pop, key=lambda x: x['objective'])
@@ -98,20 +120,30 @@ class InterfaceEC():
 
     def population_generation(self):
         population = []
-        max_attempts = max(10, self.pop_size * 5)
+        max_attempts = max(1, int(getattr(self.paras, "ec_init_attempts", 1)))
         attempts = 0
 
-        while len(population) < self.pop_size and attempts < max_attempts:
+        while len(population) < self.pop_size and (attempts < max_attempts or len(population) == 0):
             attempts += 1
             _, pop = self.get_algorithm([], 'i1')
+            valid_count = 0
+            added_count = 0
             for p in pop:
                 if len(population) >= self.pop_size:
                     break
                 if p.get('objective') is None or not np.isfinite(float(p.get('objective', self.invalid_objective))):
                     p['objective'] = self.invalid_objective
-                if p.get('code') is not None and self.check_duplicate(population, p['code']):
+                    continue
+                valid_count += 1
+                if self.check_duplicate_objective(population, p.get('objective')):
                     continue
                 population.append(p)
+                added_count += 1
+            print(
+                f"Init attempt {attempts}: valid={valid_count}/{len(pop)}, "
+                f"added={added_count}, population={len(population)}/{self.pop_size}",
+                flush=True,
+            )
 
         if len(population) < self.pop_size:
             print(f"Warning: initialized {len(population)} of {self.pop_size} individuals after {attempts} attempts.")
@@ -146,7 +178,8 @@ class InterfaceEC():
         return population
     
 
-    def _get_alg(self,pop,operator):
+    def _get_alg(self,pop,operator,evol=None):
+        evol = self.evol if evol is None else evol
         offspring = {
             'algorithm': None,
             'code': None,
@@ -155,28 +188,28 @@ class InterfaceEC():
         }
         if operator == "i1":
             parents = None
-            [offspring['code'],offspring['algorithm']] =  self.evol.i1()            
+            [offspring['code'], offspring['algorithm']] = evol.i1()
         elif operator == "e1":
             parents = self.select.parent_selection(pop,self.m)
-            [offspring['code'],offspring['algorithm']] = self.evol.e1(parents)
+            [offspring['code'], offspring['algorithm']] = evol.e1(parents)
         elif operator == "e2":
             parents = self.select.parent_selection(pop,self.m)
-            [offspring['code'],offspring['algorithm']] = self.evol.e2(parents) 
+            [offspring['code'], offspring['algorithm']] = evol.e2(parents)
         elif operator == "m1":
             parents = self.select.parent_selection(pop,1)
-            [offspring['code'],offspring['algorithm']] = self.evol.m1(parents[0])   
+            [offspring['code'], offspring['algorithm']] = evol.m1(parents[0])
         elif operator == "m2":
             parents = self.select.parent_selection(pop,1)
-            [offspring['code'],offspring['algorithm']] = self.evol.m2(parents[0]) 
+            [offspring['code'], offspring['algorithm']] = evol.m2(parents[0])
         else:
             print(f"Evolution operator [{operator}] has not been implemented ! \n") 
 
         return parents, offspring
 
-    def get_offspring(self, pop, operator):
+    def get_offspring(self, pop, operator, evol=None):
 
         try:
-            p, offspring = self._get_alg(pop, operator)
+            p, offspring = self._get_alg(pop, operator, evol=evol)
             
             if self.use_numba:
                 
@@ -199,7 +232,7 @@ class InterfaceEC():
                 if self.debug:
                     print("duplicated code, wait 1 second and retrying ... ")
                     
-                p, offspring = self._get_alg(pop, operator)
+                p, offspring = self._get_alg(pop, operator, evol=evol)
 
                 if self.use_numba:
                     # Regular expression pattern to match function definitions
@@ -255,13 +288,61 @@ class InterfaceEC():
         offspring['objective'] = np.round(fitness, 5)
         return offspring
 
+    def _get_offspring_from_parents(self, parents, operator, evol=None):
+        evol = self.evol if evol is None else evol
+        offspring = {
+            'algorithm': None,
+            'code': None,
+            'objective': None,
+            'other_inf': None
+        }
+        if operator == "e1":
+            offspring['code'], offspring['algorithm'] = evol.e1(parents)
+        elif operator == "e2":
+            offspring['code'], offspring['algorithm'] = evol.e2(parents)
+        elif operator in {"m1", "m2"}:
+            return self._get_offspring_from_parent(parents[0], operator, evol=evol)
+        else:
+            raise ValueError(f"Unsupported operator for Model ES: {operator}")
+
+        code = self._prepare_code_for_evaluation(offspring['code'])
+        fitness = self._evaluate_code_with_timeout(code)
+        offspring['objective'] = np.round(fitness, 5)
+        return offspring
+
+    def _parents_reference_objective(self, parents):
+        if not parents:
+            return None
+        parent_objectives = []
+        for parent in parents:
+            objective = parent.get('objective')
+            if objective is None:
+                continue
+            objective = float(objective)
+            if np.isfinite(objective):
+                parent_objectives.append(objective)
+        if not parent_objectives:
+            return None
+        return min(parent_objectives)
+
     def _evaluate_code_with_timeout(self, code):
         ctx = mp.get_context("fork")
         queue = ctx.Queue(maxsize=1)
 
         def run_eval(out_queue):
             try:
-                out_queue.put(self.interface_eval.evaluate(code))
+                with open(os.devnull, "w") as devnull:
+                    old_stdout = os.dup(1)
+                    old_stderr = os.dup(2)
+                    try:
+                        os.dup2(devnull.fileno(), 1)
+                        os.dup2(devnull.fileno(), 2)
+                        out_queue.put(self.interface_eval.evaluate(code))
+                    finally:
+                        os.dup2(old_stdout, 1)
+                        os.dup2(old_stderr, 2)
+                        os.close(old_stdout)
+                        os.close(old_stderr)
             except Exception:
                 out_queue.put(None)
 
@@ -285,6 +366,79 @@ class InterfaceEC():
             return self.invalid_objective
         return fitness
 
+    def _evaluate_offspring_batch_with_timeout(self, pairs):
+        if not pairs:
+            return []
+
+        ctx = mp.get_context("fork")
+        queue = ctx.Queue()
+        results = [self.invalid_objective] * len(pairs)
+        running = {}
+        next_idx = 0
+        max_workers = max(1, int(self.n_p))
+
+        def run_eval(idx, code, out_queue):
+            try:
+                with open(os.devnull, "w") as devnull:
+                    old_stdout = os.dup(1)
+                    old_stderr = os.dup(2)
+                    try:
+                        os.dup2(devnull.fileno(), 1)
+                        os.dup2(devnull.fileno(), 2)
+                        out_queue.put((idx, self.interface_eval.evaluate(code)))
+                    finally:
+                        os.dup2(old_stdout, 1)
+                        os.dup2(old_stderr, 2)
+                        os.close(old_stdout)
+                        os.close(old_stderr)
+            except Exception:
+                out_queue.put((idx, None))
+
+        def launch_more():
+            nonlocal next_idx
+            while next_idx < len(pairs) and len(running) < max_workers:
+                _, offspring = pairs[next_idx]
+                try:
+                    code = self._prepare_code_for_evaluation(offspring['code'])
+                except Exception:
+                    results[next_idx] = self.invalid_objective
+                    next_idx += 1
+                    continue
+                proc = ctx.Process(target=run_eval, args=(next_idx, code, queue))
+                proc.daemon = True
+                proc.start()
+                running[next_idx] = (proc, time.time())
+                next_idx += 1
+
+        launch_more()
+        while running:
+            while True:
+                try:
+                    idx, fitness = queue.get_nowait()
+                except Exception:
+                    break
+                if fitness is not None and np.isfinite(float(fitness)):
+                    results[idx] = fitness
+
+            for idx, (proc, started_at) in list(running.items()):
+                if not proc.is_alive():
+                    proc.join()
+                    running.pop(idx, None)
+                    launch_more()
+                    continue
+                if time.time() - started_at >= self.timeout:
+                    proc.terminate()
+                    proc.join(2)
+                    if proc.is_alive():
+                        proc.kill()
+                        proc.join()
+                    results[idx] = self.invalid_objective
+                    running.pop(idx, None)
+                    launch_more()
+            time.sleep(0.1)
+
+        return results
+
     def _prepare_code_for_evaluation(self, code):
         if not self.use_numba:
             return code
@@ -298,25 +452,30 @@ class InterfaceEC():
 
     def _objective_to_reward(self, offspring, parent):
         objective = offspring.get('objective')
-        if objective is None:
-            objective = self.invalid_objective
-        objective = float(objective)
-        if not np.isfinite(objective):
-            objective = self.invalid_objective
+        reward_floor = float(getattr(self.paras, "llm_es_reward_floor", -1.0))
+        objective_is_valid = objective is not None
+        if objective_is_valid:
+            objective = float(objective)
+            objective_is_valid = np.isfinite(objective)
         reward_mode = str(getattr(self.paras, "llm_es_reward_mode", "improvement")).lower()
         if reward_mode == "negative_objective":
-            return -objective
+            reward = -objective if objective_is_valid else reward_floor
+            return max(reward, reward_floor)
 
         parent_objective = None if parent is None else parent.get('objective')
         if parent_objective is None:
-            return -objective
+            reward = -objective if objective_is_valid else reward_floor
+            return max(reward, reward_floor)
         parent_objective = float(parent_objective)
         if not np.isfinite(parent_objective):
-            return -objective
-        return parent_objective - objective
+            reward = -objective if objective_is_valid else reward_floor
+            return max(reward, reward_floor)
+        reward = parent_objective - objective if objective_is_valid else reward_floor
+        return max(reward, reward_floor)
 
     def _sample_model_es_seeds(self, n=None):
-        directions = self.pop_size if n is None else int(n)
+        default_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
+        directions = default_directions if n is None else int(n)
         directions = max(1, directions)
         return [self.model_es_rng.randrange(0, 2**31 - 1) for _ in range(directions)]
 
@@ -332,31 +491,32 @@ class InterfaceEC():
 
         sigma = float(getattr(self.paras, "llm_es_sigma", 1e-3))
         alpha = float(getattr(self.paras, "llm_es_alpha", 5e-4))
-        seeds = self._sample_model_es_seeds(self.pop_size)
+        n_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
+        seeds = self._sample_model_es_seeds(n_directions)
         rewards = [None] * len(seeds)
         offsprings = [None] * len(seeds)
         out_parents = [None] * len(seeds)
         tasks = []
 
         for i, seed in enumerate(seeds):
-            parents = self.select.parent_selection(pop, 1)
-            tasks.append((i, seed, parents, parents[0]))
+            n_parents = self.m if operator in {"e1", "e2"} else 1
+            parents = self.select.parent_selection(pop, n_parents)
+            tasks.append((i, seed, parents))
 
-        def eval_direction(i, seed, parents, parent):
+        def eval_direction(i, seed, parents):
             engine_id = i % len(self.model_es_clients)
             client = self.model_es_clients[engine_id]
             evol = self.model_es_evolutions[engine_id]
+            parent_objective = self._parents_reference_objective(parents)
+            reward_parent = None if parent_objective is None else {'objective': parent_objective}
             try:
                 client.apply_perturbation(seed=seed, sigma=sigma)
                 try:
-                    offspring = self._get_offspring_from_parent(parent, operator, evol=evol)
+                    offspring = self._get_offspring_from_parents(parents, operator, evol=evol)
                 finally:
                     client.revert_perturbation(seed=seed, sigma=sigma)
 
-                reward = self._objective_to_reward(offspring, parent)
-                parent_objective = parent.get('objective')
-                if parent_objective is not None:
-                    parent_objective = float(parent_objective)
+                reward = self._objective_to_reward(offspring, reward_parent)
                 offspring['other_inf'] = {
                     'model_es_seed': int(seed),
                     'model_es_sigma': sigma,
@@ -383,7 +543,7 @@ class InterfaceEC():
                         'model_es_engine_id': engine_id,
                     }
                 }
-                reward = self._objective_to_reward(offspring, parent)
+                reward = self._objective_to_reward(offspring, reward_parent)
                 offspring['other_inf']['model_es_reward'] = float(reward)
             return i, parents, offspring, float(reward)
 
@@ -397,16 +557,24 @@ class InterfaceEC():
                 out_parents[i] = parents
 
         update_info = [
+            {
+                "ok": True,
+                "skipped": True,
+                "reason": "llm_es_disable_update",
+                "num_seeds": len(seeds),
+                "alpha": alpha,
+            }
+        ] if bool(getattr(self.paras, "llm_es_disable_update", False)) else [
             client.update(
-                seeds=seeds,
-                rewards=rewards,
-                alpha=alpha,
-                reward_normalization=getattr(self.paras, "llm_es_reward_normalization", "zscore"),
-                reward_normalization_ddof=getattr(self.paras, "llm_es_reward_normalization_ddof", 0),
-                reward_normalization_eps=getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8),
-            )
-            for client in self.model_es_clients
-        ]
+                    seeds=seeds,
+                    rewards=rewards,
+                    alpha=alpha,
+                    reward_normalization=getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+                    reward_normalization_ddof=getattr(self.paras, "llm_es_reward_normalization_ddof", 0),
+                    reward_normalization_eps=getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8),
+                )
+                for client in self.model_es_clients
+            ]
         if self.debug:
             print(f"Model ES update: {update_info}")
 
@@ -434,14 +602,67 @@ class InterfaceEC():
         if self._operator_uses_model_es(operator):
             return self._get_algorithm_with_model_es(pop, operator)
 
-        results = []
-        try:
-            results = Parallel(n_jobs=self.n_p,timeout=self.timeout+15)(delayed(self.get_offspring)(pop, operator) for _ in range(self.pop_size))
-        except Exception as e:
-            if self.debug:
-                print(f"Error: {e}")
-            print("Parallel time out .")
-            
+        if self.local_evolutions:
+            pairs = [None] * self.pop_size
+            results = []
+            max_workers = min(len(self.local_evolutions), self.pop_size)
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {
+                        executor.submit(
+                            self._get_alg,
+                            pop,
+                            operator,
+                            self.local_evolutions[i % len(self.local_evolutions)],
+                        ): i
+                        for i in range(self.pop_size)
+                    }
+                    done, not_done = concurrent.futures.wait(futures, timeout=self.generation_timeout)
+                    for future in done:
+                        i = futures[future]
+                        try:
+                            pairs[i] = future.result()
+                        except Exception:
+                            pairs[i] = (None, {
+                                'algorithm': None,
+                                'code': None,
+                                'objective': self.invalid_objective,
+                                'other_inf': {'error': 'generation failed'}
+                            })
+                    for future in not_done:
+                        future.cancel()
+            except Exception as e:
+                if self.debug:
+                    print(f"Error: {e}")
+                print("Parallel time out .")
+            for i, pair in enumerate(pairs):
+                if pair is None:
+                    pair = (None, {
+                        'algorithm': None,
+                        'code': None,
+                        'objective': self.invalid_objective,
+                        'other_inf': {'error': 'generation timeout'}
+                    })
+                    pairs[i] = pair
+            to_eval = [
+                pair for pair in pairs
+                if pair[1].get('code') is not None
+            ]
+            fitness = self._evaluate_offspring_batch_with_timeout(to_eval)
+            fitness_iter = iter(fitness)
+            for p, off in pairs:
+                if off.get('code') is not None:
+                    off['objective'] = np.round(next(fitness_iter), 5)
+                results.append((p, off))
+        else:
+            results = []
+            try:
+                results = Parallel(n_jobs=self.n_p,timeout=self.timeout+15)(delayed(self.get_offspring)(pop, operator) for _ in range(self.pop_size))
+            except Exception as e:
+                if self.debug:
+                    print(f"Error: {e}")
+                print("Parallel time out .")
+
         time.sleep(2)
 
 

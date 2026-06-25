@@ -70,10 +70,14 @@ webarena-train-time/skills/webrl_lite_skillopt_v1.md
 data/ahd/settings/cfg/problem/bpp_offline_aco.yaml
 data/ahd/settings/prompts/bpp_offline_aco/
 ahd-test-time/envs/bpp.py
+ahd-test-time/scripts/continue*.sh
+ahd-test-time/scripts/resume*.sh
+scripts/ahd/aco_bpp_*.sh
 ahd-test-time/methods/eoh/original/eoh/src/eoh.egg-info/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/test/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/machinelearning/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/optimization/bp_online/
+ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/optimization/bpp_offline_aco/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/ael/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/localsearch/
 ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/management/ls_greedy.py

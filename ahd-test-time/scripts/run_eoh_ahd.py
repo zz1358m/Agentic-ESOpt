@@ -19,6 +19,10 @@ from eoh import eoh  # noqa: E402
 from eoh.utils.getParas import Paras  # noqa: E402
 
 
+def env_bool(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
 TASKS = {
     "construct_tsp": {
         "problem": "tsp_construct",
@@ -74,6 +78,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--es-operators", default=os.environ.get("ES_OPERATORS", "e1,e2,m1,m2"))
     parser.add_argument("--es-sigma", type=float, default=float(os.environ.get("ES_SIGMA", "1e-3")))
     parser.add_argument("--es-alpha", type=float, default=float(os.environ.get("ES_ALPHA", "5e-4")))
+    parser.add_argument("--es-disable-update", action="store_true", default=env_bool("ES_DISABLE_UPDATE"))
     parser.add_argument("--eva-timeout", type=float, default=float(os.environ.get("EVA_TIMEOUT", "0")))
     return parser.parse_args()
 
@@ -123,13 +128,14 @@ def main() -> None:
             llm_es_enabled=True,
             llm_es_engine_urls=es_engine_urls,
             llm_es_operators=es_operators,
-            llm_es_directions=10,
+            llm_es_directions=8,
             llm_es_sigma=args.es_sigma,
             llm_es_alpha=args.es_alpha,
             llm_es_reward_mode="improvement",
             llm_es_reward_normalization="zscore",
             llm_es_parameter_scope="full",
             llm_es_reward_floor=-1.0,
+            llm_es_disable_update=args.es_disable_update,
             llm_local_timeout=args.llm_local_timeout,
             ec_pop_size=10,
             ec_n_pop=25,
