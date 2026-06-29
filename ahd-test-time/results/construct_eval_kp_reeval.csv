@@ -1,0 +1,9 @@
+method,task,program,setting,objective,count,valid_count,failure_count,mean,std,min,max,asp_set_size,candidate_mode,seconds
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep1_final_best_code.py,"N=50,W=12.5",max,1000,1000,0,20.146671173836076,1.7688508614913474,14.80285141799207,25.850539849089365,,,
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep1_final_best_code.py,"N=100,W=25",max,1000,1000,0,40.50653956478284,2.534419373683651,33.399878098057584,49.98837834150858,,,
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep2_final_best_code.py,"N=50,W=12.5",max,1000,1000,0,20.14720020037213,1.76849582699989,14.773802057947446,25.850539849089365,,,
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep2_final_best_code.py,"N=100,W=25",max,1000,1000,0,40.51047639324568,2.532997078206058,33.39987809805758,49.98837834150858,,,
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep3_final_best_code.py,"N=50,W=12.5",max,1000,1000,0,20.152884165471995,1.7696078600455167,14.773802057947446,25.850539849089365,,,
+Dynamic-EoH,kp,construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep3_final_best_code.py,"N=100,W=25",max,1000,1000,0,40.513401943423425,2.534326767810153,33.399878098057584,49.988378341508586,,,
+EoH,kp,construct_kp_rep1_final_best_code.py,"N=50,W=12.5",max,1000,1000,0,20.14627903341593,1.7693143562548204,14.74316220720233,25.850539849089365,,,
+EoH,kp,construct_kp_rep1_final_best_code.py,"N=100,W=25",max,1000,1000,0,40.50978680040708,2.5323105131859296,33.399878098057584,49.98837834150858,,,

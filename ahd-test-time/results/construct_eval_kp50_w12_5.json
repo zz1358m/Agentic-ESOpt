@@ -1,0 +1,90 @@
+{
+  "results_root": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results",
+  "programs": [
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=50,W=12.5": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 20.146671173836076,
+          "std": 1.7688508614913474,
+          "min": 14.80285141799207,
+          "max": 25.850539849089365
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep2_final_best_code.py",
+      "results": {
+        "N=50,W=12.5": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 20.14720020037213,
+          "std": 1.76849582699989,
+          "min": 14.773802057947446,
+          "max": 25.850539849089365
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep3_final_best_code.py",
+      "results": {
+        "N=50,W=12.5": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 20.152884165471995,
+          "std": 1.7696078600455167,
+          "min": 14.773802057947446,
+          "max": 25.850539849089365
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\KP_construct\\construct_kp_construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=50,W=12.5": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 20.14627903341593,
+          "std": 1.7693143562548204,
+          "min": 14.74316220720233,
+          "max": 25.850539849089365
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\KP_construct\\construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=50,W=12.5": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 20.142911173836456,
+          "std": 1.7682761054942837,
+          "min": 14.74316220720233,
+          "max": 25.850539849089365
+        }
+      }
+    }
+  ]
+}

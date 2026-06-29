@@ -1,0 +1,7 @@
+method,task,program,setting,objective,count,valid_count,failure_count,mean,std,min,max,asp_set_size,candidate_mode,seconds
+Dynamic-EoH,asp,construct_asp_train_es_sigma0.001_alpha0.0005_construct_asp_rep1_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,765,exact_reevo,0.044
+Dynamic-EoH,asp,construct_asp_train_es_sigma0.001_alpha0.0005_construct_asp_rep2_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,756,exact_reevo,0.039
+Dynamic-EoH,asp,construct_asp_train_es_sigma0.001_alpha0.0005_construct_asp_rep3_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,783,exact_reevo,0.038
+EoH,asp,construct_asp_rep1_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,765,exact_reevo,0.035
+EoH,asp,construct_asp_rep2_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,777,exact_reevo,0.047
+EoH,asp,construct_asp_rep3_final_best_code.py,"N=12,w=7",max,1,1,0,,,,,786,exact_reevo,0.055

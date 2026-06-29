@@ -1,0 +1,302 @@
+{
+  "results_root": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results",
+  "programs": [
+    {
+      "method": "Dynamic-EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\TSP_construct\\construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep1_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.364713936978429,
+          "std": 0.4202727083789627,
+          "min": 5.041183747766066,
+          "max": 7.929956420877536
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 8.937345687097439,
+          "std": 0.45673497374806127,
+          "min": 7.539863173835977,
+          "max": 10.739971671694983
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\TSP_construct\\construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep2_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.628772684644484,
+          "std": 0.4401336035557188,
+          "min": 5.412961636603204,
+          "max": 7.923538263834321
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.248696461111837,
+          "std": 0.4992842345696696,
+          "min": 7.844378315655928,
+          "max": 11.094917695726869
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\TSP_construct\\construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep3_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.596335924649401,
+          "std": 0.3575253745994357,
+          "min": 5.461286997007025,
+          "max": 7.8139214189757356
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.115235463838316,
+          "std": 0.336538463527966,
+          "min": 7.969628260815618,
+          "max": 10.233890136878113
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\TSP_construct\\construct_tsp_rep1_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.542407115595314,
+          "std": 0.3705355599664478,
+          "min": 5.579165351614221,
+          "max": 7.845522697811819
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.000981466528374,
+          "std": 0.3693952419797396,
+          "min": 7.889269860914555,
+          "max": 10.328143085746508
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\TSP_construct\\construct_tsp_rep2_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.4639360761939155,
+          "std": 0.3713780289818544,
+          "min": 5.355039982380617,
+          "max": 7.777934695356766
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.039396024871458,
+          "std": 0.3643117317950706,
+          "min": 7.805628010726911,
+          "max": 10.1066553840942
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "tsp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\TSP_construct\\construct_tsp_rep3_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.628669637689063,
+          "std": 0.3509625136573874,
+          "min": 5.498656632033777,
+          "max": 7.8139214189757356
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.180640228799104,
+          "std": 0.33870054627146684,
+          "min": 7.924777697082535,
+          "max": 10.150085921361995
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=100,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 40.50653956478284,
+          "std": 2.534419373683651,
+          "min": 33.399878098057584,
+          "max": 49.98837834150858
+        },
+        "N=200,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 57.738445629855406,
+          "std": 3.2172092035761697,
+          "min": 48.11455191782024,
+          "max": 68.49040174776839
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep2_final_best_code.py",
+      "results": {
+        "N=100,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 40.51047639324568,
+          "std": 2.532997078206058,
+          "min": 33.39987809805758,
+          "max": 49.98837834150858
+        },
+        "N=200,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 57.73607137706624,
+          "std": 3.2186538854738775,
+          "min": 48.11455191782024,
+          "max": 68.49040174776839
+        }
+      }
+    },
+    {
+      "method": "Dynamic-EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\Dynamic-EoH\\KP_construct\\construct_kp_train_es_sigma0.001_alpha0.0005_construct_kp_rep3_final_best_code.py",
+      "results": {
+        "N=100,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 40.513401943423425,
+          "std": 2.534326767810153,
+          "min": 33.399878098057584,
+          "max": 49.988378341508586
+        },
+        "N=200,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 57.69065850608894,
+          "std": 3.2202134882102738,
+          "min": 48.077978438179265,
+          "max": 68.31917404342177
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\KP_construct\\construct_kp_construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=100,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 40.50978680040708,
+          "std": 2.5323105131859296,
+          "min": 33.399878098057584,
+          "max": 49.98837834150858
+        },
+        "N=200,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 57.736502072569806,
+          "std": 3.217027819428972,
+          "min": 48.11455191782024,
+          "max": 68.49040174776839
+        }
+      }
+    },
+    {
+      "method": "EoH",
+      "task": "kp",
+      "program": "D:\\Phd-2-2\\ES-TT-LLM\\Dynamic-Agent\\ahd-test-time\\results\\EoH\\KP_construct\\construct_kp_rep1_final_best_code.py",
+      "results": {
+        "N=100,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 40.50541007088821,
+          "std": 2.5330054474691326,
+          "min": 33.399878098057584,
+          "max": 49.98837834150858
+        },
+        "N=200,W=25": {
+          "objective": "max",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 57.74010698734968,
+          "std": 3.219496074828775,
+          "min": 48.11455191782024,
+          "max": 68.49040174776839
+        }
+      }
+    }
+  ]
+}

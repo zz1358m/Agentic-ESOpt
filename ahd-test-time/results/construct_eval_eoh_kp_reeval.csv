@@ -1,0 +1,7 @@
+method,task,code_file,n,capacity,objective,count,valid_count,failure_count,mean,std,min,max
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep1_final_best_code.py,50,12.5,max,1000,1000,0,20.14627903341593,1.7693143562548204,14.74316220720233,25.850539849089365
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep1_final_best_code.py,100,25.0,max,1000,1000,0,40.50978680040708,2.5323105131859296,33.399878098057584,49.98837834150858
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep2_final_best_code.py,50,12.5,max,1000,1000,0,20.142526246775304,1.76806974344388,14.74316220720233,25.850539849089365
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep2_final_best_code.py,100,25.0,max,1000,1000,0,40.506712010301925,2.5333009623727083,33.399878098057584,49.98837834150858
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep3_final_best_code.py,50,12.5,max,1000,1000,0,20.145665411820513,1.769030675805013,14.743162207202328,25.850539849089365
+EoH,kp,ahd-test-time\results\EoH\KP_construct\construct_kp_rep3_final_best_code.py,100,25.0,max,1000,1000,0,40.50680388111868,2.5331696298948487,33.39987809805758,49.98837834150858
