@@ -32,7 +32,6 @@ from envs.sudoku import (  # noqa: E402
 
 DEFAULT_TRAIN = ROOT / "data/sudoku/train.jsonl"
 DEFAULT_EVAL = ROOT / "data/sudoku/eval.jsonl"
-SIGMA_COSINE_FLOOR_RATIO = 0.25
 
 
 def mean_valid(scores: list[float]) -> float:
@@ -58,6 +57,7 @@ def sigma_for_generation(
     generations: int,
     schedule: str,
     warmup_steps: int,
+    min_ratio: float = 0.0,
 ) -> float:
     if schedule == "constant" or generations <= 0:
         return sigma_max
@@ -69,8 +69,8 @@ def sigma_for_generation(
     denominator = max(1, generations - 1 - warmup_steps)
     progress = min(1.0, max(0.0, (generation - warmup_steps) / denominator))
     cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
-    sigma_min = SIGMA_COSINE_FLOOR_RATIO * sigma_max
-    return sigma_min + (sigma_max - sigma_min) * cosine
+    floor = min(max(0.0, float(min_ratio)), 1.0)
+    return sigma_max * (floor + (1.0 - floor) * cosine)
 
 
 def eval_tasks(
@@ -466,6 +466,12 @@ def main() -> None:
     parser.add_argument("--eval-limit", type=int, default=int(os.environ.get("SUDOKU_EVAL_LIMIT", "100")))
     parser.add_argument("--sigma", type=float, default=float(os.environ.get("SUDOKU_ES_SIGMA", "5e-4")))
     parser.add_argument(
+        "--sigma-min-ratio",
+        type=float,
+        default=float(os.environ.get("SUDOKU_ES_SIGMA_MIN_RATIO", "0.0")),
+        help="Minimum sigma as a fraction of --sigma for cosine decay.",
+    )
+    parser.add_argument(
         "--sigma-schedule",
         default=os.environ.get("SUDOKU_ES_SIGMA_SCHEDULE", "constant"),
         choices=["constant", "cosine-after-warmup"],
@@ -524,6 +530,7 @@ def main() -> None:
                 "eval_interval": args.eval_interval,
                 "eval_repeats": args.eval_repeats,
                 "sigma": args.sigma,
+                "sigma_min_ratio": args.sigma_min_ratio,
                 "sigma_schedule": args.sigma_schedule,
                 "sigma_warmup_steps": sigma_warmup_steps,
                 "alpha": args.alpha,
@@ -560,6 +567,7 @@ def main() -> None:
             generations=args.generations,
             schedule=args.sigma_schedule,
             warmup_steps=sigma_warmup_steps,
+            min_ratio=args.sigma_min_ratio,
         )
         batch = choose_batch(train_env.tasks, generation, args.case_batch_size)
         seeds = [rng.randrange(1, 2**31 - 1) for _ in range(args.population)]
