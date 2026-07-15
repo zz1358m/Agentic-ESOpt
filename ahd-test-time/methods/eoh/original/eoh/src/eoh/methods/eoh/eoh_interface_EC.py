@@ -9,8 +9,16 @@ import concurrent.futures
 import multiprocessing as mp
 import os
 import random
+from pathlib import Path
 
 from es import ModelESClient
+from es.run_state import (
+    atomic_write_history,
+    map_endpoint_serial,
+    normalize_sigma_schedule,
+    read_history,
+    sigma_at_step,
+)
 
 DEFAULT_INVALID_OBJECTIVE = float("inf")
 
@@ -47,6 +55,15 @@ class InterfaceEC():
         self.model_es_clients = []
         self.model_es_evolutions = []
         self.model_es_rng = random.Random(int(getattr(self.paras, "llm_es_seed", 2024)))
+        self.current_generation_index = 0
+        self.total_generations = int(getattr(self.paras, "ec_n_pop", 1))
+        configured_history_path = getattr(self.paras, "llm_es_history_path", None)
+        if configured_history_path:
+            self.model_es_history_path = Path(configured_history_path).expanduser().resolve()
+        else:
+            output_root = Path(getattr(self.paras, "exp_output_path", "./")).expanduser().resolve()
+            self.model_es_history_path = output_root / "results" / "es" / "history.json"
+        self.model_es_history = []
 
         if self.llm_use_local and not self.model_es_enabled:
             local_urls = [url.strip() for url in str(self.llm_local_url).split(",") if url.strip()]
@@ -79,6 +96,7 @@ class InterfaceEC():
                 ))
             self.model_es_client = self.model_es_clients[0]
             print(f"- Model ES initialized: {init_info}")
+            self._restore_model_es_history()
         
     def code2file(self,code):
         with open("./ael_alg.py", "w") as file:
@@ -188,19 +206,19 @@ class InterfaceEC():
         }
         if operator == "i1":
             parents = None
-            [offspring['code'], offspring['algorithm']] = evol.i1()
+            [offspring['code'],offspring['algorithm']] =  evol.i1()
         elif operator == "e1":
             parents = self.select.parent_selection(pop,self.m)
-            [offspring['code'], offspring['algorithm']] = evol.e1(parents)
+            [offspring['code'],offspring['algorithm']] = evol.e1(parents)
         elif operator == "e2":
             parents = self.select.parent_selection(pop,self.m)
-            [offspring['code'], offspring['algorithm']] = evol.e2(parents)
+            [offspring['code'],offspring['algorithm']] = evol.e2(parents)
         elif operator == "m1":
             parents = self.select.parent_selection(pop,1)
-            [offspring['code'], offspring['algorithm']] = evol.m1(parents[0])
+            [offspring['code'],offspring['algorithm']] = evol.m1(parents[0])
         elif operator == "m2":
             parents = self.select.parent_selection(pop,1)
-            [offspring['code'], offspring['algorithm']] = evol.m2(parents[0])
+            [offspring['code'],offspring['algorithm']] = evol.m2(parents[0])
         else:
             print(f"Evolution operator [{operator}] has not been implemented ! \n") 
 
@@ -450,28 +468,71 @@ class InterfaceEC():
         function_name = match.group(1)
         return add_numba_decorator(program=code, function_name=function_name)
 
-    def _objective_to_reward(self, offspring, parent):
-        objective = offspring.get('objective')
-        reward_floor = float(getattr(self.paras, "llm_es_reward_floor", -1.0))
+    def _population_worst_objective(self, pop):
+        objectives = []
+        for individual in pop:
+            objective = individual.get('objective')
+            if objective is None:
+                continue
+            objective = float(objective)
+            if np.isfinite(objective):
+                objectives.append(objective)
+        if not objectives:
+            return None
+        return max(objectives)
+
+    def _effective_reward_objective(
+        self,
+        objective,
+        population_worst_objective,
+        parent_objective=None,
+        reward_floor=None,
+    ):
         objective_is_valid = objective is not None
         if objective_is_valid:
             objective = float(objective)
             objective_is_valid = np.isfinite(objective)
+        if population_worst_objective is None:
+            return objective, objective_is_valid
+        if not objective_is_valid or objective > population_worst_objective:
+            effective_objective = float(population_worst_objective)
+            if parent_objective is not None and reward_floor is not None:
+                parent_objective = float(parent_objective)
+                if np.isfinite(parent_objective):
+                    # Keep the worst fallback no worse than the configured reward floor
+                    # relative to the current parent. With the default floor -1, this
+                    # is equivalent to max(parent - population_worst, -1) in reward space.
+                    effective_objective = min(effective_objective, parent_objective - float(reward_floor))
+            return effective_objective, True
+        return objective, True
+
+    def _objective_to_reward(self, offspring, parent, population_worst_objective=None):
+        objective = offspring.get('objective')
+        reward_floor = float(getattr(self.paras, "llm_es_reward_floor", -1.0))
         reward_mode = str(getattr(self.paras, "llm_es_reward_mode", "improvement")).lower()
         if reward_mode == "negative_objective":
+            objective, objective_is_valid = self._effective_reward_objective(objective, population_worst_objective)
             reward = -objective if objective_is_valid else reward_floor
-            return max(reward, reward_floor)
+            return reward if population_worst_objective is not None else max(reward, reward_floor)
 
         parent_objective = None if parent is None else parent.get('objective')
         if parent_objective is None:
+            objective, objective_is_valid = self._effective_reward_objective(objective, population_worst_objective)
             reward = -objective if objective_is_valid else reward_floor
-            return max(reward, reward_floor)
+            return reward if population_worst_objective is not None else max(reward, reward_floor)
         parent_objective = float(parent_objective)
         if not np.isfinite(parent_objective):
+            objective, objective_is_valid = self._effective_reward_objective(objective, population_worst_objective)
             reward = -objective if objective_is_valid else reward_floor
-            return max(reward, reward_floor)
+            return reward if population_worst_objective is not None else max(reward, reward_floor)
+        objective, objective_is_valid = self._effective_reward_objective(
+            objective,
+            population_worst_objective,
+            parent_objective=parent_objective,
+            reward_floor=reward_floor,
+        )
         reward = parent_objective - objective if objective_is_valid else reward_floor
-        return max(reward, reward_floor)
+        return reward if population_worst_objective is not None else max(reward, reward_floor)
 
     def _sample_model_es_seeds(self, n=None):
         default_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
@@ -485,18 +546,127 @@ class InterfaceEC():
         operators = getattr(self.paras, "llm_es_operators", ['m1', 'm2'])
         return operator in operators
 
+    def _operator_offspring_count(self, operator, base_count=None):
+        base_count = self.pop_size if base_count is None else int(base_count)
+        if operator in {"m1", "m2"}:
+            multiplier = float(getattr(self.paras, "ec_m1m2_multiplier", 1.0))
+            return max(1, int(round(base_count * multiplier)))
+        return max(1, base_count)
+
+    def set_generation_context(self, generation_index, total_generations=None):
+        self.current_generation_index = max(0, int(generation_index))
+        if total_generations is not None:
+            self.total_generations = max(1, int(total_generations))
+
+    def _current_model_es_sigma(self):
+        sigma_start = float(getattr(self.paras, "llm_es_sigma_start", 1e-3))
+        sigma_end = float(getattr(self.paras, "llm_es_sigma_end", sigma_start))
+        schedule = normalize_sigma_schedule(getattr(self.paras, "llm_es_sigma_schedule", "constant"))
+        warmup_steps = int(getattr(self.paras, "llm_es_sigma_warmup_steps", 0))
+        return sigma_at_step(
+            sigma_start=sigma_start,
+            sigma_end=sigma_end,
+            step=self.current_generation_index,
+            total_steps=self.total_generations,
+            schedule=schedule,
+            warmup_steps=int(warmup_steps),
+        )
+
+    def _restore_model_es_history(self):
+        source = getattr(self.paras, "llm_es_resume_history", None)
+        if not source:
+            print(f"- Model ES history: {self.model_es_history_path}")
+            return
+
+        source_path = Path(source).expanduser().resolve()
+        source_history = read_history(source_path)
+        records = [
+            row
+            for row in source_history
+            if isinstance(row.get("seeds"), list)
+            and isinstance(row.get("rewards"), list)
+            and len(row["seeds"]) == len(row["rewards"])
+            and len(row["seeds"]) > 0
+        ]
+        expected_rng = random.Random(int(getattr(self.paras, "llm_es_seed", 2024)))
+        replayed_updates = 0
+        for record_index, record in enumerate(records):
+            seeds = [int(seed) for seed in record["seeds"]]
+            expected = [expected_rng.randrange(0, 2**31 - 1) for _ in seeds]
+            if seeds != expected:
+                raise ValueError(
+                    f"AHD ES history seed mismatch at update {record_index}; "
+                    "resume with the original --seed/operator order/k."
+                )
+            # A disabled update still consumed these seeds in the original run.
+            # Advance/validate the stream, but do not mutate model weights.
+            if record.get("update_applied", True) is False:
+                continue
+            kwargs = {
+                "seeds": seeds,
+                "rewards": [float(reward) for reward in record["rewards"]],
+                "alpha": float(record.get("alpha", getattr(self.paras, "llm_es_alpha", 5e-4))),
+                "reward_normalization": str(
+                    record.get(
+                        "reward_normalization",
+                        getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+                    )
+                ),
+                "reward_normalization_ddof": int(
+                    record.get(
+                        "reward_normalization_ddof",
+                        getattr(self.paras, "llm_es_reward_normalization_ddof", 0),
+                    )
+                ),
+                "reward_normalization_eps": float(
+                    record.get(
+                        "reward_normalization_eps",
+                        getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8),
+                    )
+                ),
+            }
+            for client in self.model_es_clients:
+                client.update(**kwargs)
+            replayed_updates += 1
+        self.model_es_rng = expected_rng
+        self.model_es_history = list(source_history)
+        if source_path != self.model_es_history_path:
+            self.model_es_history.append(
+                {
+                    "resume": {
+                        "source": str(source_path),
+                        "replayed_samples": len(records),
+                        "replayed_updates": replayed_updates,
+                    }
+                }
+            )
+        atomic_write_history(self.model_es_history_path, self.model_es_history)
+        print(
+            f"- Model ES replayed {replayed_updates} updates from {len(records)} "
+            f"sample batches at {source_path}; "
+            f"history: {self.model_es_history_path}"
+        )
+
     def _get_algorithm_with_model_es(self, pop, operator):
         if len(pop) == 0:
             return [], []
 
-        sigma = float(getattr(self.paras, "llm_es_sigma", 1e-3))
+        base_sigma = float(getattr(self.paras, "llm_es_sigma_start", 1e-3))
+        end_sigma = float(getattr(self.paras, "llm_es_sigma_end", base_sigma))
+        sigma = self._current_model_es_sigma()
+        sigma_schedule = normalize_sigma_schedule(
+            getattr(self.paras, "llm_es_sigma_schedule", "constant")
+        )
+        sigma_warmup_steps = getattr(self.paras, "llm_es_sigma_warmup_steps", None)
         alpha = float(getattr(self.paras, "llm_es_alpha", 5e-4))
-        n_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
+        base_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
+        n_directions = self._operator_offspring_count(operator, base_directions)
         seeds = self._sample_model_es_seeds(n_directions)
         rewards = [None] * len(seeds)
         offsprings = [None] * len(seeds)
         out_parents = [None] * len(seeds)
         tasks = []
+        population_worst_objective = self._population_worst_objective(pop)
 
         for i, seed in enumerate(seeds):
             n_parents = self.m if operator in {"e1", "e2"} else 1
@@ -516,14 +686,27 @@ class InterfaceEC():
                 finally:
                     client.revert_perturbation(seed=seed, sigma=sigma)
 
-                reward = self._objective_to_reward(offspring, reward_parent)
+                reward = self._objective_to_reward(
+                    offspring,
+                    reward_parent,
+                    population_worst_objective=population_worst_objective,
+                )
                 offspring['other_inf'] = {
                     'model_es_seed': int(seed),
                     'model_es_sigma': sigma,
+                    'model_es_base_sigma': base_sigma,
+                    'model_es_end_sigma': end_sigma,
+                    'model_es_sigma_schedule': sigma_schedule,
+                    'model_es_sigma_warmup_steps': sigma_warmup_steps,
+                    'model_es_generation_index': int(getattr(self, "current_generation_index", 0)),
+                    'model_es_total_generations': int(getattr(self, "total_generations", 1)),
                     'model_es_reward': float(reward),
                     'model_es_parent_objective': parent_objective,
+                    'model_es_population_worst_objective': population_worst_objective,
                     'model_es_operator': operator,
                     'model_es_batch_size': len(seeds),
+                    'model_es_base_batch_size': base_directions,
+                    'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
                     'model_es_engine_id': engine_id,
                 }
             except Exception as e:
@@ -536,25 +719,44 @@ class InterfaceEC():
                     'other_inf': {
                         'model_es_seed': int(seed),
                         'model_es_sigma': sigma,
+                        'model_es_base_sigma': base_sigma,
+                        'model_es_end_sigma': end_sigma,
+                        'model_es_sigma_schedule': sigma_schedule,
+                        'model_es_sigma_warmup_steps': sigma_warmup_steps,
+                        'model_es_generation_index': int(getattr(self, "current_generation_index", 0)),
+                        'model_es_total_generations': int(getattr(self, "total_generations", 1)),
                         'model_es_reward': None,
                         'model_es_error': str(e),
                         'model_es_operator': operator,
                         'model_es_batch_size': len(seeds),
+                        'model_es_base_batch_size': base_directions,
+                        'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
                         'model_es_engine_id': engine_id,
                     }
                 }
-                reward = self._objective_to_reward(offspring, reward_parent)
+                reward = self._objective_to_reward(
+                    offspring,
+                    reward_parent,
+                    population_worst_objective=population_worst_objective,
+                )
                 offspring['other_inf']['model_es_reward'] = float(reward)
+                offspring['other_inf']['model_es_population_worst_objective'] = population_worst_objective
             return i, parents, offspring, float(reward)
 
-        max_workers = min(len(self.model_es_clients), len(tasks))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(eval_direction, *task) for task in tasks]
-            for future in concurrent.futures.as_completed(futures):
-                i, parents, offspring, reward = future.result()
-                rewards[i] = reward
-                offsprings[i] = offspring
-                out_parents[i] = parents
+        def endpoint_worker(i, _endpoint_index):
+            _, seed, parents = tasks[i]
+            _, selected_parents, offspring, reward = eval_direction(i, seed, parents)
+            return i, (selected_parents, offspring, reward)
+
+        direction_results = map_endpoint_serial(
+            endpoints=[str(index) for index in range(len(self.model_es_clients))],
+            count=len(tasks),
+            worker=endpoint_worker,
+        )
+        for i, (parents, offspring, reward) in enumerate(direction_results):
+            rewards[i] = reward
+            offsprings[i] = offspring
+            out_parents[i] = parents
 
         update_info = [
             {
@@ -562,7 +764,12 @@ class InterfaceEC():
                 "skipped": True,
                 "reason": "llm_es_disable_update",
                 "num_seeds": len(seeds),
+                "base_num_seeds": base_directions,
+                "m1m2_multiplier": float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
                 "alpha": alpha,
+                "sigma": sigma,
+                "base_sigma": base_sigma,
+                "sigma_schedule": sigma_schedule,
             }
         ] if bool(getattr(self.paras, "llm_es_disable_update", False)) else [
             client.update(
@@ -577,6 +784,39 @@ class InterfaceEC():
             ]
         if self.debug:
             print(f"Model ES update: {update_info}")
+
+        update_applied = not bool(getattr(self.paras, "llm_es_disable_update", False))
+        history_record = {
+            "update_index": sum(
+                1
+                for row in self.model_es_history
+                if isinstance(row.get("seeds"), list)
+                and isinstance(row.get("rewards"), list)
+                and len(row["seeds"]) == len(row["rewards"])
+                and len(row["seeds"]) > 0
+            ),
+            "generation": int(getattr(self, "current_generation_index", 0)),
+            "operator": operator,
+            "seeds": [int(seed) for seed in seeds],
+            "rewards": [float(reward) for reward in rewards],
+            "alpha": alpha,
+            "sigma": sigma,
+            "sigma_start": base_sigma,
+            "sigma_end": end_sigma,
+            "sigma_schedule": sigma_schedule,
+            "sigma_warmup_steps": sigma_warmup_steps,
+            "reward_normalization": getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+            "reward_normalization_ddof": int(
+                getattr(self.paras, "llm_es_reward_normalization_ddof", 0)
+            ),
+            "reward_normalization_eps": float(
+                getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8)
+            ),
+            "update_applied": update_applied,
+            "update": update_info,
+        }
+        self.model_es_history.append(history_record)
+        atomic_write_history(self.model_es_history_path, self.model_es_history)
 
         return out_parents, offsprings
     # def process_task(self,pop, operator):
@@ -602,10 +842,11 @@ class InterfaceEC():
         if self._operator_uses_model_es(operator):
             return self._get_algorithm_with_model_es(pop, operator)
 
+        offspring_count = self._operator_offspring_count(operator)
         if self.local_evolutions:
-            pairs = [None] * self.pop_size
+            pairs = [None] * offspring_count
             results = []
-            max_workers = min(len(self.local_evolutions), self.pop_size)
+            max_workers = min(len(self.local_evolutions), offspring_count)
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = {
@@ -615,7 +856,7 @@ class InterfaceEC():
                             operator,
                             self.local_evolutions[i % len(self.local_evolutions)],
                         ): i
-                        for i in range(self.pop_size)
+                        for i in range(offspring_count)
                     }
                     done, not_done = concurrent.futures.wait(futures, timeout=self.generation_timeout)
                     for future in done:
@@ -641,7 +882,11 @@ class InterfaceEC():
                         'algorithm': None,
                         'code': None,
                         'objective': self.invalid_objective,
-                        'other_inf': {'error': 'generation timeout'}
+                        'other_inf': {
+                            'error': 'generation timeout',
+                            'operator_batch_size': offspring_count,
+                            'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
+                        }
                     })
                     pairs[i] = pair
             to_eval = [
@@ -657,7 +902,9 @@ class InterfaceEC():
         else:
             results = []
             try:
-                results = Parallel(n_jobs=self.n_p,timeout=self.timeout+15)(delayed(self.get_offspring)(pop, operator) for _ in range(self.pop_size))
+                results = Parallel(n_jobs=self.n_p,timeout=self.timeout+15)(
+                    delayed(self.get_offspring)(pop, operator) for _ in range(offspring_count)
+                )
             except Exception as e:
                 if self.debug:
                     print(f"Error: {e}")

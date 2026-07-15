@@ -150,6 +150,7 @@ class EOH:
         n_op = len(self.operators)
 
         for pop in range(n_start, self.n_pop):  
+            interface_ec.set_generation_context(pop, self.n_pop)
             #print(f" [{na + 1} / {self.pop_size}] ", end="|")         
             for i in range(n_op):
                 op = self.operators[i]

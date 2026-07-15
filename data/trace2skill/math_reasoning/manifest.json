@@ -1,0 +1,18 @@
+{
+  "setting": "math_reasoning",
+  "seed": 20260627,
+  "datasets": {
+    "dapo": "BytedTsinghua-SIA/DAPO-Math-17k",
+    "aime_2026": "MathArena/aime_2026"
+  },
+  "counts": {
+    "dapo_evolve": 400,
+    "dapo_test": 100,
+    "aime_2026": 30
+  },
+  "files": {
+    "dapo_evolve": "dapo_evolve.jsonl",
+    "dapo_test": "dapo_test.jsonl",
+    "aime_2026": "aime_2026.jsonl"
+  }
+}

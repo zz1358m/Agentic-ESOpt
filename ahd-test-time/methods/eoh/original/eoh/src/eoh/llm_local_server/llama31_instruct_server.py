@@ -1,5 +1,4 @@
 import gc
-import hashlib
 import inspect
 import os
 import sys
@@ -43,7 +42,7 @@ if args.d and args.d != ["cpu"]:
 import torch
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, LogitsProcessor
 
 _repo_root = next(
     (
@@ -63,6 +62,20 @@ from es import SeedReplayModelES
 
 if args.enable_lora:
     from peft import LoraConfig, TaskType, get_peft_model
+
+
+class PresencePenaltyLogitsProcessor(LogitsProcessor):
+    def __init__(self, penalty):
+        self.penalty = float(penalty)
+
+    def __call__(self, input_ids, scores):
+        if self.penalty == 0.0:
+            return scores
+        adjusted = scores.clone()
+        for row_idx in range(input_ids.shape[0]):
+            seen = torch.unique(input_ids[row_idx])
+            adjusted[row_idx, seen] -= self.penalty
+        return adjusted
 
 
 def _torch_dtype(dtype_name):
@@ -144,156 +157,6 @@ model.eval()
 app = Flask(__name__)
 CORS(app)
 model_es = SeedReplayModelES()
-_es_parameter_infos = None
-_es_parameter_scope = None
-_es_update_history = []
-
-
-def _stable_tensor_id(name):
-    digest = hashlib.blake2b(str(name).encode("utf-8"), digest_size=8).digest()
-    return int.from_bytes(digest, "little", signed=False)
-
-
-def _mix_seed(base_seed, tensor_id):
-    return (int(base_seed) ^ int(tensor_id)) & 0xFFFFFFFFFFFFFFFF
-
-
-def _normalize_parameter_scope(parameter_scope):
-    scope = str(parameter_scope or "full").strip().lower()
-    if scope not in {"full", "all_linear", "lora"}:
-        raise ValueError("parameter_scope must be 'full', 'all_linear', or 'lora'.")
-    return scope
-
-
-def _matches_target_module(module_suffix, target_modules):
-    if target_modules is None:
-        return True
-    return module_suffix in {str(module_name) for module_name in target_modules}
-
-
-def _gather_full_parameters(model):
-    seen_ids = set()
-    parameter_infos = []
-    for name, parameter in model.named_parameters():
-        if id(parameter) in seen_ids:
-            continue
-        if not torch.is_floating_point(parameter):
-            continue
-        seen_ids.add(id(parameter))
-        parameter_infos.append((name, _stable_tensor_id(name), parameter))
-    return parameter_infos
-
-
-def _gather_linear_parameters(model, target_modules=None):
-    skip_keywords = {"embed_tokens", "lm_head", "norm"}
-    seen_ids = set()
-    parameter_infos = []
-    for module_name, module in model.named_modules():
-        if any(keyword in module_name for keyword in skip_keywords):
-            continue
-        weight = getattr(module, "weight", None)
-        if weight is None or weight.ndim != 2 or id(weight) in seen_ids:
-            continue
-        if not torch.is_floating_point(weight):
-            continue
-        module_suffix = module_name.split(".")[-1]
-        if not _matches_target_module(module_suffix, target_modules):
-            continue
-        name = f"{module_name}.weight"
-        seen_ids.add(id(weight))
-        parameter_infos.append((name, _stable_tensor_id(name), weight))
-    return parameter_infos
-
-
-def _gather_lora_parameters(model):
-    parameter_infos = []
-    for name, parameter in model.named_parameters():
-        if "lora_" not in name:
-            continue
-        if not torch.is_floating_point(parameter):
-            continue
-        parameter_infos.append((name, _stable_tensor_id(name), parameter))
-    if not parameter_infos:
-        raise RuntimeError("No LoRA parameters found. Start the policy server with --enable-lora.")
-    return parameter_infos
-
-
-def _iter_flat_chunks(numel, chunk_size=8_388_608):
-    for start in range(0, int(numel), int(chunk_size)):
-        end = min(start + int(chunk_size), int(numel))
-        yield start, end
-
-
-@torch.no_grad()
-def _apply_seeded_noise(parameter_infos, *, seed, sigma):
-    for _, tensor_id, parameter in parameter_infos:
-        parameter_flat = parameter.view(-1)
-        generator = torch.Generator(device=parameter.device)
-        generator.manual_seed(_mix_seed(seed, tensor_id))
-        for start, end in _iter_flat_chunks(parameter_flat.numel()):
-            noise = torch.randn(
-                (end - start,),
-                generator=generator,
-                dtype=torch.float32,
-                device=parameter.device,
-            )
-            parameter_flat[start:end].add_(noise.to(dtype=parameter.dtype), alpha=float(sigma))
-
-
-@torch.no_grad()
-def _apply_dipu_update(parameter_infos, *, seeds, weights, eta):
-    n = len(seeds)
-    if n == 0:
-        raise ValueError("ES update requires at least one seed.")
-    if len(seeds) != len(weights):
-        raise ValueError("ES update requires seeds and weights to have the same length.")
-
-    scale = float(eta) / float(n)
-    for _, tensor_id, parameter in parameter_infos:
-        parameter_flat = parameter.view(-1)
-        generators = []
-        coeffs = []
-        for seed, weight in zip(seeds, weights):
-            generator = torch.Generator(device=parameter.device)
-            generator.manual_seed(_mix_seed(seed, tensor_id))
-            generators.append(generator)
-            coeffs.append(scale * float(weight))
-
-        for start, end in _iter_flat_chunks(parameter_flat.numel()):
-            total_delta = torch.zeros((end - start,), dtype=torch.float32, device=parameter.device)
-            for generator, coeff in zip(generators, coeffs):
-                noise = torch.randn(
-                    (end - start,),
-                    generator=generator,
-                    dtype=torch.float32,
-                    device=parameter.device,
-                )
-                total_delta.add_(noise, alpha=coeff)
-            parameter_flat[start:end].add_(total_delta.to(dtype=parameter.dtype))
-
-
-def _normalize_rewards(rewards, mode, ddof=0, eps=1e-8):
-    tensor = torch.tensor(rewards, dtype=torch.float32)
-    normalized_mode = str(mode or "none").strip().lower()
-    if normalized_mode in {"none", "identity", "off"}:
-        return tensor.tolist()
-    if normalized_mode == "zscore":
-        if tensor.numel() <= int(ddof):
-            return torch.zeros_like(tensor).tolist()
-        std = torch.std(tensor, unbiased=bool(ddof))
-        return ((tensor - torch.mean(tensor)) / (std + float(eps))).tolist()
-    if normalized_mode == "centered_rank":
-        order = torch.argsort(torch.argsort(tensor))
-        if tensor.numel() == 1:
-            return [0.0]
-        return (order.float() / (tensor.numel() - 1) - 0.5).tolist()
-    raise ValueError(f"Unsupported reward_normalization: {mode}")
-
-
-def _require_es_initialized():
-    if _es_parameter_infos is None:
-        raise RuntimeError("Model ES is not initialized. Call /es/init first.")
-    return _es_parameter_infos
 
 
 def _format_prompt(prompt, params):
@@ -333,7 +196,19 @@ def _completion_params_from_payload(payload):
         params["max_new_tokens"] = payload["max_tokens"]
     if "max_completion_tokens" in payload and "max_new_tokens" not in params:
         params["max_new_tokens"] = payload["max_completion_tokens"]
-    for key in ("temperature", "top_p", "top_k", "do_sample", "stop"):
+    for key in (
+        "temperature",
+        "top_p",
+        "top_k",
+        "min_p",
+        "do_sample",
+        "stop",
+        "repetition_penalty",
+        "presence_penalty",
+        "enable_thinking",
+        "use_chat_template",
+        "system_prompt",
+    ):
         if key in payload and key not in params:
             params[key] = payload[key]
     return params
@@ -349,6 +224,9 @@ def _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt):
     temperature = params.get("temperature", 0.6)
     top_k = params.get("top_k", None)
     top_p = params.get("top_p", 0.9)
+    min_p = params.get("min_p", None)
+    repetition_penalty = params.get("repetition_penalty", None)
+    presence_penalty = params.get("presence_penalty", 0.0)
     num_return_sequences = params.get("num_return_sequences", 1)
     eos_token_id = params.get("eos_token_id", _eos_token_ids(tokenizer))
     pad_token_id = params.get("pad_token_id", tokenizer.pad_token_id)
@@ -376,6 +254,12 @@ def _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt):
                 generate_kwargs["top_k"] = top_k
             if top_p is not None:
                 generate_kwargs["top_p"] = top_p
+            if min_p is not None:
+                generate_kwargs["min_p"] = min_p
+        if repetition_penalty is not None:
+            generate_kwargs["repetition_penalty"] = repetition_penalty
+        if float(presence_penalty or 0.0) != 0.0:
+            generate_kwargs["logits_processor"] = [PresencePenaltyLogitsProcessor(presence_penalty)]
 
         try:
             with torch.inference_mode():

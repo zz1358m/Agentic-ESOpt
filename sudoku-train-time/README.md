@@ -1,46 +1,36 @@
-# Sudoku Setting
+# Sudoku
 
-Sudoku is a controllable reasoning setting for Llama-3.1-8B-Instruct. Code
-lives here; generated datasets live under `data/sudoku/`.
+This setting maintains Dynamic-Agent and an asynchronous multi-turn GRPO
+baseline. A model emits one `set <row> <col> <value>` action per turn; the
+environment updates the board and gives sparse terminal reward for a complete,
+legal board that preserves all givens.
 
-Generate legal solved boards and masked puzzles:
+Prepare controlled-mask JSONL data:
 
 ```bash
 python sudoku-train-time/scripts/generate_sudoku_data.py \
-  --output-dir data/sudoku \
-  --train-size 192 \
-  --eval-size 192 \
-  --mask-counts 10,20,30,40,50,60
+  --output-dir data/sudoku --train-size 128 --eval-size 128 \
+  --mask-counts 5,10,15,20
 ```
 
-`mask_count` is the number of hidden cells. Larger values make the puzzle
-harder. The default split has 32 train and 32 eval puzzles per mask count.
-Each JSONL row contains the solved board, masked puzzle, and metadata.
-
-Run Dynamic-Agent ES against OpenAI-compatible local Llama-3.1-8B endpoints.
-Evaluation is an agentic action loop: each model call must return one action,
-`set <row> <col> <value>`. The environment updates the board after valid
-actions and stops immediately when the board is full.
+Run Dynamic-Agent:
 
 ```bash
-scripts/sudoku/run_es.sh
+SUDOKU_TARGET_MASK_COUNT=15 \
+SUDOKU_ES_SIGMA_START=1e-3 SUDOKU_ES_SIGMA_END=1e-4 \
+SUDOKU_ES_SIGMA_SCHEDULE=cosine scripts/sudoku/run_es.sh
 ```
 
-The GRPO entrypoint is kept for the next training step, but full interactive
-multi-turn GRPO wiring is intentionally separate from the current ES eval path:
+The history defaults to `runs/sudoku_es/<run-id>/history.json`. Set
+`SUDOKU_ES_RESUME_HISTORY` to replay a prior run.
+
+Run the maintained multi-turn GRPO baseline:
 
 ```bash
-scripts/sudoku/run_grpo.sh
+VERL_TOOL_ROOT=/path/to/verl-tool \
+SUDOKU_TARGET_MASK_COUNT=15 scripts/sudoku/run_grpo.sh
 ```
 
-Training uses one fixed difficulty per run. Set `SUDOKU_TARGET_MASK_COUNT` to
-one of `10,20,30,40,50,60`; the default is `50`.
-
-```bash
-SUDOKU_TARGET_MASK_COUNT=30 scripts/sudoku/run_es.sh
-SUDOKU_TARGET_MASK_COUNT=30 scripts/sudoku/run_grpo.sh
-```
-
-The verifier gives full reward when the filled board is a legal Sudoku solution
-that preserves all givens. It does not require matching the generator's
-reference solution if the masked puzzle admits multiple solutions.
+`prepare_verl_data.py`, `install_verl_tool_adapter.py`, and `verl_tool/` provide
+the dataset, tool, and binary reward integration. The old single-turn TRL
+trainer is preserved in `deprecated/sudoku/`.

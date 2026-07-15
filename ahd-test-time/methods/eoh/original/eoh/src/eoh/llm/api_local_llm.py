@@ -14,6 +14,8 @@ class InterfaceLocalLLM:
         self._urls = urls or [url]
         self._url = self._urls[0]  # 'http://127.0.0.1:11045/completions'
         self._timeout = float(timeout) if timeout is not None else 180.0
+        self._temperature = float(os.environ.get("LLM_TEMPERATURE", "1.0"))
+        self._top_p = float(os.environ.get("LLM_TOP_P", "0.98"))
         self._counter = 0
 
     def get_response(self, content: str) -> str:
@@ -32,8 +34,8 @@ class InterfaceLocalLLM:
                 'model': 'local',
                 'prompt': content,
                 'max_tokens': 768,
-                'temperature': 1.0,
-                'top_p': 0.98,
+                'temperature': self._temperature,
+                'top_p': self._top_p,
                 'seed': 2024,
             }
             headers = {'Content-Type': 'application/json'}
@@ -49,9 +51,9 @@ class InterfaceLocalLLM:
             'repeat_prompt': 1,
             'params': {
                 'do_sample': True,
-                'temperature': 1.0,
+                'temperature': self._temperature,
                 'top_k': None,
-                'top_p': 0.98,
+                'top_p': self._top_p,
                 'add_special_tokens': False,
                 'skip_special_tokens': True,
             }

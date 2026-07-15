@@ -1,4 +1,5 @@
 import hashlib
+import math
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
@@ -19,6 +20,7 @@ class SeedReplayModelES:
         self.parameter_infos: Optional[List[ParameterInfo]] = None
         self.parameter_scope: Optional[str] = None
         self.update_history: List[Dict[str, Any]] = []
+        self.active_perturbation: Optional[Dict[str, Any]] = None
 
     def init(
         self,
@@ -28,6 +30,11 @@ class SeedReplayModelES:
         target_modules: Optional[Iterable[str]] = None,
         verbose: bool = True,
     ) -> Dict[str, Any]:
+        previous_state_reset = None
+        if self.parameter_infos is not None:
+            # /es/init is the boundary of a run. Make it idempotent so replaying
+            # a history on a reused server cannot stack updates from the prior run.
+            previous_state_reset = self.reset()
         scope = self._normalize_parameter_scope(parameter_scope)
         if scope == "full":
             parameter_infos = self._gather_full_parameters(model)
@@ -35,10 +42,13 @@ class SeedReplayModelES:
             parameter_infos = self._gather_linear_parameters(model, target_modules=target_modules)
         else:
             parameter_infos = self._gather_lora_parameters(model)
+        if not parameter_infos:
+            raise RuntimeError(f"No floating-point parameters selected for scope {scope!r}.")
 
         self.parameter_infos = parameter_infos
         self.parameter_scope = scope
         self.update_history = []
+        self.active_perturbation = None
         total_params = sum(parameter.numel() for _, _, parameter in parameter_infos)
         if verbose:
             print(f"[MODEL_ES] scope={scope}, tensors={len(parameter_infos)}, params={total_params:,}")
@@ -47,15 +57,36 @@ class SeedReplayModelES:
             "parameter_scope": scope,
             "n_tensors": len(parameter_infos),
             "total_params": int(total_params),
+            "previous_state_reset": previous_state_reset,
         }
 
     def apply(self, *, seed: int, sigma: float) -> Dict[str, Any]:
+        if not math.isfinite(float(sigma)) or float(sigma) < 0.0:
+            raise ValueError("sigma must be finite and non-negative.")
+        requested = {"seed": int(seed), "sigma": float(sigma)}
+        if self.active_perturbation is not None:
+            if self.active_perturbation == requested:
+                return {"ok": True, **requested, "already_applied": True}
+            raise RuntimeError(
+                f"Cannot apply {requested}: perturbation {self.active_perturbation} is still active."
+            )
         self._apply_seeded_noise(self._require_initialized(), seed=seed, sigma=sigma)
-        return {"ok": True, "seed": int(seed), "sigma": float(sigma)}
+        self.active_perturbation = requested
+        return {"ok": True, **requested, "already_applied": False}
 
     def revert(self, *, seed: int, sigma: float) -> Dict[str, Any]:
+        if not math.isfinite(float(sigma)) or float(sigma) < 0.0:
+            raise ValueError("sigma must be finite and non-negative.")
+        requested = {"seed": int(seed), "sigma": float(sigma)}
+        if self.active_perturbation is None:
+            return {"ok": True, **requested, "already_reverted": True}
+        if self.active_perturbation != requested:
+            raise RuntimeError(
+                f"Cannot revert {requested}: active perturbation is {self.active_perturbation}."
+            )
         self._apply_seeded_noise(self._require_initialized(), seed=seed, sigma=-float(sigma))
-        return {"ok": True, "seed": int(seed), "sigma": -float(sigma)}
+        self.active_perturbation = None
+        return {"ok": True, **requested, "already_reverted": False}
 
     def update(
         self,
@@ -68,8 +99,23 @@ class SeedReplayModelES:
         reward_normalization_eps: float = 1e-8,
     ) -> Dict[str, Any]:
         parameter_infos = self._require_initialized()
+        if self.active_perturbation is not None:
+            raise RuntimeError(
+                "Cannot update model weights while a perturbation is active; "
+                "revert it before /es/update."
+            )
         normalized_seeds = [int(seed) for seed in seeds]
         normalized_rewards = [float(reward) for reward in rewards]
+        if not normalized_seeds or len(normalized_seeds) != len(normalized_rewards):
+            raise ValueError("ES update requires equally sized, non-empty seeds and rewards.")
+        if not all(math.isfinite(reward) for reward in normalized_rewards):
+            raise ValueError("ES rewards must all be finite.")
+        if not math.isfinite(float(alpha)) or float(alpha) < 0.0:
+            raise ValueError("alpha must be finite and non-negative.")
+        if int(reward_normalization_ddof) < 0:
+            raise ValueError("reward_normalization_ddof must be non-negative.")
+        if not math.isfinite(float(reward_normalization_eps)) or float(reward_normalization_eps) <= 0.0:
+            raise ValueError("reward_normalization_eps must be finite and positive.")
         weights = self._normalize_rewards(
             normalized_rewards,
             reward_normalization,
@@ -92,6 +138,14 @@ class SeedReplayModelES:
 
     def reset(self) -> Dict[str, Any]:
         parameter_infos = self._require_initialized()
+        reverted_perturbation = self.active_perturbation
+        if reverted_perturbation is not None:
+            self._apply_seeded_noise(
+                parameter_infos,
+                seed=int(reverted_perturbation["seed"]),
+                sigma=-float(reverted_perturbation["sigma"]),
+            )
+            self.active_perturbation = None
         n_updates = len(self.update_history)
         for item in reversed(self.update_history):
             self._apply_dipu_update(
@@ -101,7 +155,11 @@ class SeedReplayModelES:
                 eta=-float(item["alpha"]),
             )
         self.update_history = []
-        return {"ok": True, "reverted_updates": n_updates}
+        return {
+            "ok": True,
+            "reverted_updates": n_updates,
+            "reverted_perturbation": reverted_perturbation,
+        }
 
     def status(self) -> Dict[str, Any]:
         parameter_infos = self.parameter_infos or []
@@ -113,6 +171,7 @@ class SeedReplayModelES:
             "n_tensors": len(parameter_infos),
             "total_params": int(total_params),
             "update_history": len(self.update_history),
+            "active_perturbation": self.active_perturbation,
         }
 
     @staticmethod

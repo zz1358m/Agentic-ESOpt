@@ -1,117 +1,64 @@
-# ES Module
+# Shared Dynamic-Agent ES layer
 
-`es/` contains the shared evolution-strategy interface used by the active
-settings:
-
-- `ahd-test-time`
-- `jericho-test-time`
-- `webarena-train-time`
-
-The setting directories decide what base method to evaluate. The ES module
-defines how a model endpoint is initialized, perturbed, reverted, and updated.
-
-## Files
+`es/` contains task-independent model-weight evolution code used by Sudoku,
+Math, DocVQA, WebArena, and AHD.
 
 ```text
-es/
-  __init__.py
-  model_es_client.py
-  registry.py
-  seeded_model_es.py
+model_es_client.py   HTTP client for /es/* routes
+seeded_model_es.py   deterministic noise and model update implementation
+run_state.py         sigma schedules, atomic history, validation, replay
+registry.py          method metadata
+test_run_state.py    schedule and history unit tests
 ```
 
-- `model_es_client.py`: HTTP client for model-server ES endpoints.
-- `seeded_model_es.py`: executable seed-replay ES implementation for live
-  torch model parameters.
-- `registry.py`: method metadata for the shared Dynamic-Agent ES method.
+## Sigma contract
 
-The model server owns HTTP routing and generation:
+Task runners supply an explicit start and end:
 
-```text
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/llama31_instruct_server.py
+```python
+from es.run_state import sigma_at_step
+
+sigma = sigma_at_step(
+    sigma_start=1e-3,
+    sigma_end=1e-4,
+    step=generation,
+    total_steps=20,
+    schedule="cosine",  # constant, linear, or cosine
+    warmup_steps=0,
+)
 ```
 
-That server exposes `/es/*` endpoints and delegates the actual parameter
-selection, seeded perturbation, ES update, and reset to `SeedReplayModelES`.
+For linear and cosine schedules, the first scheduled step is exactly
+`sigma_start` and the last is exactly `sigma_end`. Warmup keeps the start value
+fixed before the decay. A decay needs at least two generations; with one
+generation, the sole perturbation uses `sigma_start`.
 
-## Parameter Scopes
+## Endpoint protocol
 
-Supported scopes are:
-
-```text
-full
-all_linear
-lora
-```
-
-- `full`: perturb all selected model parameters.
-- `all_linear`: perturb linear-layer parameters.
-- `lora`: perturb only LoRA adapter parameters. The server must be started with
-  LoRA enabled before `/es/init` can use this scope.
-
-## Endpoint Protocol
-
-### `/es/init`
-
-Initializes the perturbation parameter set.
-
-Payload:
+Initialize the selected parameter scope:
 
 ```json
-{
-  "parameter_scope": "full",
-  "target_modules": null,
-  "verbose": true
-}
+POST /es/init
+{"parameter_scope": "full", "target_modules": null, "verbose": true}
 ```
 
-Response includes the selected scope and parameter count.
+Calling `/es/init` again first restores all tracked updates and any active
+perturbation, so replay on a reused server starts from the same base weights.
 
-### `/es/apply`
-
-Applies deterministic Gaussian noise generated from a seed.
-
-Payload:
+Apply and revert deterministic Gaussian noise:
 
 ```json
-{
-  "seed": 123,
-  "sigma": 0.001
-}
+POST /es/apply
+{"seed": 123, "sigma": 0.001}
+
+POST /es/revert
+{"seed": 123, "sigma": 0.001}
 ```
 
-The server adds:
-
-```text
-theta <- theta + sigma * epsilon(seed)
-```
-
-### `/es/revert`
-
-Reverts the exact perturbation from the same seed and sigma.
-
-Payload:
+Apply the seed-replay update:
 
 ```json
-{
-  "seed": 123,
-  "sigma": 0.001
-}
-```
-
-The server applies:
-
-```text
-theta <- theta - sigma * epsilon(seed)
-```
-
-### `/es/update`
-
-Applies a seed-replay ES update from evaluated rewards.
-
-Payload:
-
-```json
+POST /es/update
 {
   "seeds": [123, 456],
   "rewards": [0.4, 0.8],
@@ -122,56 +69,38 @@ Payload:
 }
 ```
 
-The server normalizes rewards, regenerates each seed's noise, and updates:
+The server regenerates each noise direction and applies:
 
 ```text
-theta <- theta + (alpha / N) * sum_i normalized_reward_i * epsilon(seed_i)
+theta <- theta + (alpha / N) * sum_i weight_i * epsilon(seed_i)
 ```
 
-### `/es/reset`
+`/es/reset` undoes the ES state accumulated after initialization, and
+`/es/status` reports the selected parameter set and active state.
 
-Restores the server-side ES state to the initialized method weights.
+Supported scopes are `full`, `all_linear`, and `lora`. LoRA scope requires the
+server model to have LoRA parameters before `/es/init`.
 
-### `/es/status`
+## Durable history
 
-Returns current ES server state, including selected parameter scope where
-available.
+Every active task stores the seeds, raw rewards, alpha, normalization settings,
+schedule metadata, and server update responses in `history.json`. Writes use a
+temporary sibling followed by `os.replace`, so an interrupted process does not
+leave half-written JSON.
 
-## Setting Flows
+On resume, runners:
 
-### AHD
+1. initialize every fresh model endpoint;
+2. select completed update records;
+3. validate the deterministic seed stream and population;
+4. replay every update on every endpoint; and
+5. continue from the next generation.
 
-1. EoH proposes candidate heuristic code.
-2. A seed is sampled.
-3. The model server applies `/es/apply`.
-4. The candidate is evaluated by the AHD problem evaluator.
-5. The same seed is reverted with `/es/revert`.
-6. Candidate rewards are sent to `/es/update`.
+AHD additionally records the EoH generation and operator for each model update.
+Its model history is separate from EoH's saved population JSON.
 
-### Jericho
+Run the unit tests with:
 
-1. The policy endpoint initializes LoRA ES with `parameter_scope=lora`.
-2. Each rollout segment applies one seed.
-3. Segment reward is measured from environment score change.
-4. The seed is reverted at segment end.
-5. Episode segment advantages are sent to `/es/update`.
-
-### WebArena
-
-1. A training batch of WebArena/WebRL tasks is selected.
-2. Each population sample applies one seed.
-3. The task batch is evaluated through the WebArena runner.
-4. The seed is reverted.
-5. Batch rewards are normalized and sent to `/es/update`.
-
-## Client Usage
-
-```python
-from es import ModelESClient
-
-client = ModelESClient("http://127.0.0.1:11013/completions")
-client.init(parameter_scope="lora")
-client.apply_perturbation(seed=123, sigma=0.001)
-client.revert_perturbation(seed=123, sigma=0.001)
-client.update(seeds=[123], rewards=[1.0], alpha=0.001)
+```bash
+python -m unittest es.test_run_state -v
 ```

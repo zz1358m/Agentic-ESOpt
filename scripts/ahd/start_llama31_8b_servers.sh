@@ -10,6 +10,14 @@ LOGDIR="$RUN_ROOT/logs"
 
 PORTS=(${PORTS:-11013 11014 11015 11016})
 GPUS=(${GPUS:-0 1 2 3})
+if [[ "${#PORTS[@]}" -ne "${#GPUS[@]}" ]]; then
+  echo "PORTS and GPUS must contain the same number of entries." >&2
+  exit 2
+fi
+SERVER_ARGS=()
+if [[ -n "${MODEL_SERVER_EXTRA_ARGS:-}" ]]; then
+  read -r -a SERVER_ARGS <<< "$MODEL_SERVER_EXTRA_ARGS"
+fi
 
 mkdir -p "$LOGDIR"
 
@@ -54,6 +62,7 @@ for i in "${!PORTS[@]}"; do
   fi
   setsid "$PY" "$ROOT/ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/llama31_instruct_server.py" \
     --path "$MODEL" --d "$gpu" --port "$port" --host 127.0.0.1 \
+    "${SERVER_ARGS[@]}" \
     >"$log" 2>&1 < /dev/null &
   pid=$!
   echo "$pid" > "$LOGDIR/server_gpu${gpu}_port${port}.pid"

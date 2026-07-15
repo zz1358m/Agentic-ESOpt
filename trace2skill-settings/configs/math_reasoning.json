@@ -1,0 +1,26 @@
+{
+  "setting": "math_reasoning",
+  "paper_section": "3.4 Math Reasoning",
+  "task_family": "ReAct with command-line Python",
+  "data_root": "data/trace2skill/math_reasoning",
+  "datasets": {
+    "dapo": "BytedTsinghua-SIA/DAPO-Math-17k",
+    "aime_2026": "MathArena/aime_2026"
+  },
+  "splits": {
+    "evolve": {
+      "file": "dapo_evolve.jsonl",
+      "count": 400
+    },
+    "dapo_test": {
+      "file": "dapo_test.jsonl",
+      "count": 100
+    },
+    "aime_2026": {
+      "file": "aime_2026.jsonl",
+      "count": 30
+    }
+  },
+  "initial_skill": "trace2skill-settings/skills/math_reasoning/SKILL.md",
+  "metric": "pass_rate"
+}

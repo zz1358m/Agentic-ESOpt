@@ -77,7 +77,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default="data/sudoku")
     parser.add_argument("--train-size", type=int, default=192)
     parser.add_argument("--eval-size", type=int, default=192)
-    parser.add_argument("--mask-counts", default="10,20,30,40,50,60")
+    parser.add_argument("--mask-counts", default="5,10,15,20")
     parser.add_argument("--seed", type=int, default=20260701)
     args = parser.parse_args()
 

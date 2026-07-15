@@ -11,15 +11,28 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from urllib import request
+from urllib import error, request
 
 
 ROOT = Path(os.environ.get("ROOT", Path(__file__).resolve().parents[2])).resolve()
+sys.path.insert(0, str(ROOT))
 VAB = Path(os.environ.get("VAB_ROOT", ROOT / "data/webarena/vab-lite")).resolve()
 PY = Path(os.environ.get("PY", sys.executable))
 DEFAULT_CONFIG_DIR = ROOT / "data/webarena/vab-lite/config_files/wa/test_webarena_lite"
 DEFAULT_SPLIT = ROOT / "data/webarena/vab_lite_split/items.json"
-DEFAULT_WEBRL_TRAJECTORIES = ROOT / "data/webarena/skillopt_splits/train/trajectories.jsonl"
+DEFAULT_TRAIN_CONFIG_DIR = ROOT / "data/webarena/vab-lite/config_files/wa/test_webarena"
+DEFAULT_TRAIN_SPLIT = ROOT / "data/webarena/vab_nonlite_split/train/items.json"
+from es.run_state import (  # noqa: E402
+    atomic_write_history,
+    completed_update_records,
+    history_prefix_through_updates,
+    read_history,
+    replay_http_updates,
+    resolve_warmup_steps,
+    sigma_at_step,
+    validate_es_run_shape,
+    validate_seed_sequence,
+)
 
 
 def web_urls_from_env() -> dict[str, str]:
@@ -39,7 +52,7 @@ def web_urls_from_env() -> dict[str, str]:
 WEB_URLS = web_urls_from_env()
 
 
-def post_json(url: str, payload: dict) -> dict:
+def post_json(url: str, payload: dict, *, timeout: float = 600) -> dict:
     data = json.dumps(payload).encode()
     req = request.Request(
         url,
@@ -47,8 +60,32 @@ def post_json(url: str, payload: dict) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with request.urlopen(req, timeout=600) as resp:
+    with request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode())
+
+
+def post_json_retry(
+    url: str,
+    payload: dict,
+    *,
+    attempts: int = 3,
+    delay_seconds: float = 5.0,
+) -> dict:
+    last_error: Exception | None = None
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            return post_json(url, payload)
+        except (TimeoutError, error.URLError) as exc:
+            last_error = exc
+            if attempt >= attempts:
+                break
+            print(
+                f"[http_retry] url={url} attempt={attempt}/{attempts} error={exc!r}",
+                flush=True,
+            )
+            time.sleep(delay_seconds)
+    assert last_error is not None
+    raise last_error
 
 
 def load_tasks(split_path: Path, allowed_sites: set[str], limit: int) -> list[int]:
@@ -80,6 +117,37 @@ def load_tasks(split_path: Path, allowed_sites: set[str], limit: int) -> list[in
     if not task_ids:
         raise RuntimeError(f"No tasks selected from {split_path}")
     return task_ids
+
+
+def validate_config_alignment(split_path: Path, task_ids: list[int], config_dir: Path) -> None:
+    """Fail fast if split metadata points at different configs than config_dir."""
+    items = json.loads(split_path.read_text())
+    selected = set(task_ids)
+    mismatches = []
+    missing = []
+    for item in items:
+        task_id = int(item["task_id"])
+        if task_id not in selected or not item.get("config_path"):
+            continue
+        expected = Path(item["config_path"])
+        actual = config_dir / f"{task_id}.json"
+        if not expected.exists() or not actual.exists():
+            missing.append((task_id, str(expected), str(actual)))
+            continue
+        expected_json = json.dumps(json.loads(expected.read_text()), sort_keys=True)
+        actual_json = json.dumps(json.loads(actual.read_text()), sort_keys=True)
+        if expected_json != actual_json:
+            mismatches.append((task_id, str(expected), str(actual)))
+    if missing or mismatches:
+        detail = {
+            "missing": missing[:10],
+            "mismatches": mismatches[:20],
+            "missing_count": len(missing),
+            "mismatch_count": len(mismatches),
+        }
+        raise ValueError(
+            f"Config directory is not aligned with split config_path metadata: {json.dumps(detail, indent=2)}"
+        )
 
 
 def eval_tasks(
@@ -244,49 +312,63 @@ def run_episode(
         (result_dir / "run.log").write_text(proc.stdout)
         action_paths = sorted((result_dir / "actions").glob("*.json"))
         if not action_paths:
-            return -1.0
+            return 0.0
         try:
-            return float(json.loads(action_paths[-1].read_text()).get("score", 0.0))
+            return max(0.0, float(json.loads(action_paths[-1].read_text()).get("score", 0.0)))
         except Exception:
-            return -1.0
+            return 0.0
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--split", default="")
+    parser.add_argument("--split", default=str(DEFAULT_TRAIN_SPLIT))
     parser.add_argument("--eval-split", default=str(DEFAULT_SPLIT))
     parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
-    parser.add_argument("--train-config-dir", default="")
-    parser.add_argument(
-        "--train-source",
-        default=os.environ.get("WEBRL_ES_TRAIN_SOURCE", "environment"),
-        choices=["environment", "webrl_sft"],
-        help=(
-            "environment runs perturbed policies in browser tasks. "
-            "webrl_sft is reserved for offline WebRL trajectory objectives and is not implemented here."
-        ),
-    )
-    parser.add_argument("--webrl-trajectories", default=str(DEFAULT_WEBRL_TRAJECTORIES))
+    parser.add_argument("--train-config-dir", default=str(DEFAULT_TRAIN_CONFIG_DIR))
     parser.add_argument("--sites", default="shopping,shopping_admin,reddit,gitlab,wikipedia,map")
     parser.add_argument("--episodes", type=int, default=0)
-    parser.add_argument("--generations", type=int, default=1)
-    parser.add_argument("--population", type=int, default=8)
-    parser.add_argument("--case-batch-size", type=int, default=8)
-    parser.add_argument("--sigma", type=float, default=5e-4)
-    parser.add_argument("--alpha", type=float, default=5e-4)
+    parser.add_argument("--generations", type=int, default=3)
+    parser.add_argument("--population", type=int, default=16)
+    parser.add_argument("--case-batch-size", type=int, default=16)
+    parser.add_argument("--sigma-start", type=float, default=float(os.environ.get("WEBRL_ES_SIGMA_START", "1e-3")))
+    parser.add_argument("--sigma-end", type=float, default=float(os.environ.get("WEBRL_ES_SIGMA_END", os.environ.get("WEBRL_ES_SIGMA_START", "1e-3"))))
+    parser.add_argument(
+        "--sigma-schedule",
+        default=os.environ.get("WEBRL_ES_SIGMA_SCHEDULE", "constant"),
+        choices=["constant", "linear", "cosine"],
+    )
+    parser.add_argument(
+        "--sigma-warmup-steps",
+        type=int,
+        default=int(os.environ.get("WEBRL_ES_SIGMA_WARMUP_STEPS", "0")),
+        help="Number of initial generations to keep sigma fixed.",
+    )
+    parser.add_argument("--alpha", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=20260604)
     parser.add_argument("--reward-normalization", default="zscore")
-    parser.add_argument("--skill-file", default="")
+    parser.add_argument(
+        "--skill-file",
+        default="",
+    )
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--eval-limit", type=int, default=0)
     parser.add_argument("--skip-initial-eval", action="store_true")
-    parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl_chat_qwen_action.json")
-    parser.add_argument("--model-name", default="Qwen3.5-27B")
-    parser.add_argument("--mode", default="chat", choices=["completion", "chat"])
-    parser.add_argument("--stop-token", default="")
+    parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl.json")
+    parser.add_argument("--model-name", default="Llama-3.1-8B-Instruct")
+    parser.add_argument("--mode", default="completion", choices=["completion", "chat"])
+    parser.add_argument("--stop-token", default="<|eot_id|>")
+    parser.add_argument("--history-file", default=os.environ.get("WEBRL_ES_HISTORY_FILE", ""))
+    parser.add_argument("--resume-history", default=os.environ.get("WEBRL_ES_RESUME_HISTORY", ""))
+    parser.add_argument("--resume-generations", type=int, default=int(os.environ.get("WEBRL_ES_RESUME_GENERATIONS", "-1")))
     args = parser.parse_args()
+    validate_es_run_shape(
+        generations=args.generations,
+        population=args.population,
+        case_batch_size=args.case_batch_size,
+    )
+    sigma_warmup_steps = resolve_warmup_steps(args.generations, args.sigma_warmup_steps)
 
     if not VAB.exists():
         raise FileNotFoundError(
@@ -296,28 +378,16 @@ def main() -> None:
 
     result_root = ROOT / "runs/webrl_lite_full_es" / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
+    history_path = Path(args.history_file).expanduser().resolve() if args.history_file else result_root / "history.json"
     allowed_sites = {site.strip() for site in args.sites.split(",") if site.strip()}
     eval_task_ids = load_tasks(Path(args.eval_split), allowed_sites, args.eval_limit)
     config_dir = Path(args.config_dir)
     if not config_dir.exists():
         raise FileNotFoundError(config_dir)
-    if args.train_source == "webrl_sft":
-        trajectory_path = Path(args.webrl_trajectories)
-        if not trajectory_path.exists():
-            raise FileNotFoundError(
-                f"WebRL SFT trajectories not found: {trajectory_path}. "
-                "Prepare data/webarena/vab_lite_split/items.json or pass --split/--eval-split explicitly."
-            )
-        raise NotImplementedError(
-            "Offline WebRL-SFT ES training is not implemented in this runner. "
-            "Use --train-source environment with --split and --train-config-dir for browser-interaction ES, "
-            "or add an explicit trajectory-scoring objective before enabling WebRL-SFT ES."
-        )
     if not args.split:
         raise ValueError(
             "--split is required for environment ES training. "
-            "Use data/webarena/vab_lite_split/items.json only for VAB/WebRL WebArena-Lite evaluation; "
-            "training needs a config-backed split plus --train-config-dir."
+            "Use data/webarena/vab_nonlite_split/train/items.json with --train-config-dir."
         )
     task_ids = load_tasks(Path(args.split), allowed_sites, args.episodes) if args.split else []
     train_config_dir = Path(args.train_config_dir) if args.train_config_dir else None
@@ -333,13 +403,37 @@ def main() -> None:
     print(f"[es_init] {init}", flush=True)
     print(
         f"[setting] population={args.population} case_batch_size={args.case_batch_size} "
-        f"sigma={args.sigma} alpha={args.alpha} parameter_scope={args.parameter_scope} "
+        f"sigma_start={args.sigma_start} sigma_end={args.sigma_end} sigma_schedule={args.sigma_schedule} "
+        f"sigma_warmup_steps={sigma_warmup_steps} "
+        f"alpha={args.alpha} parameter_scope={args.parameter_scope} "
         f"skill_file={skill_file or ''} train_config_dir={train_config_dir or ''} eval_config_dir={config_dir}",
         flush=True,
     )
 
     rng = random.Random(args.seed)
-    history = []
+    history = [{"config": {"sigma_start": args.sigma_start, "sigma_end": args.sigma_end, "sigma_schedule": args.sigma_schedule, "sigma_warmup_steps": sigma_warmup_steps, "alpha": args.alpha, "population": args.population, "seed": args.seed, "history_file": str(history_path)}}]
+    start_generation = 0
+    if args.resume_history:
+        source_history = read_history(args.resume_history)
+        replay_limit = None if args.resume_generations < 0 else args.resume_generations
+        resume_records = completed_update_records(source_history, limit=replay_limit)
+        start_generation = validate_seed_sequence(resume_records, population=args.population, seed=args.seed)
+        replay_log = replay_http_updates(
+            endpoints=[args.endpoint],
+            records=resume_records,
+            post_json=post_json,
+            timeout=600,
+            default_alpha=args.alpha,
+            default_reward_normalization=args.reward_normalization,
+        )
+        history = history_prefix_through_updates(source_history, len(resume_records))
+        history.append({"resume": {"source": str(Path(args.resume_history).expanduser().resolve()), "replayed_generations": start_generation, "replay_log": replay_log}})
+        if start_generation > args.generations:
+            raise ValueError(
+                f"Resume history has {start_generation} generations, but --generations={args.generations}."
+            )
+        print(f"[resume] replayed={start_generation} next_generation={start_generation}", flush=True)
+    atomic_write_history(history_path, history)
     if not args.skip_initial_eval:
         initial_eval = eval_tasks(
             endpoint=args.endpoint,
@@ -360,20 +454,30 @@ def main() -> None:
                 "eval": initial_eval,
             }
         )
-        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n")
+        atomic_write_history(history_path, history)
         print(f"[initial_eval] {initial_eval}", flush=True)
 
-    for generation in range(args.generations):
+    for _ in range(start_generation * args.population):
+        rng.randrange(1, 2**31 - 1)
+    for generation in range(start_generation, args.generations):
+        sigma_t = sigma_at_step(
+            sigma_start=args.sigma_start,
+            sigma_end=args.sigma_end,
+            step=generation,
+            total_steps=args.generations,
+            schedule=args.sigma_schedule,
+            warmup_steps=sigma_warmup_steps,
+        )
         seeds = []
         rewards = []
         batch_start = (generation * args.case_batch_size) % len(task_ids)
         selected = [task_ids[(batch_start + i) % len(task_ids)] for i in range(args.case_batch_size)]
-        print(f"[generation {generation}] case_batch={selected}", flush=True)
+        print(f"[generation {generation}] sigma={sigma_t:.12g} case_batch={selected}", flush=True)
         sample_records = []
         for i in range(args.population):
             seed = rng.randrange(1, 2**31 - 1)
             seeds.append(seed)
-            post_json(f"{args.endpoint}/es/apply", {"seed": seed, "sigma": args.sigma})
+            post_json(f"{args.endpoint}/es/apply", {"seed": seed, "sigma": sigma_t})
             case_scores = []
             try:
                 for task_id in selected:
@@ -391,9 +495,8 @@ def main() -> None:
                     )
                     case_scores.append(score)
             finally:
-                post_json(f"{args.endpoint}/es/revert", {"seed": seed, "sigma": args.sigma})
-            valid_scores = [score for score in case_scores if score != -1.0]
-            reward = sum(valid_scores) / len(valid_scores) if valid_scores else -1.0
+                post_json_retry(f"{args.endpoint}/es/revert", {"seed": seed, "sigma": sigma_t})
+            reward = sum(case_scores) / len(case_scores) if case_scores else 0.0
             rewards.append(reward)
             sample_records.append({"seed": seed, "case_scores": case_scores, "reward": reward})
             print(
@@ -426,14 +529,21 @@ def main() -> None:
         rec = {
             "generation": generation,
             "case_batch": selected,
+            "sigma": sigma_t,
+            "sigma_start": args.sigma_start,
+            "sigma_end": args.sigma_end,
+            "sigma_schedule": args.sigma_schedule,
+            "sigma_warmup_steps": sigma_warmup_steps,
             "seeds": seeds,
             "rewards": rewards,
+            "alpha": args.alpha,
+            "reward_normalization": args.reward_normalization,
             "samples": sample_records,
             "update": update,
             "eval": eval_rec,
         }
         history.append(rec)
-        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n")
+        atomic_write_history(history_path, history)
         print(f"[update] {update}", flush=True)
 
 

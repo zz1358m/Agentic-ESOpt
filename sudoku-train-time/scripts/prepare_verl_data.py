@@ -62,7 +62,7 @@ def main() -> None:
     parser.add_argument("--train-data", default=str(ROOT / "data/sudoku/train.jsonl"))
     parser.add_argument("--eval-data", default=str(ROOT / "data/sudoku/eval.jsonl"))
     parser.add_argument("--output-dir", default=str(ROOT / "data/sudoku/verl"))
-    parser.add_argument("--mask-count", type=int, default=int(os.environ.get("SUDOKU_TARGET_MASK_COUNT", "50")))
+    parser.add_argument("--mask-count", type=int, default=int(os.environ.get("SUDOKU_TARGET_MASK_COUNT", "15")))
     parser.add_argument("--train-limit", type=int, default=0)
     parser.add_argument("--eval-limit", type=int, default=0)
     args = parser.parse_args()

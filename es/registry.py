@@ -14,16 +14,17 @@ class ESMethodSpec:
 ES_METHOD_REGISTRY = {
     "dynamic_agent": ESMethodSpec(
         name="dynamic_agent",
-        status="experimental",
+        status="maintained",
         module="es.model_es_client",
         target_env_families=(
-            "ahd_construct",
-            "ahd_aco",
-            "agent_interactive_text",
-            "agent_web",
+            "sudoku",
+            "math",
+            "docvqa",
+            "webarena",
+            "ahd_test_time",
         ),
-        built_on=("eoh", "jitrl"),
-        notes="Dynamic-Agent: seed-replay model-weight update built on top of setting methods. Concrete support is enabled per setting.",
+        built_on=("seed_replay_model_updates", "eoh"),
+        notes="Dynamic-Agent model-weight optimization with explicit sigma schedules and deterministic history replay.",
     ),
 }
 

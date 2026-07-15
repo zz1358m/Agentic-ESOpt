@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+
+if [ -f "$ROOT/scripts/settings.local.env" ]; then
+  # shellcheck disable=SC1091
+  source "$ROOT/scripts/settings.local.env"
+fi
+
+VERL_ROOT="${VERL_ROOT:?Set VERL_ROOT to the upstream verl checkout.}"
+CONDA_ENV="${CONDA_ENV-grpo}"
+TASK="${TASK:-math}"
+
+case "${TASK}" in
+  math)
+    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-32}"
+    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-32}"
+    MAX_RESPONSE_LENGTH="${MAX_RESPONSE_LENGTH:-8192}"
+    MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-4096}"
+    TOTAL_EPOCHS="${TOTAL_EPOCHS:-15}"
+    TEST_FREQ="${TEST_FREQ:-5}"
+    ;;
+  docvqa)
+    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-10}"
+    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-10}"
+    MAX_RESPONSE_LENGTH="${MAX_RESPONSE_LENGTH:-4096}"
+    MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-4096}"
+    TOTAL_EPOCHS="${TOTAL_EPOCHS:-15}"
+    TEST_FREQ="${TEST_FREQ:-5}"
+    ;;
+  *)
+    echo "TASK must be math or docvqa, got ${TASK}" >&2
+    exit 2
+    ;;
+esac
+
+if [[ -n "${CONDA_ENV}" ]]; then
+  if [[ -n "${CONDA_SH:-}" && -f "${CONDA_SH}" ]]; then
+    # shellcheck disable=SC1090
+    source "${CONDA_SH}"
+  elif command -v conda >/dev/null 2>&1; then
+    eval "$(conda shell.bash hook)"
+  else
+    echo "Set CONDA_SH or put conda on PATH; use CONDA_ENV='' to use the current environment." >&2
+    exit 3
+  fi
+  conda activate "${CONDA_ENV}"
+fi
+
+export PYTHONUNBUFFERED=1
+export TOKENIZERS_PARALLELISM=false
+export HF_HOME="${HF_HOME:-${HOME}/.cache/huggingface}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-${HF_HOME}/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}/transformers}"
+export TMPDIR="${TRACE2SKILL_TMPDIR:-${TMPDIR:-/tmp}}"
+export TMP="${TMPDIR}"
+export TEMP="${TMPDIR}"
+mkdir -p "${TMPDIR}"
+export TRACE2SKILL_MATH_TOOL_CWD="${TRACE2SKILL_MATH_TOOL_CWD:-${ROOT}}"
+mkdir -p "${TRACE2SKILL_MATH_TOOL_CWD}"
+
+SITE_PACKAGES="$(python - <<'PY'
+import site
+print(site.getsitepackages()[0])
+PY
+)"
+NVIDIA_LIB_PATHS=""
+if [[ -d "${SITE_PACKAGES}/nvidia" ]]; then
+  while IFS= read -r lib_dir; do
+    NVIDIA_LIB_PATHS="${NVIDIA_LIB_PATHS:+${NVIDIA_LIB_PATHS}:}${lib_dir}"
+  done < <(find "${SITE_PACKAGES}/nvidia" -mindepth 2 -maxdepth 2 -type d -name lib 2>/dev/null)
+fi
+GCC_LIB64="${GCC_LIB64:-}"
+GCC_LIB="${GCC_LIB:-}"
+if [[ -n "${GCC_LIB64}" && -f "${GCC_LIB64}/libstdc++.so.6" ]]; then
+  export LD_PRELOAD="${GCC_LIB64}/libstdc++.so.6${LD_PRELOAD:+:${LD_PRELOAD}}"
+fi
+LIB_PARTS="${NVIDIA_LIB_PATHS}"
+if [[ -n "${GCC_LIB64}" ]]; then LIB_PARTS="${GCC_LIB64}:${LIB_PARTS}"; fi
+if [[ -n "${GCC_LIB}" ]]; then LIB_PARTS="${GCC_LIB}:${LIB_PARTS}"; fi
+if [[ -n "${CONDA_PREFIX:-}" ]]; then LIB_PARTS="${CONDA_PREFIX}/lib:${LIB_PARTS}"; fi
+export LD_LIBRARY_PATH="${LIB_PARTS}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+
+if [[ "${CUDA_VISIBLE_DEVICES:-}" == GPU-* ]]; then
+  CUDA_DEVICE_COUNT="$(python - <<'PY'
+import os
+print(len([x for x in os.environ["CUDA_VISIBLE_DEVICES"].split(",") if x]))
+PY
+)"
+  export CUDA_VISIBLE_DEVICES="$(seq -s, 0 "$((CUDA_DEVICE_COUNT - 1))")"
+fi
+
+MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3.5-4B}"
+DATA_DIR="${DATA_DIR:-${ROOT}/data/trace2skill/verl}"
+RUN_TAG="${RUN_TAG:-trace2skill-verl-qwen35-4b-${TASK}-$(date -u +%Y%m%d_%H%M%S)}"
+CKPT_ROOT="${CKPT_ROOT:-${ROOT}/runs/multiturn_grpo/checkpoints}"
+CKPT_DIR="${CKPT_DIR:-${CKPT_ROOT}/${RUN_TAG}}"
+LOG_DIR="${LOG_DIR:-${ROOT}/runs/multiturn_grpo/logs/${RUN_TAG}}"
+mkdir -p "${CKPT_DIR}" "${LOG_DIR}"
+
+python "${ROOT}/scripts/trace2skill/prepare_verl_trace2skill_data.py" \
+  --task "${TASK}" \
+  --out-dir "${DATA_DIR}"
+
+export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${VERL_ROOT}:${PYTHONPATH:-}"
+
+nvidia-smi || true
+
+cd "${VERL_ROOT}"
+
+python -m verl.trainer.main_ppo \
+  --config-path="${VERL_ROOT}/examples/sglang_multiturn/config" \
+  --config-name="gsm8k_multiturn_grpo" \
+  ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS:-${PBS_NCPUS:-12}}" \
+  +ray_kwargs.ray_init.include_dashboard=False \
+  algorithm.adv_estimator=grpo \
+  algorithm.use_kl_in_reward=False \
+  data.train_files="${DATA_DIR}/${TASK}/train.parquet" \
+  data.val_files="${DATA_DIR}/${TASK}/val.parquet" \
+  data.train_batch_size="${TRAIN_BATCH_SIZE}" \
+  data.max_prompt_length="${MAX_PROMPT_LENGTH}" \
+  data.max_response_length="${MAX_RESPONSE_LENGTH}" \
+  data.filter_overlong_prompts=False \
+  data.truncation=error \
+  data.return_raw_chat=True \
+  data.return_multi_modal_inputs=False \
+  data.trust_remote_code=True \
+  custom_reward_function.path="${ROOT}/verl_trace2skill/reward.py" \
+  custom_reward_function.name=compute_score \
+  actor_rollout_ref.model.path="${MODEL_PATH}" \
+  actor_rollout_ref.model.trust_remote_code=True \
+  actor_rollout_ref.model.use_remove_padding=True \
+  actor_rollout_ref.model.enable_gradient_checkpointing=True \
+  actor_rollout_ref.actor.optim.lr="${LR:-1e-6}" \
+  actor_rollout_ref.actor.ppo_mini_batch_size="${PPO_MINI_BATCH_SIZE}" \
+  actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}" \
+  actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${PPO_MAX_TOKEN_LEN_PER_GPU:-32768}" \
+  actor_rollout_ref.actor.use_kl_loss="${USE_KL_LOSS:-True}" \
+  actor_rollout_ref.actor.kl_loss_coef="${KL_LOSS_COEF:-0.001}" \
+  actor_rollout_ref.actor.kl_loss_type=low_var_kl \
+  actor_rollout_ref.actor.entropy_coeff=0 \
+  actor_rollout_ref.actor.fsdp_config.param_offload="${ACTOR_PARAM_OFFLOAD:-False}" \
+  actor_rollout_ref.actor.fsdp_config.optimizer_offload="${ACTOR_OPTIMIZER_OFFLOAD:-False}" \
+  actor_rollout_ref.actor.checkpoint.save_contents="['model','optimizer','extra','hf_model']" \
+  actor_rollout_ref.rollout.name=sglang \
+  actor_rollout_ref.rollout.mode="${ROLLOUT_MODE:-async}" \
+  actor_rollout_ref.rollout.tensor_model_parallel_size="${ROLLOUT_TP:-1}" \
+  actor_rollout_ref.rollout.gpu_memory_utilization="${GPU_MEMORY_UTILIZATION:-0.85}" \
+  actor_rollout_ref.rollout.multi_stage_wake_up=True \
+  actor_rollout_ref.rollout.n="${ROLLOUT_N:-8}" \
+  actor_rollout_ref.rollout.temperature="${TEMPERATURE:-1.0}" \
+  actor_rollout_ref.rollout.top_p="${TOP_P:-1.0}" \
+  actor_rollout_ref.rollout.top_k="${TOP_K:-40}" \
+  +actor_rollout_ref.rollout.presence_penalty="${PRESENCE_PENALTY:-2.0}" \
+  +actor_rollout_ref.rollout.repetition_penalty="${REPETITION_PENALTY:-1.0}" \
+  actor_rollout_ref.rollout.max_model_len="${MAX_MODEL_LEN:-40960}" \
+  actor_rollout_ref.rollout.max_num_batched_tokens="${MAX_NUM_BATCHED_TOKENS:-32768}" \
+  actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu="${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}" \
+  actor_rollout_ref.rollout.update_weights_bucket_megabytes=512 \
+  actor_rollout_ref.rollout.multi_turn.enable=True \
+  actor_rollout_ref.rollout.multi_turn.max_user_turns="${MAX_USER_TURNS:-100}" \
+  actor_rollout_ref.rollout.multi_turn.max_assistant_turns="${MAX_ASSISTANT_TURNS:-100}" \
+  actor_rollout_ref.rollout.multi_turn.max_tool_response_length="${MAX_TOOL_RESPONSE_LENGTH:-6000}" \
+  actor_rollout_ref.rollout.multi_turn.tool_response_truncate_side=middle \
+  actor_rollout_ref.rollout.multi_turn.tool_config_path="${ROOT}/verl_trace2skill/local_bash_tool_config.yaml" \
+  actor_rollout_ref.rollout.multi_turn.format="${MULTI_TURN_FORMAT:-trace2skill}" \
+  actor_rollout_ref.rollout.val_kwargs.top_p="${VAL_TOP_P:-1.0}" \
+  actor_rollout_ref.rollout.val_kwargs.temperature="${VAL_TEMPERATURE:-1.0}" \
+  actor_rollout_ref.rollout.val_kwargs.top_k="${VAL_TOP_K:-40}" \
+  actor_rollout_ref.rollout.val_kwargs.do_sample=True \
+  actor_rollout_ref.rollout.val_kwargs.n=1 \
+  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu="${REF_LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}" \
+  actor_rollout_ref.ref.fsdp_config.param_offload="${REF_PARAM_OFFLOAD:-True}" \
+  trainer.logger="${TRAINER_LOGGER:-[\"console\"]}" \
+  trainer.project_name="${PROJECT_NAME:-trace2skill-agentic-rl}" \
+  trainer.experiment_name="${RUN_TAG}" \
+  trainer.n_gpus_per_node="${N_GPUS_PER_NODE:-8}" \
+  trainer.nnodes="${NNODES:-1}" \
+  trainer.default_local_dir="${CKPT_DIR}" \
+  trainer.save_freq="${SAVE_FREQ:-5}" \
+  trainer.test_freq="${TEST_FREQ}" \
+  trainer.val_before_train="${VAL_BEFORE_TRAIN:-True}" \
+  trainer.total_epochs="${TOTAL_EPOCHS}" \
+  "$@" 2>&1 | tee "${LOG_DIR}/train.log"
+
+echo "ckpt_dir=${CKPT_DIR}"
+echo "log_dir=${LOG_DIR}"

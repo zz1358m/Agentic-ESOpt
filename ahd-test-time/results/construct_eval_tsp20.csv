@@ -1,7 +1,0 @@
-method,task,program,setting,objective,count,valid_count,failure_count,mean,std,min,max,asp_set_size,candidate_mode,seconds
-Dynamic-EoH,tsp,construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep1_final_best_code.py,N=20,min,1000,1000,0,4.101789593826461,0.3948808646288184,2.8272826676877996,5.301139488276341,,,
-Dynamic-EoH,tsp,construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep2_final_best_code.py,N=20,min,1000,1000,0,4.269467870089404,0.4532417203993839,3.0040074074788423,5.6165963580365155,,,
-Dynamic-EoH,tsp,construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_rep3_final_best_code.py,N=20,min,1000,1000,0,4.302227111224221,0.39686360338091686,3.070334597714547,5.429642729927929,,,
-EoH,tsp,construct_tsp_rep1_final_best_code.py,N=20,min,1000,1000,0,4.279329914938096,0.4065401779217305,2.8272826676877996,5.54666049607073,,,
-EoH,tsp,construct_tsp_rep2_final_best_code.py,N=20,min,1000,1000,0,4.147404168718859,0.3965305982010929,2.8272826676877996,5.353262766991105,,,
-EoH,tsp,construct_tsp_rep3_final_best_code.py,N=20,min,1000,1000,0,4.317578912101255,0.39860886129316314,3.0538331231588556,5.500811402945451,,,

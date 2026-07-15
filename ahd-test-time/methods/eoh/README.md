@@ -1,7 +1,9 @@
-# EoH Method
+# EoH method
 
-EoH is the AHD method that ES builds on.
+EoH is the maintained AHD baseline and the heuristic-search loop used by the
+Dynamic-Agent model-weight integration.
 
 The original implementation is stored under
 `ahd-test-time/methods/eoh/original/eoh`.
-New AHD code should refer to this setting-local path directly.
+The public launcher is `scripts/ahd/run.sh`; callers should not depend on
+internal upstream modules directly.

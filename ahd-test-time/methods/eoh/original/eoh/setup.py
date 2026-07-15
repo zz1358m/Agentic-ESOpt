@@ -1,17 +1,24 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="eoh",
     version="0.1",
     author="MetaAI Group, CityU",
     description="Evolutionary Computation + Large Language Model for automatic algorithm design",
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
     python_requires=">=3.10",
     install_requires=[
         "numpy",
         "numba",
-        "joblib"
+        "joblib",
+        "requests",
+        "PyYAML",
+        "scipy",
     ],
-    test_suite="tests"
+    extras_require={
+        "aco": ["torch"],
+        "server": ["torch", "transformers", "accelerate", "flask", "flask-cors"],
+        "all": ["torch", "transformers", "accelerate", "flask", "flask-cors"],
+    },
 )

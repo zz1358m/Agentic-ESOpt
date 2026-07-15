@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import random
 import statistics
@@ -28,6 +27,18 @@ from envs.sudoku import (  # noqa: E402
     post_json,
     score_board,
 )
+from es.run_state import (  # noqa: E402
+    atomic_write_history,
+    completed_update_records,
+    history_prefix_through_updates,
+    map_endpoint_serial,
+    read_history,
+    replay_http_updates,
+    resolve_warmup_steps,
+    sigma_at_step,
+    validate_es_run_shape,
+    validate_seed_sequence,
+)
 
 
 DEFAULT_TRAIN = ROOT / "data/sudoku/train.jsonl"
@@ -35,42 +46,14 @@ DEFAULT_EVAL = ROOT / "data/sudoku/eval.jsonl"
 
 
 def mean_valid(scores: list[float]) -> float:
-    valid = [score for score in scores if score >= 0.0]
-    return sum(valid) / len(valid) if valid else -1.0
+    # Transport/tool failures are failed rollouts, not missing observations.
+    scored = [max(0.0, float(score)) for score in scores]
+    return sum(scored) / len(scored) if scored else 0.0
 
 
 def choose_batch(tasks: list[SudokuTask], generation: int, batch_size: int) -> list[SudokuTask]:
     start = (generation * batch_size) % len(tasks)
     return [tasks[(start + idx) % len(tasks)] for idx in range(batch_size)]
-
-
-def resolve_sigma_warmup_steps(generations: int, warmup_steps: int) -> int:
-    if warmup_steps >= 0:
-        return min(max(0, warmup_steps), max(0, generations))
-    return max(0, generations // 4)
-
-
-def sigma_for_generation(
-    *,
-    sigma_max: float,
-    generation: int,
-    generations: int,
-    schedule: str,
-    warmup_steps: int,
-    min_ratio: float = 0.0,
-) -> float:
-    if schedule == "constant" or generations <= 0:
-        return sigma_max
-    if schedule != "cosine-after-warmup":
-        raise ValueError(f"Unsupported sigma schedule: {schedule}")
-    warmup_steps = resolve_sigma_warmup_steps(generations, warmup_steps)
-    if generation < warmup_steps or warmup_steps >= generations:
-        return sigma_max
-    denominator = max(1, generations - 1 - warmup_steps)
-    progress = min(1.0, max(0.0, (generation - warmup_steps) / denominator))
-    cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
-    floor = min(max(0.0, float(min_ratio)), 1.0)
-    return sigma_max * (floor + (1.0 - floor) * cosine)
 
 
 def eval_tasks(
@@ -458,29 +441,34 @@ def main() -> None:
     parser.add_argument("--run-id", default=os.environ.get("RUN_ID", "sudoku_es"))
     parser.add_argument("--train-data", default=str(DEFAULT_TRAIN))
     parser.add_argument("--eval-data", default=str(DEFAULT_EVAL))
-    parser.add_argument("--mask-count", type=int, default=int(os.environ.get("SUDOKU_TARGET_MASK_COUNT", "50")))
+    parser.add_argument("--mask-count", type=int, default=int(os.environ.get("SUDOKU_TARGET_MASK_COUNT", "15")))
     parser.add_argument("--generations", type=int, default=int(os.environ.get("SUDOKU_ES_GENERATIONS", "1")))
     parser.add_argument("--population", type=int, default=int(os.environ.get("SUDOKU_ES_POPULATION", "8")))
     parser.add_argument("--case-batch-size", type=int, default=int(os.environ.get("SUDOKU_ES_CASE_BATCH", "8")))
     parser.add_argument("--case-workers", type=int, default=int(os.environ.get("SUDOKU_ES_CASE_WORKERS", "4")))
     parser.add_argument("--eval-limit", type=int, default=int(os.environ.get("SUDOKU_EVAL_LIMIT", "100")))
-    parser.add_argument("--sigma", type=float, default=float(os.environ.get("SUDOKU_ES_SIGMA", "5e-4")))
     parser.add_argument(
-        "--sigma-min-ratio",
+        "--sigma-start",
         type=float,
-        default=float(os.environ.get("SUDOKU_ES_SIGMA_MIN_RATIO", "0.0")),
-        help="Minimum sigma as a fraction of --sigma for cosine decay.",
+        default=float(os.environ.get("SUDOKU_ES_SIGMA_START", "5e-4")),
+        help="Perturbation scale at the first ES generation.",
+    )
+    parser.add_argument(
+        "--sigma-end",
+        type=float,
+        default=float(os.environ.get("SUDOKU_ES_SIGMA_END", os.environ.get("SUDOKU_ES_SIGMA_START", "5e-4"))),
+        help="Perturbation scale at the final ES generation.",
     )
     parser.add_argument(
         "--sigma-schedule",
         default=os.environ.get("SUDOKU_ES_SIGMA_SCHEDULE", "constant"),
-        choices=["constant", "cosine-after-warmup"],
+        choices=["constant", "linear", "cosine"],
     )
     parser.add_argument(
         "--sigma-warmup-steps",
         type=int,
-        default=int(os.environ.get("SUDOKU_ES_SIGMA_WARMUP_STEPS", "-1")),
-        help="Number of initial generations to keep sigma fixed. Defaults to generations // 4.",
+        default=int(os.environ.get("SUDOKU_ES_SIGMA_WARMUP_STEPS", "0")),
+        help="Number of initial generations to keep sigma fixed.",
     )
     parser.add_argument("--alpha", type=float, default=float(os.environ.get("SUDOKU_ES_ALPHA", "5e-4")))
     parser.add_argument("--seed", type=int, default=int(os.environ.get("SUDOKU_ES_SEED", "20260701")))
@@ -501,10 +489,18 @@ def main() -> None:
     parser.add_argument("--skip-initial-eval", action="store_true")
     parser.add_argument("--eval-interval", type=int, default=int(os.environ.get("SUDOKU_ES_EVAL_INTERVAL", "10")))
     parser.add_argument("--eval-repeats", type=int, default=int(os.environ.get("SUDOKU_EVAL_REPEATS", "3")))
+    parser.add_argument("--history-file", default=os.environ.get("SUDOKU_ES_HISTORY_FILE", ""))
+    parser.add_argument("--resume-history", default=os.environ.get("SUDOKU_ES_RESUME_HISTORY", ""))
+    parser.add_argument("--resume-generations", type=int, default=int(os.environ.get("SUDOKU_ES_RESUME_GENERATIONS", "-1")))
     args = parser.parse_args()
+    validate_es_run_shape(
+        generations=args.generations,
+        population=args.population,
+        case_batch_size=args.case_batch_size,
+    )
     if args.max_turns <= 0:
         args.max_turns = args.mask_count * 3
-    sigma_warmup_steps = resolve_sigma_warmup_steps(args.generations, args.sigma_warmup_steps)
+    sigma_warmup_steps = resolve_warmup_steps(args.generations, args.sigma_warmup_steps)
 
     endpoints = [item.strip().rstrip("/") for item in args.endpoints.split(",") if item.strip()]
     if not endpoints:
@@ -515,6 +511,7 @@ def main() -> None:
     eval_env = SudokuEnv(args.eval_data, limit=args.eval_limit, mask_count=args.mask_count)
     result_root = ROOT / "runs/sudoku_es" / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
+    history_path = Path(args.history_file).expanduser().resolve() if args.history_file else result_root / "history.json"
 
     for endpoint in endpoints:
         init = post_json(f"{endpoint}/es/init", {"parameter_scope": args.parameter_scope, "verbose": True}, timeout=args.timeout)
@@ -529,8 +526,8 @@ def main() -> None:
                 "eval_count": len(eval_env.tasks),
                 "eval_interval": args.eval_interval,
                 "eval_repeats": args.eval_repeats,
-                "sigma": args.sigma,
-                "sigma_min_ratio": args.sigma_min_ratio,
+                "sigma_start": args.sigma_start,
+                "sigma_end": args.sigma_end,
                 "sigma_schedule": args.sigma_schedule,
                 "sigma_warmup_steps": sigma_warmup_steps,
                 "alpha": args.alpha,
@@ -541,6 +538,44 @@ def main() -> None:
             }
         }
     ]
+    start_generation = 0
+    if args.resume_history:
+        source_history = read_history(args.resume_history)
+        replay_limit = None if args.resume_generations < 0 else args.resume_generations
+        resume_records = completed_update_records(source_history, limit=replay_limit)
+        start_generation = validate_seed_sequence(
+            resume_records,
+            population=args.population,
+            seed=args.seed,
+        )
+        replay_log = replay_http_updates(
+            endpoints=endpoints,
+            records=resume_records,
+            post_json=post_json,
+            timeout=args.timeout,
+            default_alpha=args.alpha,
+            default_reward_normalization=args.reward_normalization,
+        )
+        history = history_prefix_through_updates(source_history, len(resume_records))
+        history.append(
+            {
+                "resume": {
+                    "source": str(Path(args.resume_history).expanduser().resolve()),
+                    "replayed_generations": start_generation,
+                    "replay_log": replay_log,
+                }
+            }
+        )
+        print(
+            f"[resume] history={args.resume_history} replayed={start_generation} "
+            f"next_generation={start_generation}",
+            flush=True,
+        )
+        if start_generation > args.generations:
+            raise ValueError(
+                f"Resume history has {start_generation} generations, but --generations={args.generations}."
+            )
+    atomic_write_history(history_path, history)
     if not args.skip_initial_eval:
         train_eval_result = run_eval_repeated(args=args, env=train_env, endpoints=endpoints, top_k=top_k, min_p=min_p)
         eval_result = run_eval_repeated(args=args, env=eval_env, endpoints=endpoints, top_k=top_k, min_p=min_p)
@@ -557,30 +592,27 @@ def main() -> None:
             f"average={eval_result['average']:.6f} std={eval_result['average_std']:.6f}",
             flush=True,
         )
-        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n", encoding="utf-8")
+        atomic_write_history(history_path, history)
 
     rng = random.Random(args.seed)
-    for generation in range(args.generations):
-        sigma_t = sigma_for_generation(
-            sigma_max=args.sigma,
-            generation=generation,
-            generations=args.generations,
+    for _ in range(start_generation * args.population):
+        rng.randrange(1, 2**31 - 1)
+    for generation in range(start_generation, args.generations):
+        sigma_t = sigma_at_step(
+            sigma_start=args.sigma_start,
+            sigma_end=args.sigma_end,
+            step=generation,
+            total_steps=args.generations,
             schedule=args.sigma_schedule,
             warmup_steps=sigma_warmup_steps,
-            min_ratio=args.sigma_min_ratio,
         )
         batch = choose_batch(train_env.tasks, generation, args.case_batch_size)
         seeds = [rng.randrange(1, 2**31 - 1) for _ in range(args.population)]
         print(f"[sigma] gen={generation} sigma={sigma_t:.12g}", flush=True)
-        samples = {}
-        with ThreadPoolExecutor(max_workers=len(endpoints)) as pool:
-            futures = {}
-            for idx, seed in enumerate(seeds):
-                endpoint = endpoints[idx % len(endpoints)]
-                future = pool.submit(
-                    eval_sample,
+        def eval_direction(idx: int, endpoint: str):
+            return idx, eval_sample(
                     endpoint=endpoint,
-                    seed=seed,
+                    seed=seeds[idx],
                     sigma=sigma_t,
                     env=train_env,
                     tasks=batch,
@@ -598,13 +630,14 @@ def main() -> None:
                     batched_eval=args.batched_eval,
                     endpoint_batch_size=args.endpoint_batch_size,
                 )
-                futures[future] = idx
-            for future in as_completed(futures):
-                idx = futures[future]
-                samples[idx] = future.result()
-                print(f"[sample] gen={generation} idx={idx} reward={samples[idx]['reward']}", flush=True)
 
-        sample_records = [samples[idx] for idx in range(args.population)]
+        sample_records = map_endpoint_serial(
+            endpoints=endpoints,
+            count=args.population,
+            worker=eval_direction,
+        )
+        for idx, sample in enumerate(sample_records):
+            print(f"[sample] gen={generation} idx={idx} reward={sample['reward']}", flush=True)
         rewards = [float(row["reward"]) for row in sample_records]
         updates = []
         for endpoint in endpoints:
@@ -623,15 +656,21 @@ def main() -> None:
                     ),
                 }
             )
-        valid_rewards = [reward for reward in rewards if reward >= 0.0]
+        scored_rewards = [max(0.0, reward) for reward in rewards]
         record = {
             "generation": generation,
             "case_batch": [task.id for task in batch],
             "sigma": sigma_t,
+            "sigma_start": args.sigma_start,
+            "sigma_end": args.sigma_end,
+            "sigma_schedule": args.sigma_schedule,
+            "sigma_warmup_steps": sigma_warmup_steps,
+            "alpha": args.alpha,
+            "reward_normalization": args.reward_normalization,
             "seeds": seeds,
             "rewards": rewards,
             "reward_mean": mean_valid(rewards),
-            "reward_std": statistics.pstdev(valid_rewards) if len(valid_rewards) > 1 else 0.0,
+            "reward_std": statistics.pstdev(scored_rewards) if len(scored_rewards) > 1 else 0.0,
             "samples": sample_records,
             "updates": updates,
         }
@@ -651,7 +690,7 @@ def main() -> None:
                 flush=True,
             )
         history.append(record)
-        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n", encoding="utf-8")
+        atomic_write_history(history_path, history)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,21 @@
+* text=auto
+/.gitattributes text eol=lf
+/.gitignore text eol=lf
+
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+
+*.npy binary
+*.npz binary
+*.pkl binary
+*.pdf binary
+*.xlsx binary
+*.pptx binary
+*.png binary

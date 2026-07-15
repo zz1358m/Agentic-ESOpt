@@ -9,7 +9,7 @@ if [ -f "$ROOT/scripts/settings.local.env" ]; then
   source "$ROOT/scripts/settings.local.env"
 fi
 
-SUDOKU_TARGET_MASK_COUNT="${SUDOKU_TARGET_MASK_COUNT:-50}"
+SUDOKU_TARGET_MASK_COUNT="${SUDOKU_TARGET_MASK_COUNT:-15}"
 VERL_TOOL_ROOT="${VERL_TOOL_ROOT:?Set VERL_TOOL_ROOT to your verl-tool checkout.}"
 SUDOKU_VERL_DATA_DIR="${SUDOKU_VERL_DATA_DIR:-$ROOT/data/sudoku/verl/mask${SUDOKU_TARGET_MASK_COUNT}}"
 
@@ -40,9 +40,9 @@ python -m verl_tool.servers.serve \
   --use_ray=False \
   --log_level "${SUDOKU_TOOL_LOG_LEVEL:-info}" > logs/sudoku_tool_server.log 2>&1 &
 server_pid=$!
-trap 'kill "$server_pid" 2>/dev/null || true' EXIT
 
 action_stop_tokens_file="$(mktemp)"
+trap 'kill "$server_pid" 2>/dev/null || true; rm -f "$action_stop_tokens_file"' EXIT
 printf '\n' > "$action_stop_tokens_file"
 
 python -m verl_tool.trainer.main_ppo \
@@ -102,4 +102,5 @@ python -m verl_tool.trainer.main_ppo \
   trainer.save_freq="${SUDOKU_VERL_SAVE_FREQ:-10}" \
   trainer.test_freq="${SUDOKU_VERL_TEST_FREQ:-10}" \
   trainer.total_epochs="${SUDOKU_VERL_TOTAL_EPOCHS:-10}" \
-  ${SUDOKU_VERL_EXTRA_ARGS:-}
+  ${SUDOKU_VERL_EXTRA_ARGS:-} \
+  "$@"

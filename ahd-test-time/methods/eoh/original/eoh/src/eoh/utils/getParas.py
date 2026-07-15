@@ -20,6 +20,7 @@ class Paras():
         self.ec_m = 2  # number of parents for 'e1' and 'e2' operators, default = 2
         self.ec_operator_weights = None  # weights for operators, i.e., the probability of use the operator in each iteration, default = [1,1,1,1]
         self.ec_operator_attempts = 1  # number of offspring attempts per operator per generation
+        self.ec_m1m2_multiplier = 1.0  # m1/m2 offspring count multiplier relative to population size
         
         #####################
         ### LLM settings  ###
@@ -33,18 +34,23 @@ class Paras():
         self.llm_es_enabled = False  # if update the local LLM itself with evolutionary strategy
         self.llm_es_operators = ['e1', 'e2', 'm1', 'm2']  # EoH operators that trigger model ES updates
         self.llm_es_directions = 8  # number of perturbation directions per ES model update
-        self.llm_es_sigma = 1e-3  # model perturbation scale
+        self.llm_es_sigma_start = 1e-3
+        self.llm_es_sigma_end = 1e-3
+        self.llm_es_sigma_schedule = 'constant'  # ['constant', 'linear', 'cosine']
+        self.llm_es_sigma_warmup_steps = 0
         self.llm_es_alpha = 5e-4  # model update step size
         self.llm_es_reward_normalization = 'zscore'
         self.llm_es_reward_normalization_ddof = 0
         self.llm_es_reward_normalization_eps = 1e-8
         self.llm_es_reward_mode = 'improvement'  # ['improvement', 'negative_objective']
-        self.llm_es_parameter_scope = 'full'  # ['full', 'all_linear']
+        self.llm_es_parameter_scope = 'full'  # ['full', 'all_linear', 'lora']
         self.llm_es_target_modules = None
         self.llm_es_seed = 2024
         self.llm_es_engine_urls = None
         self.llm_es_reward_floor = -1.0
         self.llm_es_disable_update = False
+        self.llm_es_history_path = None
+        self.llm_es_resume_history = None
 
         #####################
         ###  Exp settings  ###
@@ -75,47 +81,23 @@ class Paras():
     
     def set_ec(self):    
         
-        if self.management == None:
-            if self.method in ['ael','eoh']:
-                self.management = 'pop_greedy'
-            elif self.method == 'ls':
-                self.management = 'ls_greedy'
-            elif self.method == 'sa':
-                self.management = 'ls_sa'
+        if self.method != 'eoh':
+            raise ValueError(f"Only EoH is maintained, got method={self.method!r}.")
+        if self.management is None:
+            self.management = 'pop_greedy'
         
         if self.selection == None:
             self.selection = 'prob_rank'
             
         
-        if self.ec_operators == None:
-            if self.method == 'eoh':
-                self.ec_operators  = ['e1','e2','m1','m2']
-                if self.ec_operator_weights == None:
-                    self.ec_operator_weights = [1, 1, 1, 1]
-            elif self.method == 'ael':
-                self.ec_operators  = ['crossover','mutation']
-                if self.ec_operator_weights == None:
-                    self.ec_operator_weights = [1, 1]
-            elif self.method == 'ls':
-                self.ec_operators  = ['m1']
-                if self.ec_operator_weights == None:
-                    self.ec_operator_weights = [1]
-            elif self.method == 'sa':
-                self.ec_operators  = ['m1']
-                if self.ec_operator_weights == None:
-                    self.ec_operator_weights = [1]
-                    
-        if self.method in ['ls','sa'] and self.ec_pop_size >1:
-            self.ec_pop_size = 1
-            self.exp_n_proc = 1
-            print("> single-point-based, set pop size to 1. ")
+        if self.ec_operators is None:
+            self.ec_operators = ['e1', 'e2', 'm1', 'm2']
+        if self.ec_operator_weights is None:
+            self.ec_operator_weights = [1] * len(self.ec_operators)
             
     def set_evaluation(self):
         # Initialize evaluation settings
-        if self.problem == 'bp_online':
-            self.eva_timeout = 20
-            self.eva_numba_decorator  = True
-        elif self.problem == 'tsp_construct':
+        if self.problem == 'tsp_construct':
             self.eva_timeout = 20
                 
     def set_paras(self, *args, **kwargs):

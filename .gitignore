@@ -9,6 +9,7 @@ scripts/settings.local.env
 __pycache__/
 *.py[cod]
 *.pyo
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -18,78 +19,49 @@ logs/
 runs/
 cache/
 tmp/
-results.xlsx
+.runtime/
+results*.xlsx
 Dynamic-Agent.pptx
 Dynamic_Agent__Evolution_Strategy_Breaks_the_Boundary_of_LLM_Agentic_Reasoning/
+figures/
 *.log
 *.pid
 *.tfevents.*
 *.jsonl.tmp
 
 # Downloaded external repos, datasets, and generated experiment results
-data/ahd/datasets/
+data/.cache/
+data/sudoku/*
+!data/sudoku/train.jsonl
+!data/sudoku/eval.jsonl
+data/trace2skill/*
+!data/trace2skill/math_reasoning/
+!data/trace2skill/math_reasoning/**
 data/jericho/
 data/webarena/
-ahd-test-time/results/*
-!ahd-test-time/results/EoH/
-!ahd-test-time/results/EoH/**
-!ahd-test-time/results/Dynamic-EoH/
-!ahd-test-time/results/Dynamic-EoH/**
-ahd-test-time/results/**/__pycache__/
-ahd-test-time/results/**/*.py[cod]
-webarena-train-time/methods/skillopt/source/
+!data/README.md
+ahd-test-time/results/
+sudoku-train-time/results/
+webarena-train-time/results/
+webarena-train-time/third_party/skillopt/
 webarena-train-time/methods/trace2skill/source/
 
-# Out-of-paper or legacy experiment code kept local only
+# Local notes that are not part of the maintained codebase
 EXPERIMENT_README.md
 version_log.txt
-jericho-test-time/
-scripts/jericho/
-webarena-train-time/methods/jitrl/
-webarena-train-time/methods/skillopt/
-webarena-train-time/scripts/monitor_*
-webarena-train-time/scripts/prepare_jitrl_*
-webarena-train-time/scripts/prepare_webarena_skillopt_*
-webarena-train-time/scripts/prepare_webarena_lite_available_split.py
-webarena-train-time/scripts/prepare_standard_webarena_data.py
-webarena-train-time/scripts/prepare_webrl_lite_data.py
-webarena-train-time/scripts/prepare_webrl_sft_manifest.py
-webarena-train-time/scripts/run_jitrl_*
-webarena-train-time/scripts/run_qwen35_fixed_baselines.py
-webarena-train-time/scripts/run_skillopt_*
-webarena-train-time/scripts/run_webrl_lite_vab_full.sh
-webarena-train-time/scripts/run_webrl_lite_vab_split_eval.sh
-webarena-train-time/scripts/run_webrl_lite_vab_subset.sh
-webarena-train-time/scripts/setup_jitrl_*
-webarena-train-time/scripts/summarize_jitrl_*
-webarena-train-time/scripts/start_webrl_lite_llama8b_services.sh
-webarena-train-time/scripts/train_skillopt_*
-webarena-train-time/skills/webarena_default_skill_v2.md
-webarena-train-time/skills/webarena_trace2skill_openai_update001_v1.md
-webarena-train-time/skills/webrl_lite_skillopt_v1.md
-data/ahd/settings/cfg/problem/bpp_offline_aco.yaml
-data/ahd/settings/prompts/bpp_offline_aco/
-ahd-test-time/envs/bpp.py
-ahd-test-time/scripts/continue*.sh
-ahd-test-time/scripts/resume*.sh
-scripts/ahd/aco_bpp_*.sh
-ahd-test-time/methods/eoh/original/eoh/src/eoh.egg-info/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/test/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/machinelearning/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/optimization/bp_online/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/problems/optimization/bpp_offline_aco/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/ael/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/localsearch/
-ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/management/ls_greedy.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/methods/management/ls_sa.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm/api_hf_inter.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/codellama*_server.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/deepseek_coder_server.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/gemma_instruct_server.py
-ahd-test-time/methods/eoh/original/eoh/src/eoh/llm_local_server/starcoder_server.py
-
+sudoku-train-time/AGENTIC_RESULTS.md
+scripts/sudoku/plot_*.py
+scripts/update_sudoku_*.py
+scripts/webarena/plot_*.py
+scripts/ahd/summarize_*.py
+ahd-test-time/scripts/eval_*.py
+ahd-test-time/scripts/live_update_*.py
+ahd-test-time/scripts/plot_*.py
 # Nested repositories copied from external sources
 **/.git/
+
+# Local archive removed from the core GitHub tree
+deprecated/
 
 # OS/editor temporary files
 .DS_Store

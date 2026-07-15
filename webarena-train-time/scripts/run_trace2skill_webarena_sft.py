@@ -16,12 +16,37 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILLOPT_SRC = ROOT / "webarena-train-time" / "methods" / "skillopt" / "source"
+SKILLOPT_SRC = ROOT / "webarena-train-time" / "third_party" / "skillopt"
 TRACE_SRC = ROOT / "webarena-train-time" / "methods" / "trace2skill" / "source"
-if str(SKILLOPT_SRC) not in sys.path:
-    sys.path.insert(0, str(SKILLOPT_SRC))
+EMPTY_WEB_ARENA_SKILL = """---
+name: webarena-sft-trace-skill
+description: Skill instructions for WebArena agents using WebRL id actions.
+---
 
-from skillopt.envs.webarena_sft.rollout import run_batch
+# WebArena Skill
+
+"""
+_RUN_BATCH = None
+
+
+def load_run_batch():
+    """Load the ignored SkillOpt rollout runtime only when a rollout starts."""
+
+    global _RUN_BATCH
+    if _RUN_BATCH is not None:
+        return _RUN_BATCH
+    rollout_file = SKILLOPT_SRC / "skillopt" / "envs" / "webarena_sft" / "rollout.py"
+    if not rollout_file.is_file():
+        raise FileNotFoundError(
+            "Missing the WebArena rollout runtime at "
+            f"{SKILLOPT_SRC}. Install it with the command in data/README.md."
+        )
+    if str(SKILLOPT_SRC) not in sys.path:
+        sys.path.insert(0, str(SKILLOPT_SRC))
+    from skillopt.envs.webarena_sft.rollout import run_batch
+
+    _RUN_BATCH = run_batch
+    return _RUN_BATCH
 
 
 def load_json(path: Path):
@@ -41,9 +66,11 @@ def read_openai_key() -> str:
 
 
 def ensure_split(split_dir: Path) -> None:
+    if (split_dir / "train" / "items.json").exists() and (split_dir / "val" / "items.json").exists():
+        return
     cmd = [
         sys.executable,
-        str(ROOT / "webarena-train-time" / "scripts" / "prepare_trace2skill_webarena_split.py"),
+        str(ROOT / "webarena-train-time" / "scripts" / "prepare_webarena_nonlite_split.py"),
         "--output-dir",
         str(split_dir),
     ]
@@ -239,7 +266,7 @@ def run_webarena_rollout(
     os.environ["OPENAI_BASE_URL"] = old_openai_base or "https://api.openai.com/v1"
     skill = skill_file.read_text(encoding="utf-8")
     try:
-        results = run_batch(
+        results = load_run_batch()(
             items=items,
             out_root=str(out_dir),
             skill_content=skill,
@@ -296,7 +323,8 @@ def run_analysis_and_evolve(
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = read_openai_key()
     env["OPENAI_BASE_URL"] = env.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    max_skill_lines = env.get("TRACE2SKILL_MAX_SKILL_LINES", "20")
+    max_skill_lines = env.get("TRACE2SKILL_MAX_SKILL_LINES", "100")
+    max_references = env.get("TRACE2SKILL_MAX_REFERENCES", "5")
     if not official_prompts:
         prompts = ROOT / "webarena-train-time" / "methods" / "trace2skill" / "prompts"
         env["TRACE2SKILL_ERROR_SYSTEM_PROMPT"] = str(prompts / "webarena_error_system.txt")
@@ -393,6 +421,8 @@ def run_analysis_and_evolve(
             str(seed),
             "--max-skill-lines",
             str(max_skill_lines),
+            "--max-references",
+            str(max_references),
         ]
     if optimizer_generation_config:
         cmd.extend(["--generation-config", optimizer_generation_config])
@@ -421,7 +451,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=3, help="Deprecated name; interpreted as eval steps.")
     parser.add_argument("--steps", type=int, default=None, help="Number of Trace2Skill eval steps.")
     parser.add_argument("--run-id", default="trace2skill_webarena_sft")
-    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "trace2skill_nonlite_sft"))
+    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "vab_nonlite_split"))
     parser.add_argument("--train-instances-per-epoch", type=int, default=8)
     parser.add_argument("--instances-per-eval-step", type=int, default=None)
     parser.add_argument(
@@ -473,7 +503,7 @@ def main() -> None:
         ),
     )
     parser.add_argument("--optimizer-model", default="gpt-4.1-mini")
-    parser.add_argument("--target-model-name", default="Qwen3.5-27B")
+    parser.add_argument("--target-model-name", default="Qwen3-14B")
     parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl_chat.json")
     parser.add_argument("--mode", default="chat")
     parser.add_argument("--stop-token", default="")
@@ -482,6 +512,11 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=30)
     parser.add_argument("--seed", type=int, default=20260605)
     args = parser.parse_args()
+    if not (TRACE_SRC / "skill_evolver").is_dir():
+        raise FileNotFoundError(
+            f"Missing the Trace2Skill checkout at {TRACE_SRC}. "
+            "Install it with the command in data/README.md."
+        )
     if args.steps is not None:
         args.epochs = args.steps
     if args.instances_per_eval_step is not None:
@@ -504,12 +539,12 @@ def main() -> None:
     if not skill_dir.exists():
         if args.empty_skill:
             skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text("# WebArena Skill\n\n", encoding="utf-8")
+            (skill_dir / "SKILL.md").write_text(EMPTY_WEB_ARENA_SKILL, encoding="utf-8")
         else:
             shutil.copytree(ROOT / "webarena-train-time" / "methods" / "trace2skill" / "skills" / "webagent", skill_dir)
 
     manifest = {
-        "target_model": "/data0/zhi/meta-llama/webrl-sft-llama-3.1-8b",
+        "target_model": args.target_model_name,
         "target_model_name": args.target_model_name,
         "instruction_path": args.instruction_path,
         "mode": args.mode,
