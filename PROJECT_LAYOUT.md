@@ -10,6 +10,7 @@ Dynamic-Agent/
 |-- docvqa-train-time/        DocVQA environment and Dynamic-Agent runner
 |-- webarena-train-time/      WebArena and Trace2Skill integration
 |-- ahd-test-time/            test-time EoH and Dynamic-Agent
+|-- verl/                     bundled VERL runtime used by Math/DocVQA GRPO
 |-- verl_trace2skill/         VERL tool, parser, and reward functions
 |-- trace2skill-settings/     Math/DocVQA Trace2Skill adapters
 |-- scripts/                  canonical task launchers and data checks
@@ -30,6 +31,8 @@ Task-independent machine settings belong in `scripts/settings.local.env`.
 Run outputs belong in `runs/` or `cache/active_runs/`; neither is source code.
 Every Dynamic-Agent run writes a replayable `history.json` beside its outputs.
 
-Paper sources, figures, plotting utilities, result archives, machine-local
-external checkouts, and obsolete code are deliberately excluded from the core
-GitHub tree.
+Paper sources, figures, plotting utilities, result archives, unrelated
+machine-local external checkouts, and obsolete code are deliberately excluded
+from the core GitHub tree. `verl/` is the intentional exception: its local
+multi-turn compatibility changes are versioned with the launchers that use
+them.

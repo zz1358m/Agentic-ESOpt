@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-
-if [ -f "$ROOT/scripts/settings.local.env" ]; then
-  # shellcheck disable=SC1091
-  source "$ROOT/scripts/settings.local.env"
+if [[ "${TRACE2SKILL_XTRACE:-0}" == "1" ]]; then
+  set -x
 fi
 
-VERL_ROOT="${VERL_ROOT:?Set VERL_ROOT to the upstream verl checkout.}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+export ROOT
+
+if [[ -f "${ROOT}/scripts/settings.local.env" ]]; then
+  # shellcheck disable=SC1091
+  source "${ROOT}/scripts/settings.local.env"
+fi
+
+VERL_ROOT="${VERL_ROOT:-${ROOT}/verl}"
 CONDA_ENV="${CONDA_ENV-grpo}"
+PY="${PY:-python}"
 TASK="${TASK:-math}"
 
 case "${TASK}" in
@@ -35,6 +41,15 @@ case "${TASK}" in
     exit 2
     ;;
 esac
+
+if [[ ! -f "${VERL_ROOT}/verl/trainer/main_ppo.py" ]]; then
+  echo "VERL source not found at ${VERL_ROOT}. Clone the repository with its bundled verl/ directory or set VERL_ROOT." >&2
+  exit 2
+fi
+if [[ ! -f "${ROOT}/verl_trace2skill/reward.py" ]]; then
+  echo "verl_trace2skill integration not found under ${ROOT}." >&2
+  exit 2
+fi
 
 if [[ -n "${CONDA_ENV}" ]]; then
   if [[ -n "${CONDA_SH:-}" && -f "${CONDA_SH}" ]]; then
@@ -61,32 +76,44 @@ mkdir -p "${TMPDIR}"
 export TRACE2SKILL_MATH_TOOL_CWD="${TRACE2SKILL_MATH_TOOL_CWD:-${ROOT}}"
 mkdir -p "${TRACE2SKILL_MATH_TOOL_CWD}"
 
-SITE_PACKAGES="$(python - <<'PY'
+SITE_PACKAGES="$(${PY} - <<'PY'
 import site
-print(site.getsitepackages()[0])
+
+paths = site.getsitepackages()
+print(paths[0] if paths else site.getusersitepackages())
 PY
 )"
-NVIDIA_LIB_PATHS=""
-if [[ -d "${SITE_PACKAGES}/nvidia" ]]; then
-  while IFS= read -r lib_dir; do
-    NVIDIA_LIB_PATHS="${NVIDIA_LIB_PATHS:+${NVIDIA_LIB_PATHS}:}${lib_dir}"
-  done < <(find "${SITE_PACKAGES}/nvidia" -mindepth 2 -maxdepth 2 -type d -name lib 2>/dev/null)
-fi
+
+LIB_PARTS=()
 GCC_LIB64="${GCC_LIB64:-}"
 GCC_LIB="${GCC_LIB:-}"
-if [[ -n "${GCC_LIB64}" && -f "${GCC_LIB64}/libstdc++.so.6" ]]; then
-  export LD_PRELOAD="${GCC_LIB64}/libstdc++.so.6${LD_PRELOAD:+:${LD_PRELOAD}}"
+if [[ -n "${GCC_LIB64}" && -d "${GCC_LIB64}" ]]; then
+  LIB_PARTS+=("${GCC_LIB64}")
+  if [[ -f "${GCC_LIB64}/libstdc++.so.6" ]]; then
+    export LD_PRELOAD="${GCC_LIB64}/libstdc++.so.6${LD_PRELOAD:+:${LD_PRELOAD}}"
+  fi
 fi
-LIB_PARTS="${NVIDIA_LIB_PATHS}"
-if [[ -n "${GCC_LIB64}" ]]; then LIB_PARTS="${GCC_LIB64}:${LIB_PARTS}"; fi
-if [[ -n "${GCC_LIB}" ]]; then LIB_PARTS="${GCC_LIB}:${LIB_PARTS}"; fi
-if [[ -n "${CONDA_PREFIX:-}" ]]; then LIB_PARTS="${CONDA_PREFIX}/lib:${LIB_PARTS}"; fi
-export LD_LIBRARY_PATH="${LIB_PARTS}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+if [[ -n "${GCC_LIB}" && -d "${GCC_LIB}" ]]; then
+  LIB_PARTS+=("${GCC_LIB}")
+fi
+if [[ -n "${CONDA_PREFIX:-}" && -d "${CONDA_PREFIX}/lib" ]]; then
+  LIB_PARTS+=("${CONDA_PREFIX}/lib")
+fi
+if [[ -d "${SITE_PACKAGES}/nvidia" ]]; then
+  while IFS= read -r lib_dir; do
+    LIB_PARTS+=("${lib_dir}")
+  done < <(find "${SITE_PACKAGES}/nvidia" -mindepth 2 -maxdepth 2 -type d -name lib 2>/dev/null)
+fi
+if (( ${#LIB_PARTS[@]} )); then
+  JOINED_LIB_PATH="$(IFS=:; echo "${LIB_PARTS[*]}")"
+  export LD_LIBRARY_PATH="${JOINED_LIB_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+fi
 
 if [[ "${CUDA_VISIBLE_DEVICES:-}" == GPU-* ]]; then
-  CUDA_DEVICE_COUNT="$(python - <<'PY'
+  CUDA_DEVICE_COUNT="$(${PY} - <<'PY'
 import os
-print(len([x for x in os.environ["CUDA_VISIBLE_DEVICES"].split(",") if x]))
+
+print(len([value for value in os.environ["CUDA_VISIBLE_DEVICES"].split(",") if value]))
 PY
 )"
   export CUDA_VISIBLE_DEVICES="$(seq -s, 0 "$((CUDA_DEVICE_COUNT - 1))")"
@@ -100,17 +127,33 @@ CKPT_DIR="${CKPT_DIR:-${CKPT_ROOT}/${RUN_TAG}}"
 LOG_DIR="${LOG_DIR:-${ROOT}/runs/multiturn_grpo/logs/${RUN_TAG}}"
 mkdir -p "${CKPT_DIR}" "${LOG_DIR}"
 
-python "${ROOT}/scripts/trace2skill/prepare_verl_trace2skill_data.py" \
+"${PY}" "${ROOT}/scripts/trace2skill/prepare_verl_trace2skill_data.py" \
   --task "${TASK}" \
   --out-dir "${DATA_DIR}"
 
-export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${VERL_ROOT}:${PYTHONPATH:-}"
+# Do not let VERL silently route these records through single_turn_agent.
+"${PY}" - "${DATA_DIR}/${TASK}/train.parquet" "${DATA_DIR}/${TASK}/val.parquet" <<'PY'
+import sys
+
+import pandas as pd
+
+for path in sys.argv[1:]:
+    frame = pd.read_parquet(path, columns=["agent_name"])
+    values = set(frame["agent_name"].dropna().tolist())
+    if values != {"tool_agent"}:
+        raise RuntimeError(f"{path}: expected only agent_name=tool_agent, got {sorted(values)!r}")
+    print(f"verified tool-agent routing: {path} ({len(frame)} rows)")
+PY
+
+# Adding the package root imports verl_trace2skill; adding the package directory
+# itself exposes sitecustomize.py so every Ray worker registers the tool parser.
+export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${VERL_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 
 nvidia-smi || true
 
 cd "${VERL_ROOT}"
 
-python -m verl.trainer.main_ppo \
+"${PY}" -m verl.trainer.main_ppo \
   --config-path="${VERL_ROOT}/examples/sglang_multiturn/config" \
   --config-name="gsm8k_multiturn_grpo" \
   ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS:-${PBS_NCPUS:-12}}" \
@@ -148,7 +191,7 @@ python -m verl.trainer.main_ppo \
   actor_rollout_ref.rollout.mode="${ROLLOUT_MODE:-async}" \
   actor_rollout_ref.rollout.tensor_model_parallel_size="${ROLLOUT_TP:-1}" \
   actor_rollout_ref.rollout.gpu_memory_utilization="${GPU_MEMORY_UTILIZATION:-0.85}" \
-  actor_rollout_ref.rollout.multi_stage_wake_up=True \
+  actor_rollout_ref.rollout.multi_stage_wake_up="${MULTI_STAGE_WAKE_UP:-True}" \
   actor_rollout_ref.rollout.n="${ROLLOUT_N:-8}" \
   actor_rollout_ref.rollout.temperature="${TEMPERATURE:-1.0}" \
   actor_rollout_ref.rollout.top_p="${TOP_P:-1.0}" \
@@ -157,6 +200,7 @@ python -m verl.trainer.main_ppo \
   +actor_rollout_ref.rollout.repetition_penalty="${REPETITION_PENALTY:-1.0}" \
   actor_rollout_ref.rollout.max_model_len="${MAX_MODEL_LEN:-40960}" \
   actor_rollout_ref.rollout.max_num_batched_tokens="${MAX_NUM_BATCHED_TOKENS:-32768}" \
+  actor_rollout_ref.rollout.max_num_seqs="${MAX_NUM_SEQS:-1024}" \
   actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu="${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}" \
   actor_rollout_ref.rollout.update_weights_bucket_megabytes=512 \
   actor_rollout_ref.rollout.multi_turn.enable=True \

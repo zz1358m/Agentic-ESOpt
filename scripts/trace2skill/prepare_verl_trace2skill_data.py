@@ -5,15 +5,21 @@ import os
 from pathlib import Path
 from typing import Any
 
+MATH_SYSTEM = """You are a math reasoning agent. Solve the problem using the provided bash tool.
 
-MATH_SYSTEM = """You are a math reasoning agent. Solve the problem using a command-line Python ReAct loop.
+You are not allowed to answer from the problem alone. Your very first assistant turn must consist only of one bash tool call. Do not reason, solve, or write any text before that first tool call. After receiving its observation, continue solving and call bash again when useful.
 
-You are not allowed to answer from the problem alone. First use the bash tool to run command-line Python for calculation, checking, symbolic manipulation, or search over cases. Then finish with the final answer.
+Call bash by emitting exactly this XML shape, with no text after the closing tool_call tag:
 
-Available action:
+<tool_call>
+<function=bash>
+<parameter=command>
+python -c "print(1 + 1)"
+</parameter>
+</function>
+</tool_call>
 
-Action:
-{"name": "bash", "arguments": {"command": "<shell command>"}}
+The command inside <parameter=command> may be replaced with any shell command needed for the problem. After the tool observation is returned, continue reasoning with the complete conversation history. You must make at least one such bash call before answering.
 
 Use command-line Python deliberately, for example python -c "...", for arithmetic, algebraic verification, brute force checks, or symbolic computation. When finished, output exactly:
 
@@ -21,16 +27,12 @@ Final answer: \\boxed{<answer>}
 
 Do not include tool outputs in the final answer."""
 
-DOCVQA_SYSTEM = """You are a DocVQA agent. You answer questions about document images using a command-line and Python ReAct loop.
+DOCVQA_SYSTEM = """You are a DocVQA agent. You answer questions about document images using the provided bash tool.
 
 You are not allowed to answer from the question alone. You must inspect or process the local image file using command-line tools and Python commands, then answer from the textual observations you produced.
 
-Available action:
-
-Action:
-{"name": "bash", "arguments": {"command": "<shell command>"}}
-
-The bash action runs in the image directory. Use shell commands and command-line Python, for example python -c "...", to inspect or process the provided image path.
+The bash tool runs in the image directory. Use shell commands and command-line Python, for example python -c "...", to inspect or process the provided image path.
+Call bash using the same <tool_call><function=bash><parameter=command>...</parameter></function></tool_call> XML format described by the tool instructions, with no suffix after </tool_call>.
 Tool observations are text only. Do not expect the image to be displayed back to you.
 When finished, output exactly:
 
@@ -74,6 +76,10 @@ def _math_rows(records: list[dict[str, Any]], split: str, cwd: Path) -> list[dic
         rows.append(
             {
                 "data_source": "trace2skill_math_dapo",
+                # Required by VERL's async agent-loop router. Without this
+                # field VERL silently uses single_turn_agent even when
+                # rollout.multi_turn.enable=True.
+                "agent_name": "tool_agent",
                 "prompt": [
                     {"role": "system", "content": MATH_SYSTEM},
                     {"role": "user", "content": user},
@@ -124,6 +130,7 @@ def _docvqa_rows(records: list[dict[str, Any]], split: str, docvqa_root: Path) -
         rows.append(
             {
                 "data_source": "trace2skill_docvqa",
+                "agent_name": "tool_agent",
                 "prompt": [
                     {"role": "system", "content": DOCVQA_SYSTEM},
                     {"role": "user", "content": user},
@@ -152,12 +159,33 @@ def _docvqa_rows(records: list[dict[str, Any]], split: str, docvqa_root: Path) -
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", choices=["all", "math", "docvqa"], default="all")
-    parser.add_argument("--math-train", default="data/trace2skill/math_reasoning/dapo_evolve.jsonl")
-    parser.add_argument("--math-val", default="data/trace2skill/math_reasoning/dapo_test.jsonl")
-    parser.add_argument("--docvqa-root", default=".")
-    parser.add_argument("--docvqa-train", default="data/trace2skill/docvqa/evolve.jsonl")
-    parser.add_argument("--docvqa-val", default="data/trace2skill/docvqa/test.jsonl")
-    parser.add_argument("--out-dir", default="data/trace2skill/verl")
+    parser.add_argument(
+        "--math-train",
+        default=os.environ.get(
+            "TRACE2SKILL_MATH_TRAIN",
+            "data/trace2skill/math_reasoning/dapo_evolve.jsonl",
+        ),
+    )
+    parser.add_argument(
+        "--math-val",
+        default=os.environ.get(
+            "TRACE2SKILL_MATH_VAL",
+            "data/trace2skill/math_reasoning/dapo_test.jsonl",
+        ),
+    )
+    parser.add_argument("--docvqa-root", default=os.environ.get("DOCVQA_ROOT", "."))
+    parser.add_argument(
+        "--docvqa-train",
+        default=os.environ.get("DOCVQA_TRAIN", "data/trace2skill/docvqa/evolve.jsonl"),
+    )
+    parser.add_argument(
+        "--docvqa-val",
+        default=os.environ.get("DOCVQA_VAL", "data/trace2skill/docvqa/test.jsonl"),
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=os.environ.get("TRACE2SKILL_VERL_DATA_DIR", "data/trace2skill/verl"),
+    )
     parser.add_argument("--math-train-limit", type=int, default=400)
     parser.add_argument("--docvqa-train-limit", type=int, default=50)
     parser.add_argument("--docvqa-val-limit", type=int, default=500)

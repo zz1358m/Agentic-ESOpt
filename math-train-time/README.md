@@ -27,8 +27,11 @@ vLLM history is under `runs/math_es_vllm/`.
 Run multi-turn GRPO with the local `verl_trace2skill` package:
 
 ```bash
-VERL_ROOT=/path/to/verl scripts/math/run_grpo.sh
+scripts/math/run_grpo.sh
 ```
+
+This uses the bundled `verl/` by default. `VERL_ROOT` remains available as an
+explicit override.
 
 Run Trace2Skill alone or feed its evolved skill into Dynamic-Agent:
 

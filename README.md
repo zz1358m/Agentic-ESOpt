@@ -46,12 +46,14 @@ dependencies with:
 ```bash
 python -m pip install -e 'ahd-test-time/methods/eoh/original/eoh[all]'
 python -m pip install pillow datasets pandas pyarrow math-verify
+python -m pip install -e ./verl
 ```
 
 Math's in-process runner additionally needs `vllm`. Multi-turn GRPO uses an
-upstream `verl` or `verl-tool` environment, while WebArena/Trace2Skill uses the
-external checkouts listed in `data/README.md`; those fast-moving projects are
-kept out of a single pinned root environment.
+included, locally adapted `verl` tree for Math and DocVQA. Sudoku GRPO still
+uses a separate `verl-tool` checkout. WebArena and the standalone Trace2Skill
+pipeline use the external checkouts listed in `data/README.md`; those
+fast-moving projects are kept out of a single pinned root environment.
 
 Dynamic-Agent policy servers expose an OpenAI-compatible generation route plus:
 
@@ -158,8 +160,12 @@ Run multi-turn GRPO using the repository's `verl_trace2skill` bash tool,
 reward, and parser implementation:
 
 ```bash
-VERL_ROOT=/path/to/verl scripts/math/run_grpo.sh
+scripts/math/run_grpo.sh
 ```
+
+The launcher defaults to the bundled `verl/`; set `VERL_ROOT` only to test a
+different checkout. Evaluation and PBS helper commands are documented in
+[`scripts/trace2skill/README.md`](scripts/trace2skill/README.md).
 
 Run Trace2Skill on existing success/failure traces:
 
@@ -193,7 +199,7 @@ DOCVQA_ES_SIGMA_SCHEDULE=cosine scripts/docvqa/run.sh
 Run multi-turn GRPO:
 
 ```bash
-VERL_ROOT=/path/to/verl scripts/docvqa/run_grpo.sh
+scripts/docvqa/run_grpo.sh
 ```
 
 Run Trace2Skill or Trace2Skill followed by Dynamic-Agent:
@@ -291,6 +297,7 @@ Supported tasks are `construct_tsp`, `construct_kp`, `construct_asp`,
 - `es/`: shared seeded model updates, sigma schedules, and history utilities.
 - `{sudoku,math,docvqa,webarena}-train-time/`: task environments and runners.
 - `ahd-test-time/`: test-time EoH and Dynamic-Agent integration.
+- `verl/`: bundled VERL runtime with the required multi-turn compatibility changes.
 - `verl_trace2skill/`: maintained VERL multi-turn tool, parser, and rewards.
 - `trace2skill-settings/`: Math/DocVQA data and skill-evolution adapters.
 - `scripts/<task>/`: canonical user-facing launchers.

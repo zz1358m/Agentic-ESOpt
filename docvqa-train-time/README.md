@@ -35,8 +35,11 @@ History and Trace2Skill-compatible logs are written under
 Run multi-turn GRPO:
 
 ```bash
-VERL_ROOT=/path/to/verl scripts/docvqa/run_grpo.sh
+scripts/docvqa/run_grpo.sh
 ```
+
+This uses the bundled `verl/` by default. `VERL_ROOT` remains available as an
+explicit override.
 
 Run Trace2Skill alone or followed by Dynamic-Agent:
 

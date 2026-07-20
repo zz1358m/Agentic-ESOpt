@@ -12,14 +12,14 @@ The shared launcher adds this package and its `sitecustomize.py` directly to
 `PYTHONPATH` so Ray workers register the parser during startup:
 
 ```bash
-VERL_ROOT=/path/to/verl scripts/math/run_grpo.sh
-VERL_ROOT=/path/to/verl scripts/docvqa/run_grpo.sh
+scripts/math/run_grpo.sh
+scripts/docvqa/run_grpo.sh
 ```
 
-`VERL_ROOT` is the upstream VERL checkout; it is intentionally not copied into
-this repository. The importable integration directory uses an underscore
-(`verl_trace2skill`) even if the source folder was originally named with a
-hyphen. Data conversion additionally requires `datasets` and `pyarrow`.
+The launchers use the bundled `verl/` runtime by default. Set `VERL_ROOT` only
+to test another checkout. The importable integration directory uses an
+underscore (`verl_trace2skill`) even if the source folder was originally named
+with a hyphen. Data conversion additionally requires `datasets` and `pyarrow`.
 
 All former machine-specific absolute defaults have been replaced by
 repository-relative paths or explicit environment variables.
