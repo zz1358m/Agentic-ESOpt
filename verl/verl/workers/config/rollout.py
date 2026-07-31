@@ -36,6 +36,8 @@ class SamplingConfig(BaseConfig):
     temperature: float = 1.0
     top_k: int = -1
     top_p: float = 1.0
+    presence_penalty: float = 0.0
+    repetition_penalty: float = 1.0
     do_sample: bool = True
     n: int = 1
 
@@ -48,6 +50,7 @@ class MultiTurnConfig(BaseConfig):
     max_assistant_turns: Optional[int] = None
     tool_config_path: Optional[str] = None
     max_user_turns: Optional[int] = None
+    max_turn_response_length: Optional[int] = None
     max_parallel_calls: int = 1
     max_tool_response_length: int = 256
     tool_response_truncate_side: str = "middle"
@@ -101,6 +104,8 @@ class RolloutConfig(BaseConfig):
     temperature: float = 1.0
     top_k: int = -1
     top_p: float = 1.0
+    presence_penalty: float = 0.0
+    repetition_penalty: float = 1.0
     do_sample: bool = True
     after_thinking_temperature: float = 1.0
     after_thinking_top_k: int = -1

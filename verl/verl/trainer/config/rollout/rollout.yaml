@@ -162,6 +162,10 @@ multi_turn:
   # null for no limit (default max_length // 3)
   max_user_turns: null
 
+  # Optional generation cap for each assistant turn. The rollout response
+  # length remains the accumulated trajectory budget.
+  max_turn_response_length: null
+
   # max parallel call for tools in single turn
   max_parallel_calls: 1
 

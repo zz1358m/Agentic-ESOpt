@@ -11,10 +11,17 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 
 
 logger = logging.getLogger(__name__)
+
+
+if os.environ.get("TRACE2SKILL_EAGER_PATCH_DENSE_QWEN3NEXT") == "1":
+    from verl_trace2skill.sglang_dense_qwen3next_compat import patch_sglang_dense_qwen3next
+
+    patch_sglang_dense_qwen3next()
 
 
 def _register_trace2skill_tool_parser() -> None:
@@ -63,4 +70,9 @@ def _register_trace2skill_tool_parser() -> None:
             return FunctionCall(name=name, arguments=json.dumps(arguments, ensure_ascii=False))
 
 
-_register_trace2skill_tool_parser()
+# DocVQA's paper Action protocol is parsed directly by its agent loop. Avoid
+# importing VERL (and therefore torch/CUDA) in the parent process merely to
+# register the unrelated generic Trace2Skill parser; SGLang children apply the
+# dense-model patch only after their individual GPU visibility is isolated.
+if os.environ.get("TRACE2SKILL_PATCH_DENSE_QWEN3NEXT") != "1":
+    _register_trace2skill_tool_parser()

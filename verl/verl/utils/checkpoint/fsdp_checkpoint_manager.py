@@ -17,6 +17,7 @@ import logging
 import os
 import warnings
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Optional
 
 import torch
@@ -38,6 +39,61 @@ from .checkpoint_manager import BaseCheckpointManager
 # Setup logging
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "INFO"))
+
+
+def protected_checkpoint_steps(value: str | None = None) -> set[int]:
+    """Parse checkpoint steps that must survive rolling retention."""
+    raw = os.environ.get("VERL_PROTECTED_CHECKPOINT_STEPS", "") if value is None else value
+    if not raw.strip():
+        return set()
+    try:
+        steps = {int(part.strip()) for part in raw.split(",") if part.strip()}
+    except ValueError as exc:
+        raise ValueError(f"invalid protected checkpoint steps: {raw!r}") from exc
+    if any(step <= 0 for step in steps):
+        raise ValueError("protected checkpoint steps must be positive")
+    return steps
+
+
+def checkpoint_step(path: str) -> int | None:
+    """Return the global step encoded in a checkpoint path."""
+    for part in reversed(Path(path).parts):
+        if part.startswith("global_step_"):
+            suffix = part.removeprefix("global_step_")
+            return int(suffix) if suffix.isdigit() else None
+    return None
+
+
+def sibling_checkpoint_paths(path: str) -> list[str]:
+    """Find same-component checkpoints so resumed retention stays exact."""
+    checkpoint_path = Path(path)
+    for step_dir in (checkpoint_path, *checkpoint_path.parents):
+        if checkpoint_step(str(step_dir)) is None or not step_dir.name.startswith("global_step_"):
+            continue
+        suffix = checkpoint_path.relative_to(step_dir)
+        candidates = [
+            candidate / suffix
+            for candidate in step_dir.parent.glob("global_step_*")
+            if checkpoint_step(str(candidate)) is not None and (candidate / suffix).is_dir()
+        ]
+        return [str(candidate) for candidate in sorted(candidates, key=lambda item: checkpoint_step(str(item)))]
+    return [path] if checkpoint_path.is_dir() else []
+
+
+def rolling_checkpoint_partition(
+    paths: list[str],
+    *,
+    max_ckpt_to_keep: int,
+    protected_steps: set[int],
+) -> tuple[list[str], list[str]]:
+    """Keep protected milestones plus the newest unprotected checkpoints."""
+    protected = [path for path in paths if checkpoint_step(path) in protected_steps]
+    unprotected = [path for path in paths if checkpoint_step(path) not in protected_steps]
+    retained_unprotected = unprotected[-max_ckpt_to_keep:] if max_ckpt_to_keep > 0 else []
+    retained_set = set(protected + retained_unprotected)
+    retained = [path for path in paths if path in retained_set]
+    removed = [path for path in paths if path not in retained_set]
+    return removed, retained
 
 
 @dataclass
@@ -174,6 +230,11 @@ class FSDPCheckpointManager(BaseCheckpointManager):
                     logger=logger,
                 )
 
+        if not del_local_after_load:
+            for saved_path in sibling_checkpoint_paths(local_path):
+                if saved_path not in self.previous_saved_paths:
+                    self.previous_saved_paths.append(saved_path)
+
         # wait for everyone to load checkpoints
         torch.distributed.barrier()
 
@@ -200,18 +261,6 @@ class FSDPCheckpointManager(BaseCheckpointManager):
 
         # record the previous global step
         self.previous_global_step = global_step
-
-        # remove previous local_path, only rank 0 should do this
-        if (
-            self.rank == 0
-            and max_ckpt_to_keep
-            and isinstance(max_ckpt_to_keep, int)
-            and max_ckpt_to_keep > 0
-            and len(self.previous_saved_paths) >= max_ckpt_to_keep
-        ):
-            keep_start = len(self.previous_saved_paths) - max_ckpt_to_keep + 1
-            self.remove_previous_save_local_path(self.previous_saved_paths[:keep_start])
-            self.previous_saved_paths = self.previous_saved_paths[keep_start:]
 
         local_path = local_mkdir_safe(local_path)
         torch.distributed.barrier()
@@ -365,3 +414,53 @@ class FSDPCheckpointManager(BaseCheckpointManager):
             torch.distributed.barrier()
 
         self.previous_saved_paths.append(local_path)
+
+        # Validate each rank's resumable state only after every checkpoint
+        # component has finished writing. If validation fails, old checkpoints
+        # remain untouched and the save fails safely.
+        required_files = []
+        if self.should_save_model:
+            required_files.append(
+                os.path.join(local_path, f"model_world_size_{self.world_size}_rank_{self.rank}.pt")
+            )
+        if self.should_save_optimizer:
+            required_files.append(
+                os.path.join(local_path, f"optim_world_size_{self.world_size}_rank_{self.rank}.pt")
+            )
+        if self.should_save_extra:
+            required_files.append(
+                os.path.join(local_path, f"extra_state_world_size_{self.world_size}_rank_{self.rank}.pt")
+            )
+        incomplete = [path for path in required_files if not os.path.isfile(path) or os.path.getsize(path) == 0]
+        if self.rank == 0:
+            hf_path = Path(local_path) / "huggingface"
+            if not (hf_path / "config.json").is_file() or (hf_path / "config.json").stat().st_size == 0:
+                incomplete.append(str(hf_path / "config.json"))
+            if self.should_save_hf_model:
+                weight_files = list(hf_path.glob("*.safetensors")) or list(hf_path.glob("*.bin"))
+                if not weight_files:
+                    incomplete.append(str(hf_path / "<model weights>"))
+                else:
+                    incomplete.extend(str(path) for path in weight_files if path.stat().st_size == 0)
+        if incomplete:
+            raise RuntimeError(f"checkpoint validation failed; incomplete files: {incomplete}")
+        torch.distributed.barrier()
+
+        # Only a fully written and validated new checkpoint may trigger
+        # rolling cleanup. Every rank updates the same in-memory path list;
+        # rank 0 alone removes files, followed by a synchronization barrier.
+        if (
+            max_ckpt_to_keep
+            and isinstance(max_ckpt_to_keep, int)
+            and max_ckpt_to_keep > 0
+            and len(self.previous_saved_paths) > max_ckpt_to_keep
+        ):
+            removed, retained = rolling_checkpoint_partition(
+                self.previous_saved_paths,
+                max_ckpt_to_keep=max_ckpt_to_keep,
+                protected_steps=protected_checkpoint_steps(),
+            )
+            if self.rank == 0:
+                self.remove_previous_save_local_path(removed)
+            self.previous_saved_paths = retained
+            torch.distributed.barrier()

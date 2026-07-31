@@ -37,15 +37,26 @@ async def run_unvicorn(app: FastAPI, server_args, max_retries=5, lifespan="auto"
             app.server_args = server_args
             config = uvicorn.Config(
                 app,
-                host=["::", "0.0.0.0"],
+                host="0.0.0.0",
                 port=server_port,
                 log_level="warning",
                 lifespan=lifespan,
             )
             server = uvicorn.Server(config)
-            server.should_exit = True
-            await server.serve()
-            server_task = asyncio.create_task(server.main_loop())
+            if not config.loaded:
+                config.load()
+            server.lifespan = config.lifespan_class(config)
+            await server.startup()
+            if server.should_exit or not server.started:
+                raise RuntimeError(f"Uvicorn failed to start on port {server_port}")
+
+            async def run_until_cancelled():
+                try:
+                    await server.main_loop()
+                finally:
+                    await server.shutdown()
+
+            server_task = asyncio.create_task(run_until_cancelled())
             break
         except (OSError, SystemExit) as e:
             logger.error(f"Failed to start HTTP server on port {server_port} at try {i}, error: {e}")

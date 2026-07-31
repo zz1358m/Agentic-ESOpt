@@ -22,7 +22,7 @@ import torch
 from omegaconf import DictConfig
 from ray.actor import ActorHandle
 
-from verl.workers.rollout.sglang_rollout.runtime_compat import patch_runtime
+from verl.workers.rollout.sglang_rollout.runtime_compat import configure_triton_cache, patch_runtime
 
 patch_runtime()
 
@@ -46,6 +46,7 @@ from verl.workers.config import HFModelConfig, RolloutConfig
 from verl.workers.rollout.replica import RolloutMode, RolloutReplica, TokenOutput
 from verl.workers.rollout.sglang_rollout.sglang_rollout import ServerAdapter, _set_envs_and_config
 from verl.workers.rollout.utils import get_free_port, run_unvicorn
+from verl_trace2skill.sglang_dense_qwen3next_compat import enable_eager_patch_for_spawn
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
@@ -79,6 +80,11 @@ class SGLangHttpServer:
     ):
         print(f"SGLang http server: {rollout_mode=}, {replica_rank=}, {node_rank=}, {nnodes=}, {cuda_visible_devices=}")
         os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        triton_cache_root = os.environ.get("TRACE2SKILL_TRITON_CACHE_ROOT")
+        if triton_cache_root:
+            configure_triton_cache(triton_cache_root, f"sglang_replica_{replica_rank}_node_{node_rank}")
+        if os.environ.get("TRACE2SKILL_PATCH_DENSE_QWEN3NEXT") == "1":
+            enable_eager_patch_for_spawn()
         assert torch.cuda.is_available(), "SGLang http server should run on GPU node"
 
         self.config: RolloutConfig = omega_conf_to_dataclass(config.actor_rollout_ref.rollout)
@@ -202,7 +208,14 @@ class SGLangHttpServer:
     ) -> TokenOutput:
         """Generate sequence with token-in-token-out."""
         # TODO(@wuxibin): switch to `/generate` http endpoint once multi-modal support ready.
-        max_new_tokens = min(self.config.response_length, self.config.max_model_len - len(prompt_ids) - 1)
+        from verl.workers.rollout.sglang_rollout.runtime_compat import bounded_max_new_tokens
+
+        max_new_tokens = bounded_max_new_tokens(
+            response_length=self.config.response_length,
+            max_model_len=self.config.max_model_len,
+            prompt_length=len(prompt_ids),
+            requested_max_new_tokens=sampling_params.get("max_new_tokens"),
+        )
         sampling_params["max_new_tokens"] = max_new_tokens
         return_logprob = sampling_params.pop("logprobs", False)
 

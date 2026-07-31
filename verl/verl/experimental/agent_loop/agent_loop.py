@@ -443,7 +443,9 @@ class AgentLoopWorker:
         sampling_params = dict(
             temperature=config.temperature,
             top_p=config.top_p,
-            repetition_penalty=1.0,
+            top_k=config.top_k,
+            presence_penalty=config.presence_penalty,
+            repetition_penalty=config.repetition_penalty,
             logprobs=config.calculate_log_probs,
         )
 
