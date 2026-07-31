@@ -350,7 +350,7 @@ def normalize_docvqa_rows(
             continue
         image_path = _save_docvqa_image(
             image_value,
-            task_id=task_id,
+            task_id=raw_id,
             image_dir=image_dir,
             source_dir=source_dir,
         )
@@ -372,50 +372,131 @@ def normalize_docvqa_rows(
     return tasks
 
 
+def order_docvqa_test_rows(
+    remaining_rows: list[dict[str, Any]],
+    reference_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Put reference tasks first while preserving the remaining shuffled order."""
+    by_id = {str(row["id"]): row for row in remaining_rows}
+    ordered_ids: list[str] = []
+    seen: set[str] = set()
+    indexed_reference = list(enumerate(reference_rows))
+    indexed_reference.sort(
+        key=lambda item: (
+            int(item[1]["row_index"]) if str(item[1].get("row_index", "")).lstrip("-").isdigit() else item[0],
+            item[0],
+        )
+    )
+    for _, row in indexed_reference:
+        task_id = str(row.get("task_id", row.get("id", "")))
+        if task_id and task_id in by_id and task_id not in seen:
+            ordered_ids.append(task_id)
+            seen.add(task_id)
+    return [by_id[task_id] for task_id in ordered_ids] + [
+        row for row in remaining_rows if str(row["id"]) not in seen
+    ]
+
+
+def split_docvqa_tasks(
+    tasks: list[dict[str, Any]],
+    *,
+    evolve_count: int,
+    order_reference: Path | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if len(tasks) <= evolve_count:
+        raise ValueError(
+            f"DocVQA has {len(tasks)} usable rows, but needs more than "
+            f"--docvqa-evolve-count={evolve_count} to create a held-out split."
+        )
+    evolve_rows = tasks[:evolve_count]
+    test_rows = tasks[evolve_count:]
+    if order_reference is not None:
+        test_rows = order_docvqa_test_rows(test_rows, read_jsonl(order_reference))
+    return evolve_rows, test_rows
+
+
+def canonicalize_prepared_docvqa_images(
+    tasks: list[dict[str, Any]],
+    *,
+    output_dir: Path,
+) -> None:
+    """Copy older ``docvqa_<id>.png`` exports to historical ``<id>.png`` names."""
+    image_dir = output_dir / "images"
+    for row in tasks:
+        task_id = str(row["id"])
+        raw_id = task_id.removeprefix("docvqa_")
+        current = _resolve_source_image(str(row["image"]), ROOT)
+        expected = (image_dir / f"{raw_id}{current.suffix.lower()}").resolve()
+        if current != expected:
+            expected.parent.mkdir(parents=True, exist_ok=True)
+            if not expected.exists():
+                shutil.copy2(current, expected)
+        row["image"] = _portable_path(expected)
+
+
 def prepare_docvqa(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir).resolve()
     evolve_path = output_dir / "evolve.jsonl"
     test_path = output_dir / "test.jsonl"
     existing_ready = jsonl_count(evolve_path) > 0 and jsonl_count(test_path) > 0
-    if not args.docvqa_source_jsonl and existing_ready:
+    order_reference = (
+        Path(args.docvqa_order_reference).expanduser().resolve()
+        if args.docvqa_order_reference
+        else None
+    )
+    if order_reference is not None and not order_reference.is_file():
+        raise FileNotFoundError(order_reference)
+    if not args.docvqa_source_jsonl and existing_ready and order_reference is None:
         print(f"[skip] docvqa: existing non-empty splits under {output_dir}")
         return
 
-    if args.docvqa_source_jsonl:
-        source_path = Path(args.docvqa_source_jsonl).expanduser().resolve()
-        if not source_path.is_file():
-            raise FileNotFoundError(source_path)
-        rows: Any = read_rows(source_path)
-        source_dir = source_path.parent
-        source_description = str(source_path)
+    if not args.docvqa_source_jsonl and existing_ready:
+        tasks = read_jsonl(evolve_path) + read_jsonl(test_path)
+        canonicalize_prepared_docvqa_images(tasks, output_dir=output_dir)
+        evolve_rows, test_rows = split_docvqa_tasks(
+            tasks,
+            evolve_count=args.docvqa_evolve_count,
+            order_reference=order_reference,
+        )
+        write_jsonl(evolve_path, evolve_rows)
+        write_jsonl(test_path, test_rows)
+        print(f"[reorder] docvqa test using {order_reference}")
+        source_description = "existing prepared DocVQA split"
     else:
-        try:
-            from datasets import load_dataset
-        except Exception as exc:  # pragma: no cover - runtime dependency
-            raise RuntimeError("Python package 'datasets' is required to prepare DocVQA.") from exc
-        print(
-            f"[load] docvqa: {args.docvqa_dataset} "
-            f"config={args.docvqa_config} split={args.docvqa_split}"
-        )
-        rows = load_dataset(
-            args.docvqa_dataset,
-            args.docvqa_config,
-            split=args.docvqa_split,
-        )
-        source_dir = ROOT
-        source_description = f"{args.docvqa_dataset}/{args.docvqa_config}:{args.docvqa_split}"
+        if args.docvqa_source_jsonl:
+            source_path = Path(args.docvqa_source_jsonl).expanduser().resolve()
+            if not source_path.is_file():
+                raise FileNotFoundError(source_path)
+            rows: Any = read_rows(source_path)
+            source_dir = source_path.parent
+            source_description = str(source_path)
+        else:
+            try:
+                from datasets import load_dataset
+            except Exception as exc:  # pragma: no cover - runtime dependency
+                raise RuntimeError("Python package 'datasets' is required to prepare DocVQA.") from exc
+            print(
+                f"[load] docvqa: {args.docvqa_dataset} "
+                f"config={args.docvqa_config} split={args.docvqa_split} revision={args.docvqa_revision}"
+            )
+            rows = load_dataset(
+                args.docvqa_dataset,
+                args.docvqa_config,
+                split=args.docvqa_split,
+                revision=args.docvqa_revision or None,
+            )
+            source_dir = ROOT
+            source_description = f"{args.docvqa_dataset}/{args.docvqa_config}:{args.docvqa_split}"
 
-    tasks = normalize_docvqa_rows(rows, output_dir=output_dir, source_dir=source_dir)
-    random.Random(args.seed).shuffle(tasks)
-    if args.limit > 0:
-        tasks = tasks[: args.limit]
-    if len(tasks) <= args.docvqa_evolve_count:
-        raise ValueError(
-            f"DocVQA has {len(tasks)} usable rows, but needs more than "
-            f"--docvqa-evolve-count={args.docvqa_evolve_count} to create a held-out split."
+        tasks = normalize_docvqa_rows(rows, output_dir=output_dir, source_dir=source_dir)
+        random.Random(args.seed).shuffle(tasks)
+        if args.limit > 0:
+            tasks = tasks[: args.limit]
+        evolve_rows, test_rows = split_docvqa_tasks(
+            tasks,
+            evolve_count=args.docvqa_evolve_count,
+            order_reference=order_reference,
         )
-    evolve_rows = tasks[: args.docvqa_evolve_count]
-    test_rows = tasks[args.docvqa_evolve_count :]
     write_jsonl(evolve_path, evolve_rows)
     write_jsonl(test_path, test_rows)
     write_json(
@@ -423,6 +504,8 @@ def prepare_docvqa(args: argparse.Namespace) -> None:
         {
             "setting": "docvqa",
             "source": source_description,
+            "revision": args.docvqa_revision or None,
+            "order_reference": str(order_reference) if order_reference else None,
             "seed": args.seed,
             "counts": {"evolve": len(evolve_rows), "test": len(test_rows)},
             "files": {"evolve": evolve_path.name, "test": test_path.name, "images": "images"},
@@ -445,6 +528,8 @@ def main() -> None:
     parser.add_argument("--docvqa-dataset", default=DEFAULT_DOCVQA_DATASET)
     parser.add_argument("--docvqa-config", default=DEFAULT_DOCVQA_CONFIG)
     parser.add_argument("--docvqa-split", default="validation")
+    parser.add_argument("--docvqa-revision", default="")
+    parser.add_argument("--docvqa-order-reference", default="")
     parser.add_argument("--docvqa-evolve-count", type=int, default=50)
     parser.add_argument("--dapo-evolve-count", type=int, default=400)
     parser.add_argument("--dapo-test-count", type=int, default=100)

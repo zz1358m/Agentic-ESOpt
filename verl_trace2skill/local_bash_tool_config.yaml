@@ -5,6 +5,7 @@ tools:
       timeout: 20
       max_output_chars: 6000
       default_cwd: "."
+      sandbox: true
     tool_schema:
       type: "function"
       function:

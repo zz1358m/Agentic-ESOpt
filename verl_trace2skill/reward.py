@@ -1,6 +1,5 @@
 import math
 import re
-import string
 from typing import Any
 
 
@@ -47,11 +46,9 @@ def _last_final_answer(text: str) -> str:
 
 
 def _normalize_text(text: Any) -> str:
-    text = str(text).lower().strip()
-    while len(text) >= 2 and text.startswith("{") and text.endswith("}"):
-        text = text[1:-1].strip()
-    text = "".join(ch if ch not in string.punctuation else " " for ch in text)
-    return " ".join(text.split())
+    text = str(text).lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _levenshtein(a: str, b: str) -> int:
@@ -81,9 +78,8 @@ def _anls(prediction: str, answers: list[str]) -> float:
             continue
         dist = _levenshtein(pred, gold)
         denom = max(len(pred), len(gold))
-        score = 1.0 - dist / denom if denom else 0.0
-        if score < 0.5:
-            score = 0.0
+        norm = dist / denom if denom else 1.0
+        score = 1.0 - norm if norm < 0.5 else 0.0
         best = max(best, score)
     return float(best)
 
@@ -130,7 +126,12 @@ def compute_score(
     **kwargs,
 ) -> dict[str, float]:
     task = (data_source or "").lower()
-    if not _used_bash_action(solution_str):
+    tool_used = (
+        "Observation from bash:" in solution_str
+        if "docvqa" in task
+        else _used_bash_action(solution_str)
+    )
+    if not tool_used:
         if "docvqa" in task:
             return {"score": 0.0, "acc": 0.0, "anls": 0.0, "tool_used": 0.0}
         return {"score": 0.0, "acc": 0.0, "tool_used": 0.0}
@@ -139,8 +140,8 @@ def compute_score(
         answers = ground_truth if isinstance(ground_truth, list) else [ground_truth]
         pred = _last_final_answer(solution_str)
         anls = _anls(pred, [str(x) for x in answers])
-        score = float(anls > 0.5)
-        return {"score": score, "acc": score, "anls": anls, "tool_used": 1.0}
+        acc = float(anls > 0.5)
+        return {"score": anls, "acc": acc, "anls": anls, "tool_used": 1.0}
 
     score = float(_math_equal(solution_str, ground_truth))
     return {"score": score, "acc": score, "tool_used": 1.0}

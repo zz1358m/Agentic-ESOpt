@@ -15,6 +15,7 @@ import math
 import os
 import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -22,6 +23,23 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from verl_trace2skill.docvqa_protocol import (  # noqa: E402
+    bash_action_command,
+    build_docvqa_messages,
+    choose_endpoint,
+    extract_final_answer,
+    incremental_message_token_count,
+    observation_message,
+    react_step,
+    response_budget_exceeded,
+)
+from verl_trace2skill.docvqa_results import summarize_results  # noqa: E402
+from verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
+from verl_trace2skill.reward import compute_score as rl_compute_score  # noqa: E402
 
 try:
     from math_verify import parse as math_verify_parse
@@ -34,7 +52,6 @@ except ImportError:  # pragma: no cover - cluster env dependency check catches t
     LatexExtractionConfig = None
 
 
-ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MATH_ROOT = ROOT / "data/trace2skill/math_reasoning"
 DEFAULT_DOCVQA_ROOT = Path(os.environ.get("DOCVQA_ROOT", ROOT))
 DEFAULT_OUT = Path(
@@ -47,6 +64,28 @@ DEFAULT_OUT = Path(
 
 class ContextLengthExceeded(RuntimeError):
     pass
+
+
+def sample_seed(*, base_seed: int, row_index: int, sample_index: int) -> int:
+    """Derive a stable evaluation seed without coupling to rollout collection."""
+    return int(base_seed) + int(sample_index) * 1_000_003 + int(row_index)
+
+
+def reward_solution_str(steps: list[dict[str, Any]], completion: str) -> str:
+    """Reconstruct the ReAct text consumed by the shared RL reward."""
+    parts: list[str] = []
+    for step in steps:
+        assistant = str(step.get("assistant", "")).strip()
+        if assistant:
+            parts.append(assistant)
+        if "observation" in step:
+            action = step.get("action") or {}
+            name = str(action.get("name", "format_check"))
+            parts.append(observation_message(name, str(step.get("observation", ""))))
+    final = str(completion).strip()
+    if final and (not parts or final != parts[-1]):
+        parts.append(final)
+    return "\n\n".join(parts)
 
 
 @dataclass(frozen=True)
@@ -311,33 +350,8 @@ def resolve_docvqa_image(row: dict[str, Any], docvqa_root: Path) -> Path:
 
 
 def docvqa_react_messages(row: dict[str, Any], docvqa_root: Path) -> list[dict[str, Any]]:
-    image_path = resolve_docvqa_image(row, docvqa_root)
-    system = """You are a DocVQA agent. You answer questions about document images using a command-line and Python ReAct loop.
-
-You are not allowed to answer from the question alone. You must inspect or process the local image file using command-line tools and Python commands, then answer from the textual observations you produced.
-
-Available action:
-
-Action:
-{"name": "bash", "arguments": {"command": "<shell command>"}}
-
-The bash action runs in the image directory. Use shell commands and command-line Python, for example python -c "...", to inspect or process the provided image path.
-Tool observations are text only. Do not expect the image to be displayed back to you.
-When finished, output exactly:
-
-Final answer: <short answer>
-
-Return only the requested short answer after the Final answer prefix. Do not include reasoning in the final answer."""
-    user = (
-        "Task: Answer the document visual question.\n"
-        f"Image path: {image_path}\n"
-        f"Question: {row.get('question', '')}\n"
-        "You must call at least one bash action before giving the final answer."
-    )
-    return [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
+    del docvqa_root
+    return build_docvqa_messages(str(row.get("question", "")))
 
 
 def response_text(response_json: dict[str, Any]) -> str:
@@ -503,7 +517,11 @@ async def run_math_react(
     steps: list[dict[str, Any]] = []
     total_usage: dict[str, Any] | None = None
     used_bash = False
-    seed_base = args.seed + sample_index * 1_000_003 + row_index
+    seed_base = sample_seed(
+        base_seed=args.seed,
+        row_index=row_index,
+        sample_index=sample_index,
+    )
 
     for turn in range(args.math_max_turns):
         try:
@@ -597,7 +615,42 @@ async def run_docvqa_react(
     total_usage: dict[str, Any] | None = None
     used_tool = False
     last_completion = ""
-    seed_base = args.seed + sample_index * 1_000_003 + row_index
+    seed_base = sample_seed(
+        base_seed=args.seed,
+        row_index=row_index,
+        sample_index=sample_index,
+    )
+    accumulated_response_tokens = 0
+    tokenizer = getattr(args, "docvqa_tokenizer", None)
+
+    def record_response_tokens() -> None:
+        nonlocal total_usage
+        if total_usage is None:
+            total_usage = {}
+        total_usage["accumulated_response_tokens"] = accumulated_response_tokens
+
+    def add_observation_tokens(message: dict[str, Any]) -> bool:
+        nonlocal accumulated_response_tokens
+        if tokenizer is None:
+            return True
+        observation_tokens = incremental_message_token_count(
+            tokenizer,
+            message,
+            apply_chat_template_kwargs={"enable_thinking": False},
+        )
+        if (
+            args.docvqa_max_total_tokens > 0
+            and accumulated_response_tokens + observation_tokens >= args.docvqa_max_total_tokens
+        ):
+            record_response_tokens()
+            assert total_usage is not None
+            total_usage["attempted_accumulated_response_tokens"] = (
+                accumulated_response_tokens + observation_tokens
+            )
+            return False
+        accumulated_response_tokens += observation_tokens
+        record_response_tokens()
+        return True
 
     for turn in range(args.docvqa_max_turns):
         try:
@@ -618,49 +671,56 @@ async def run_docvqa_react(
         last_completion = completion
         total_usage = usage_add(total_usage, usage)
         messages.append({"role": "assistant", "content": completion})
+        if usage:
+            generated_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0))
+        else:
+            generated_tokens = len(tokenizer.encode(completion, add_special_tokens=False)) if tokenizer else 0
+        accumulated_response_tokens += int(generated_tokens or 0)
+        record_response_tokens()
+
+        if response_budget_exceeded(
+            {"completion_tokens": accumulated_response_tokens},
+            args.docvqa_max_total_tokens,
+        ):
+            return last_completion, total_usage, steps, "max_response_tokens_exceeded"
 
         cleaned = strip_think(completion)
-        final_match = final_answer_line(cleaned) is not None
-        action = parse_react_action(cleaned)
-        if final_match and not action:
-            if used_tool:
-                return completion, total_usage, steps, None
-            warning = (
-                "You must use a bash Action to inspect/process the image file before answering. "
-                "Tool observations are text only; then provide Final answer."
-            )
-            messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
+        decision = react_step(cleaned, used_tool=used_tool)
+        if decision.kind == "final":
+            return completion, total_usage, steps, None
+        if decision.kind == "retry":
+            warning = decision.message or ""
+            warning_message = {
+                "role": "user",
+                "content": observation_message("format_check", warning),
+            }
+            messages.append(warning_message)
             steps.append({"turn": turn + 1, "assistant": completion, "observation": warning})
+            if not add_observation_tokens(warning_message):
+                return last_completion, total_usage, steps, "max_response_tokens_exceeded"
             continue
 
-        if not action:
-            warning = (
-                'No valid action was parsed. Use exactly:\n'
-                'Action:\n{"name": "bash", "arguments": {"command": "<shell command>"}}\n'
-                'or finish after tool use with: Final answer: <short answer>'
-            )
-            messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
-            steps.append({"turn": turn + 1, "assistant": completion, "observation": warning})
-            continue
-
+        action = decision.action or {}
         name = action["name"]
-        arguments = action["arguments"]
-        if name == "bash":
-            command = str(arguments.get("command", ""))
-            if not command.strip():
-                observation = "No shell command was provided."
-            else:
-                used_tool = True
-                observation = run_bash(
-                    command,
-                    image_path.parent,
-                    timeout=args.docvqa_python_timeout,
-                    limit=args.tool_observation_limit,
-                )
-            messages.append({"role": "user", "content": react_observation_text(name, observation)})
+        command, action_error = bash_action_command(action)
+        if action_error is not None:
+            observation = action_error
         else:
-            observation = f"Unknown action '{name}'. Available action is bash."
-            messages.append({"role": "user", "content": react_observation_text(name, observation)})
+            assert command is not None
+            used_tool = True
+            sandbox_result = await asyncio.to_thread(
+                run_sandboxed_bash,
+                command,
+                image_path=image_path,
+                timeout=args.docvqa_python_timeout,
+                max_output_chars=args.tool_observation_limit,
+            )
+            observation = sandbox_result.text
+        tool_message = {
+            "role": "user",
+            "content": observation_message(name, observation),
+        }
+        messages.append(tool_message)
 
         steps.append(
             {
@@ -670,6 +730,8 @@ async def run_docvqa_react(
                 "observation": observation,
             }
         )
+        if not add_observation_tokens(tool_message):
+            return last_completion, total_usage, steps, "max_response_tokens_exceeded"
 
     if not used_tool:
         return "", total_usage, steps, "no_tool_use"
@@ -689,9 +751,50 @@ def completed_keys(path: Path) -> set[str]:
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if row.get("key"):
+            if row.get("key") and not row.get("error"):
                 keys.add(str(row["key"]))
     return keys
+
+
+def prepare_resume_output(path: Path) -> set[str]:
+    """Keep one successful row per key and archive failed request attempts."""
+    if not path.exists():
+        return set()
+
+    successful: dict[str, dict[str, Any]] = {}
+    request_errors: list[dict[str, Any]] = []
+    nonempty_lines = 0
+    with path.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            nonempty_lines += 1
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            key = str(row.get("key", ""))
+            if row.get("error"):
+                request_errors.append(row)
+            elif key:
+                successful[key] = row
+
+    if request_errors:
+        archive = path.with_name(f"{path.stem}.request_errors{path.suffix}")
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open("a", encoding="utf-8") as fh:
+            for row in request_errors:
+                fh.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+    if request_errors or len(successful) != nonempty_lines:
+        temporary = path.with_name(f".{path.name}.resume.tmp")
+        with temporary.open("w", encoding="utf-8") as fh:
+            for row in successful.values():
+                fh.write(json.dumps(row, ensure_ascii=True) + "\n")
+        os.replace(temporary, path)
+
+    return set(successful)
 
 
 async def request_one(
@@ -758,10 +861,16 @@ async def request_one(
         }
     else:
         answers = [str(answer) for answer in row.get("answers", [])]
-        prediction = extract_doc_answer(completion)
-        anls = doc_anls(prediction, answers)
-        acc = doc_acc_from_anls(anls)
-        score = acc
+        solution_str = reward_solution_str(react_steps or [], completion)
+        prediction = extract_final_answer(solution_str) or ""
+        reward_info = rl_compute_score(
+            data_source="trace2skill_docvqa",
+            solution_str=solution_str,
+            ground_truth=answers,
+        )
+        anls = float(reward_info["anls"])
+        acc = float(reward_info["acc"])
+        score = anls
         extra = {
             "answers": answers,
             "image": row.get("image", ""),
@@ -771,15 +880,22 @@ async def request_one(
             "anls": anls,
             "vlns": anls,
             "acc": acc,
-            "score_method": "docvqa_paper_react_cli_anls_gt_0.5_acc" if not error else "request_error",
+            "tool_used": float(reward_info["tool_used"]),
+            "score_method": "docvqa_paper_react_cli_anls" if not error else "request_error",
         }
 
     return {
         "key": key,
         "dataset": dataset.name,
         "task_id": task_id,
+        "question": str(row.get("question", "")),
         "row_index": row_index,
         "sample_index": sample_index,
+        "seed": sample_seed(
+            base_seed=args.seed,
+            row_index=row_index,
+            sample_index=sample_index,
+        ),
         "enable_thinking": dataset.enable_thinking,
         "score": score,
         "prediction": prediction,
@@ -791,14 +907,14 @@ async def request_one(
     }
 
 
-def summarize_output(path: Path) -> dict[str, Any]:
+def summarize_output(path: Path, *, samples: int | None = None) -> dict[str, Any]:
     rows = []
     if path.exists():
         with path.open(encoding="utf-8", errors="replace") as fh:
             rows = [json.loads(line) for line in fh if line.strip()]
     def primary_score(row: dict[str, Any]) -> float:
         if "anls" in row:
-            return doc_acc_from_anls(float(row.get("anls", -1.0)))
+            return float(row.get("anls", -1.0))
         return float(row.get("score", -1.0))
 
     valid = [primary_score(row) for row in rows if primary_score(row) >= 0.0]
@@ -816,7 +932,8 @@ def summarize_output(path: Path) -> dict[str, Any]:
                     continue
                 metric_by_task.setdefault(str(row.get("task_id", row.get("row_index", ""))), []).append(float(row[metric]))
             if metric_by_task:
-                metric_means[f"max@16_{metric}"] = sum(max(scores) for scores in metric_by_task.values()) / len(
+                sample_count = samples or len({int(row.get("sample_index", -1)) for row in rows})
+                metric_means[f"max@{sample_count}_{metric}"] = sum(max(scores) for scores in metric_by_task.values()) / len(
                     metric_by_task
                 )
     for row in rows:
@@ -827,13 +944,14 @@ def summarize_output(path: Path) -> dict[str, Any]:
         if row.get("score_method"):
             method = str(row["score_method"])
             score_methods[method] = score_methods.get(method, 0) + 1
-    max_at_16 = sum(max(scores) for scores in by_task.values()) / len(by_task) if by_task else -1.0
+    sample_count = samples or len(by_sample)
+    max_at_n = sum(max(scores) for scores in by_task.values()) / len(by_task) if by_task else -1.0
     return {
         "output": str(path),
         "records": len(rows),
         "valid_records": len(valid),
         "mean_score": sum(valid) / len(valid) if valid else -1.0,
-        "max@16": max_at_16,
+        f"max@{sample_count}": max_at_n,
         "score_methods": score_methods,
         **metric_means,
         "by_sample": {
@@ -843,6 +961,7 @@ def summarize_output(path: Path) -> dict[str, Any]:
             }
             for idx, scores in sorted(by_sample.items())
         },
+        "docvqa_diagnostics": summarize_results(rows) if rows and "anls" in rows[0] else None,
     }
 
 
@@ -855,7 +974,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
     out_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
 
-    done = completed_keys(out_path) if args.resume else set()
+    done = prepare_resume_output(out_path) if args.resume else set()
     print(
         f"[{dataset.name}] start rows={len(rows)} samples={args.samples} "
         f"resume_done={len(done)} thinking={dataset.enable_thinking} "
@@ -872,7 +991,11 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
                 jobs.append((row_index, row, sample_index))
     print(f"[{dataset.name}] pending_jobs={len(jobs)}", flush=True)
 
-    chat_url = args.base_url.rstrip("/") + "/chat/completions"
+    endpoint_text = args.base_urls or args.base_url
+    endpoints = [value.strip().rstrip("/") for value in endpoint_text.split(",") if value.strip()]
+    if not endpoints:
+        raise ValueError("at least one --base-url/--base-urls endpoint is required")
+    chat_urls = [value + "/chat/completions" for value in endpoints]
     timeout = None if args.timeout <= 0 else args.timeout
     limits = httpx.Limits(max_connections=args.concurrency, max_keepalive_connections=0)
     semaphore = asyncio.Semaphore(args.concurrency)
@@ -888,6 +1011,12 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
             if abort_event.is_set():
                 return
             row_index, row, sample_index = job
+            chat_url = choose_endpoint(
+                chat_urls,
+                row_index=row_index,
+                sample_index=sample_index,
+                samples=args.samples,
+            )
             async with semaphore:
                 if abort_event.is_set():
                     return
@@ -920,7 +1049,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
 
         await asyncio.gather(*(guarded(job) for job in jobs))
 
-    summary = summarize_output(out_path)
+    summary = summarize_output(out_path, samples=args.samples)
     summary.update(
         {
             "dataset": dataset.name,
@@ -974,7 +1103,9 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
         "docvqa": DatasetSpec(
             name="docvqa",
             kind="docvqa",
-            path=args.docvqa_root / "data/trace2skill/docvqa/test.jsonl",
+            path=args.docvqa_data
+            if args.docvqa_data is not None
+            else args.docvqa_root / "data/trace2skill/docvqa/test.jsonl",
             enable_thinking=False,
             max_tokens=args.docvqa_max_tokens,
             limit=args.docvqa_limit if args.docvqa_limit > 0 else None,
@@ -989,9 +1120,19 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
 async def main_async(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     specs = build_datasets(args)
+    args.docvqa_tokenizer = None
+    if any(spec.kind == "docvqa" for spec in specs) and args.tokenizer_path is not None:
+        from transformers import AutoTokenizer
+
+        args.docvqa_tokenizer = AutoTokenizer.from_pretrained(
+            args.tokenizer_path,
+            trust_remote_code=True,
+        )
     manifest = {
         "model": args.model,
         "base_url": args.base_url,
+        "base_urls": args.base_urls,
+        "tokenizer_path": str(args.tokenizer_path) if args.tokenizer_path else None,
         "datasets": [spec.name for spec in specs],
         "samples": args.samples,
         "limits": {spec.name: spec.limit for spec in specs if spec.limit is not None},
@@ -1010,9 +1151,12 @@ async def main_async(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:18080/v1")
+    parser.add_argument("--base-urls", default="")
     parser.add_argument("--model", default="Qwen3.5-27B")
+    parser.add_argument("--tokenizer-path", type=Path)
     parser.add_argument("--math-root", type=Path, default=DEFAULT_MATH_ROOT)
     parser.add_argument("--docvqa-root", type=Path, default=DEFAULT_DOCVQA_ROOT)
+    parser.add_argument("--docvqa-data", type=Path)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--datasets", default="dapo100,aime2026,docvqa")
     parser.add_argument("--samples", type=int, default=16)
@@ -1031,7 +1175,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--math-max-turns", type=int, default=30)
     parser.add_argument("--math-python-timeout", type=float, default=20.0)
     parser.add_argument("--docvqa-max-tokens", type=int, default=512)
-    parser.add_argument("--docvqa-max-turns", type=int, default=30)
+    parser.add_argument("--docvqa-max-total-tokens", type=int, default=32768)
+    parser.add_argument("--docvqa-max-turns", type=int, default=50)
     parser.add_argument("--docvqa-python-timeout", type=float, default=20.0)
     parser.add_argument("--docvqa-limit", type=int, default=0)
     parser.add_argument("--tool-observation-limit", type=int, default=6000)

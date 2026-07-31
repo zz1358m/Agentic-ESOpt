@@ -29,12 +29,26 @@ case "${TASK}" in
     TEST_FREQ="${TEST_FREQ:-5}"
     ;;
   docvqa)
-    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-10}"
-    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-10}"
-    MAX_RESPONSE_LENGTH="${MAX_RESPONSE_LENGTH:-4096}"
+    export DOCVQA_PHYSICAL_GPU_IDS="${DOCVQA_PHYSICAL_GPU_IDS:-auto}"
+    export DOCVQA_TRAIN_LIMIT="${DOCVQA_TRAIN_LIMIT:-50}"
+    export DOCVQA_VAL_LIMIT="${DOCVQA_VAL_LIMIT:-100}"
+    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
+    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-4}"
+    MAX_RESPONSE_LENGTH="${MAX_RESPONSE_LENGTH:-32768}"
     MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-4096}"
     TOTAL_EPOCHS="${TOTAL_EPOCHS:-15}"
-    TEST_FREQ="${TEST_FREQ:-5}"
+    TEST_FREQ="${TEST_FREQ:--1}"
+    SAVE_FREQ="${SAVE_FREQ:-1}"
+    VAL_BEFORE_TRAIN="${VAL_BEFORE_TRAIN:-False}"
+    N_GPUS_PER_NODE="${N_GPUS_PER_NODE:-4}"
+    MAX_USER_TURNS="${MAX_USER_TURNS:-50}"
+    MAX_ASSISTANT_TURNS="${MAX_ASSISTANT_TURNS:-50}"
+    MAX_MODEL_LEN="${MAX_MODEL_LEN:-131072}"
+    MAX_NUM_SEQS="${MAX_NUM_SEQS:-64}"
+    PPO_MAX_TOKEN_LEN_PER_GPU="${PPO_MAX_TOKEN_LEN_PER_GPU:-40960}"
+    LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
+    REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
+    MULTI_TURN_FORMAT="${MULTI_TURN_FORMAT:-paper_react_cli}"
     ;;
   *)
     echo "TASK must be math or docvqa, got ${TASK}" >&2
@@ -62,6 +76,22 @@ if [[ -n "${CONDA_ENV}" ]]; then
     exit 3
   fi
   conda activate "${CONDA_ENV}"
+fi
+
+if [[ "${TASK}" == "docvqa" ]]; then
+  requested_gpu_plan="${DOCVQA_PHYSICAL_GPU_IDS}"
+  GPU_VISIBILITY_ARGS=(--physical-devices "${requested_gpu_plan}")
+  if [[ -n "${DOCVQA_GPU_UUIDS:-}" ]]; then
+    GPU_VISIBILITY_ARGS+=(--expected-uuids "${DOCVQA_GPU_UUIDS}")
+  fi
+  export DOCVQA_PHYSICAL_GPU_IDS="$(${PY} "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" --format physical)"
+  GPU_VISIBILITY_ARGS=(--physical-devices "${DOCVQA_PHYSICAL_GPU_IDS}")
+  if [[ -n "${DOCVQA_GPU_UUIDS:-}" ]]; then
+    GPU_VISIBILITY_ARGS+=(--expected-uuids "${DOCVQA_GPU_UUIDS}")
+  fi
+  export CUDA_VISIBLE_DEVICES="$(${PY} "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" --format cuda)"
 fi
 
 export PYTHONUNBUFFERED=1
@@ -109,45 +139,44 @@ if (( ${#LIB_PARTS[@]} )); then
   export LD_LIBRARY_PATH="${JOINED_LIB_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
 
-if [[ "${CUDA_VISIBLE_DEVICES:-}" == GPU-* ]]; then
-  CUDA_DEVICE_COUNT="$(${PY} - <<'PY'
-import os
-
-print(len([value for value in os.environ["CUDA_VISIBLE_DEVICES"].split(",") if value]))
-PY
-)"
-  export CUDA_VISIBLE_DEVICES="$(seq -s, 0 "$((CUDA_DEVICE_COUNT - 1))")"
-fi
-
 MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3.5-4B}"
+REF_MODEL_PATH="${REF_MODEL_PATH:-${MODEL_PATH}}"
 DATA_DIR="${DATA_DIR:-${ROOT}/data/trace2skill/verl}"
 RUN_TAG="${RUN_TAG:-trace2skill-verl-qwen35-4b-${TASK}-$(date -u +%Y%m%d_%H%M%S)}"
 CKPT_ROOT="${CKPT_ROOT:-${ROOT}/runs/multiturn_grpo/checkpoints}"
 CKPT_DIR="${CKPT_DIR:-${CKPT_ROOT}/${RUN_TAG}}"
 LOG_DIR="${LOG_DIR:-${ROOT}/runs/multiturn_grpo/logs/${RUN_TAG}}"
 mkdir -p "${CKPT_DIR}" "${LOG_DIR}"
+export TRACE2SKILL_TRITON_CACHE_ROOT="${TRACE2SKILL_TRITON_CACHE_ROOT:-${LOG_DIR}/triton_cache}"
+mkdir -p "${TRACE2SKILL_TRITON_CACHE_ROOT}"
+
+if [[ "${TASK}" == "docvqa" ]]; then
+  "${PY}" "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" \
+    --format json \
+    --out "${LOG_DIR}/gpu_resources.json" >/dev/null
+  "${PY}" "${ROOT}/scripts/docvqa/experiment_config.py" \
+    --visible-devices "${DOCVQA_PHYSICAL_GPU_IDS}" \
+    --effective-visible-devices "${CUDA_VISIBLE_DEVICES}" \
+    --train-records "${DOCVQA_TRAIN_LIMIT}" \
+    --train-batch-size "${TRAIN_BATCH_SIZE}" \
+    --ppo-mini-batch-size "${PPO_MINI_BATCH_SIZE}" \
+    --rollout-n "${ROLLOUT_N:-8}" \
+    --epochs "${TOTAL_EPOCHS}" \
+    --check-torch \
+    --out "${LOG_DIR}/experiment_config.json"
+fi
 
 "${PY}" "${ROOT}/scripts/trace2skill/prepare_verl_trace2skill_data.py" \
   --task "${TASK}" \
   --out-dir "${DATA_DIR}"
 
-# Do not let VERL silently route these records through single_turn_agent.
-"${PY}" - "${DATA_DIR}/${TASK}/train.parquet" "${DATA_DIR}/${TASK}/val.parquet" <<'PY'
-import sys
-
-import pandas as pd
-
-for path in sys.argv[1:]:
-    frame = pd.read_parquet(path, columns=["agent_name"])
-    values = set(frame["agent_name"].dropna().tolist())
-    if values != {"tool_agent"}:
-        raise RuntimeError(f"{path}: expected only agent_name=tool_agent, got {sorted(values)!r}")
-    print(f"verified tool-agent routing: {path} ({len(frame)} rows)")
-PY
-
 # Adding the package root imports verl_trace2skill; adding the package directory
 # itself exposes sitecustomize.py so every Ray worker registers the tool parser.
 export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${VERL_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+if [[ "${TASK}" == "docvqa" ]]; then
+  export TRACE2SKILL_PATCH_DENSE_QWEN3NEXT=1
+fi
 
 nvidia-smi || true
 
@@ -163,6 +192,8 @@ cd "${VERL_ROOT}"
   data.train_files="${DATA_DIR}/${TASK}/train.parquet" \
   data.val_files="${DATA_DIR}/${TASK}/val.parquet" \
   data.train_batch_size="${TRAIN_BATCH_SIZE}" \
+  data.shuffle="${DATA_SHUFFLE:-True}" \
+  +data.seed="${DATA_SEED:-1}" \
   data.max_prompt_length="${MAX_PROMPT_LENGTH}" \
   data.max_response_length="${MAX_RESPONSE_LENGTH}" \
   data.filter_overlong_prompts=False \
@@ -170,12 +201,15 @@ cd "${VERL_ROOT}"
   data.return_raw_chat=True \
   data.return_multi_modal_inputs=False \
   data.trust_remote_code=True \
+  +data.apply_chat_template_kwargs.enable_thinking=False \
   custom_reward_function.path="${ROOT}/verl_trace2skill/reward.py" \
   custom_reward_function.name=compute_score \
   actor_rollout_ref.model.path="${MODEL_PATH}" \
   actor_rollout_ref.model.trust_remote_code=True \
   actor_rollout_ref.model.use_remove_padding=True \
   actor_rollout_ref.model.enable_gradient_checkpointing=True \
+  actor_rollout_ref.model.use_fused_kernels="${USE_FUSED_KERNELS:-False}" \
+  actor_rollout_ref.model.fused_kernel_options.impl_backend="${FUSED_KERNELS_BACKEND:-torch}" \
   actor_rollout_ref.actor.optim.lr="${LR:-1e-6}" \
   actor_rollout_ref.actor.ppo_mini_batch_size="${PPO_MINI_BATCH_SIZE}" \
   actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}" \
@@ -202,10 +236,13 @@ cd "${VERL_ROOT}"
   actor_rollout_ref.rollout.max_num_batched_tokens="${MAX_NUM_BATCHED_TOKENS:-32768}" \
   actor_rollout_ref.rollout.max_num_seqs="${MAX_NUM_SEQS:-1024}" \
   actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu="${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}" \
+  actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu="${LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-32768}" \
   actor_rollout_ref.rollout.update_weights_bucket_megabytes=512 \
+  actor_rollout_ref.rollout.agent.num_workers="${AGENT_LOOP_WORKERS:-8}" \
   actor_rollout_ref.rollout.multi_turn.enable=True \
   actor_rollout_ref.rollout.multi_turn.max_user_turns="${MAX_USER_TURNS:-100}" \
   actor_rollout_ref.rollout.multi_turn.max_assistant_turns="${MAX_ASSISTANT_TURNS:-100}" \
+  actor_rollout_ref.rollout.multi_turn.max_turn_response_length="${MAX_TURN_RESPONSE_LENGTH:-512}" \
   actor_rollout_ref.rollout.multi_turn.max_tool_response_length="${MAX_TOOL_RESPONSE_LENGTH:-6000}" \
   actor_rollout_ref.rollout.multi_turn.tool_response_truncate_side=middle \
   actor_rollout_ref.rollout.multi_turn.tool_config_path="${ROOT}/verl_trace2skill/local_bash_tool_config.yaml" \
@@ -216,7 +253,9 @@ cd "${VERL_ROOT}"
   actor_rollout_ref.rollout.val_kwargs.do_sample=True \
   actor_rollout_ref.rollout.val_kwargs.n=1 \
   actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu="${REF_LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}" \
+  actor_rollout_ref.ref.log_prob_max_token_len_per_gpu="${REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-32768}" \
   actor_rollout_ref.ref.fsdp_config.param_offload="${REF_PARAM_OFFLOAD:-True}" \
+  +actor_rollout_ref.ref.model.path="${REF_MODEL_PATH}" \
   trainer.logger="${TRAINER_LOGGER:-[\"console\"]}" \
   trainer.project_name="${PROJECT_NAME:-trace2skill-agentic-rl}" \
   trainer.experiment_name="${RUN_TAG}" \
@@ -224,10 +263,13 @@ cd "${VERL_ROOT}"
   trainer.nnodes="${NNODES:-1}" \
   trainer.default_local_dir="${CKPT_DIR}" \
   trainer.save_freq="${SAVE_FREQ:-5}" \
+  trainer.max_actor_ckpt_to_keep="${MAX_ACTOR_CKPT_TO_KEEP:-1}" \
+  trainer.max_critic_ckpt_to_keep="${MAX_CRITIC_CKPT_TO_KEEP:-1}" \
   trainer.test_freq="${TEST_FREQ}" \
   trainer.val_before_train="${VAL_BEFORE_TRAIN:-True}" \
   trainer.total_epochs="${TOTAL_EPOCHS}" \
-  "$@" 2>&1 | tee "${LOG_DIR}/train.log"
+  trainer.total_training_steps="${TOTAL_TRAINING_STEPS:-null}" \
+  "$@" 2>&1 | tee -a "${LOG_DIR}/train.log"
 
 echo "ckpt_dir=${CKPT_DIR}"
 echo "log_dir=${LOG_DIR}"

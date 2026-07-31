@@ -2,8 +2,15 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from verl_trace2skill.docvqa_protocol import build_docvqa_messages
 
 MATH_SYSTEM = """You are a math reasoning agent. Solve the problem using the provided bash tool.
 
@@ -27,20 +34,6 @@ Final answer: \\boxed{<answer>}
 
 Do not include tool outputs in the final answer."""
 
-DOCVQA_SYSTEM = """You are a DocVQA agent. You answer questions about document images using the provided bash tool.
-
-You are not allowed to answer from the question alone. You must inspect or process the local image file using command-line tools and Python commands, then answer from the textual observations you produced.
-
-The bash tool runs in the image directory. Use shell commands and command-line Python, for example python -c "...", to inspect or process the provided image path.
-Call bash using the same <tool_call><function=bash><parameter=command>...</parameter></function></tool_call> XML format described by the tool instructions, with no suffix after </tool_call>.
-Tool observations are text only. Do not expect the image to be displayed back to you.
-When finished, output exactly:
-
-Final answer: <short answer>
-
-Return only the requested short answer after the Final answer prefix. Do not include reasoning in the final answer."""
-
-
 def _read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     rows = []
     with path.open("r", encoding="utf-8") as f:
@@ -61,6 +54,12 @@ def _write_parquet(rows: list[dict[str, Any]], path: Path) -> None:
         ) from exc
     path.parent.mkdir(parents=True, exist_ok=True)
     datasets.Dataset.from_list(rows).to_parquet(str(path))
+
+
+def _validate_agent_routing(rows: list[dict[str, Any]], expected: str) -> None:
+    values = {str(row.get("agent_name")) for row in rows}
+    if values != {expected}:
+        raise RuntimeError(f"expected agent_name={expected!r}, got {sorted(values)!r}")
 
 
 def _math_rows(records: list[dict[str, Any]], split: str, cwd: Path) -> list[dict[str, Any]]:
@@ -121,20 +120,11 @@ def _docvqa_rows(records: list[dict[str, Any]], split: str, docvqa_root: Path) -
         question = str(item["question"])
         image = _resolve_doc_image(docvqa_root, str(item["image"]))
         answers = [str(x) for x in item.get("answers", [])]
-        user = (
-            "Task: Answer the document visual question.\n"
-            f"Image path: {image}\n"
-            f"Question: {question}\n"
-            "You must call at least one bash action before giving the final answer."
-        )
         rows.append(
             {
                 "data_source": "trace2skill_docvqa",
-                "agent_name": "tool_agent",
-                "prompt": [
-                    {"role": "system", "content": DOCVQA_SYSTEM},
-                    {"role": "user", "content": user},
-                ],
+                "agent_name": "paper_react_cli_agent",
+                "prompt": build_docvqa_messages(question),
                 "ability": "docvqa",
                 "reward_model": {"style": "rule", "ground_truth": answers},
                 "extra_info": {
@@ -147,7 +137,7 @@ def _docvqa_rows(records: list[dict[str, Any]], split: str, docvqa_root: Path) -
                     "need_tools_kwargs": True,
                     "tools_kwargs": {
                         "bash": {
-                            "create_kwargs": {"cwd": str(Path(image).parent)},
+                            "create_kwargs": {"image_path": image},
                         }
                     },
                 },
@@ -187,8 +177,16 @@ def main() -> None:
         default=os.environ.get("TRACE2SKILL_VERL_DATA_DIR", "data/trace2skill/verl"),
     )
     parser.add_argument("--math-train-limit", type=int, default=400)
-    parser.add_argument("--docvqa-train-limit", type=int, default=50)
-    parser.add_argument("--docvqa-val-limit", type=int, default=500)
+    parser.add_argument(
+        "--docvqa-train-limit",
+        type=int,
+        default=int(os.environ.get("DOCVQA_TRAIN_LIMIT", "50")),
+    )
+    parser.add_argument(
+        "--docvqa-val-limit",
+        type=int,
+        default=int(os.environ.get("DOCVQA_VAL_LIMIT", "100")),
+    )
     args = parser.parse_args()
 
     root = Path(os.environ.get("ROOT", Path.cwd())).resolve()
@@ -205,8 +203,12 @@ def main() -> None:
     if args.task in {"all", "math"}:
         math_train = _read_jsonl(resolve_from_root(args.math_train), args.math_train_limit)
         math_val = _read_jsonl(resolve_from_root(args.math_val), None)
-        _write_parquet(_math_rows(math_train, "train", math_tool_cwd), out_dir / "math" / "train.parquet")
-        _write_parquet(_math_rows(math_val, "val", math_tool_cwd), out_dir / "math" / "val.parquet")
+        math_train_rows = _math_rows(math_train, "train", math_tool_cwd)
+        math_val_rows = _math_rows(math_val, "val", math_tool_cwd)
+        _validate_agent_routing(math_train_rows, "tool_agent")
+        _validate_agent_routing(math_val_rows, "tool_agent")
+        _write_parquet(math_train_rows, out_dir / "math" / "train.parquet")
+        _write_parquet(math_val_rows, out_dir / "math" / "val.parquet")
         manifest["math"] = {"train": len(math_train), "val": len(math_val)}
 
     if args.task in {"all", "docvqa"}:
@@ -216,8 +218,12 @@ def main() -> None:
             raise ValueError(
                 "DocVQA validation data is empty. Prepare the full DocVQA split before GRPO training."
             )
-        _write_parquet(_docvqa_rows(doc_train, "train", docvqa_root), out_dir / "docvqa" / "train.parquet")
-        _write_parquet(_docvqa_rows(doc_val, "val", docvqa_root), out_dir / "docvqa" / "val.parquet")
+        doc_train_rows = _docvqa_rows(doc_train, "train", docvqa_root)
+        doc_val_rows = _docvqa_rows(doc_val, "val", docvqa_root)
+        _validate_agent_routing(doc_train_rows, "paper_react_cli_agent")
+        _validate_agent_routing(doc_val_rows, "paper_react_cli_agent")
+        _write_parquet(doc_train_rows, out_dir / "docvqa" / "train.parquet")
+        _write_parquet(doc_val_rows, out_dir / "docvqa" / "val.parquet")
         manifest["docvqa"] = {"train": len(doc_train), "val": len(doc_val)}
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
