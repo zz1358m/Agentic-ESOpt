@@ -182,6 +182,7 @@ def code_version(root: Path = ROOT) -> dict[str, Any]:
 def render_markdown(report: dict[str, Any]) -> str:
     before = report["evaluation"]["before"]["datasets"]
     after = report["evaluation"]["after"]["datasets"]
+    table_alignment = report["evaluation"].get("table_alignment", {}).get("datasets", {})
     checks = report["acceptance"]
     lines = [
         "# DAPO-400 Multi-turn GRPO Math Report",
@@ -197,6 +198,24 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| {dataset} | {b['mean_score']:.6f} | {a['mean_score']:.6f} | "
             f"{a['mean_score'] - b['mean_score']:+.6f} | {b['max_at_n']:.6f} | {a['max_at_n']:.6f} |"
         )
+    if table_alignment:
+        lines.extend(
+            [
+                "",
+                "## Initial table-alignment evaluation",
+                "",
+                "Fixed at 4 samples, 50 turns, and 4096 output tokens per assistant request.",
+                "",
+                "| Dataset | Mean@4 | Pass@4 |",
+                "|---|---:|---:|",
+            ]
+        )
+        for dataset in ("dapo100", "aime2026"):
+            metrics = table_alignment[dataset]
+            lines.append(
+                f"| {dataset} | {metrics['mean_score'] * 100:.2f} | "
+                f"{metrics['max_at_n'] * 100:.2f} |"
+            )
     lines.extend(["", "## Acceptance", ""])
     for key, value in checks["checks"].items():
         lines.append(f"- {key}: {'PASS' if value else 'FAIL'}")
@@ -260,7 +279,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
     parser.add_argument("--trajectory-summary", type=Path, required=True)
     parser.add_argument("--before-eval-dir", type=Path, required=True)
+    parser.add_argument("--table-alignment-eval-dir", type=Path)
     parser.add_argument("--after-eval-dir", type=Path, required=True)
+    parser.add_argument("--code-version-at-start", type=Path)
     parser.add_argument("--run-history", type=Path)
     parser.add_argument("--json-out", type=Path, required=True)
     parser.add_argument("--markdown-out", type=Path, required=True)
@@ -271,6 +292,11 @@ def main() -> None:
     args = parse_args()
     experiment = read_json(args.experiment_config)
     before = inspect_eval_dir(args.before_eval_dir, {"dapo100": 1600, "aime2026": 480})
+    table_alignment = (
+        inspect_eval_dir(args.table_alignment_eval_dir, {"dapo100": 400, "aime2026": 120})
+        if args.table_alignment_eval_dir
+        else None
+    )
     after = inspect_eval_dir(args.after_eval_dir, {"dapo100": 1600, "aime2026": 480})
     checkpoints = inspect_checkpoints(args.checkpoint_dir, total_steps=300, save_freq=20)
     trajectories = read_json(args.trajectory_summary)
@@ -281,11 +307,14 @@ def main() -> None:
         "15 recoverable checkpoints with HF models": checkpoints["complete"],
         "exact trajectory counts": all(int(by_phase.get(key, -1)) == value for key, value in expected_phases.items()),
         "before evaluation complete without request errors": before["complete"],
+        "initial table-alignment evaluation complete without request errors": (
+            table_alignment is None or table_alignment["complete"]
+        ),
         "after evaluation complete without request errors": after["complete"],
     }
     report = {
         "experiment": experiment,
-        "code": code_version(),
+        "code": read_json(args.code_version_at_start) if args.code_version_at_start else code_version(),
         "dependencies": dependency_versions(),
         "gpu_resources": read_json(args.gpu_resources),
         "data_manifest": read_json(args.data_manifest),
@@ -293,7 +322,11 @@ def main() -> None:
         "training_curve": parse_training_curve(args.train_log),
         "checkpoints": checkpoints,
         "trajectories": trajectories,
-        "evaluation": {"before": before, "after": after},
+        "evaluation": {
+            "before": before,
+            "after": after,
+            **({"table_alignment": table_alignment} if table_alignment is not None else {}),
+        },
         "acceptance": {"status": "PASS" if all(checks.values()) else "FAIL", "checks": checks},
     }
     args.json_out.parent.mkdir(parents=True, exist_ok=True)

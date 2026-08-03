@@ -76,6 +76,9 @@ class MathReportTests(unittest.TestCase):
             "evaluation": {
                 "before": {"datasets": {"dapo100": dataset, "aime2026": dataset}},
                 "after": {"datasets": {"dapo100": dataset, "aime2026": dataset}},
+                "table_alignment": {
+                    "datasets": {"dapo100": dataset, "aime2026": dataset}
+                },
             },
             "acceptance": {"status": "PASS", "checks": {"exact counts": True}},
             "code": {"head": "abc", "working_tree_change_sha256": "def"},
@@ -97,6 +100,9 @@ class MathReportTests(unittest.TestCase):
         self.assertIn("## Full training curve", markdown)
         self.assertIn('"step": 2', markdown)
         self.assertIn('"critic/score/mean": 0.5', markdown)
+        self.assertIn("## Initial table-alignment evaluation", markdown)
+        self.assertIn("Mean@4", markdown)
+        self.assertIn("Pass@4", markdown)
 
 
 if __name__ == "__main__":

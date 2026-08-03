@@ -132,7 +132,6 @@ def evaluator_command(
         REPORT_NONTHINKING_PROFILE,
         LEGACY_NO_SKILL_PROFILE,
     )
-    repo_react_v1_turn100 = profile == REPO_REACT_V1_TURN100_PROFILE
     repo_react_v1 = profile in (
         REPO_REACT_V1_50X4096_PROFILE,
         REPO_REACT_V1_TURN100_PROFILE,
@@ -169,9 +168,9 @@ def evaluator_command(
         "--repetition-penalty",
         "1.0",
         "--math-max-turns",
-        "100" if repo_react_v1_turn100 else str(EVAL_MAX_TURNS),
+        str(EVAL_MAX_TURNS),
         "--math-max-tokens",
-        "81920" if report_direct or repo_react_v1_turn100 else str(EVAL_MAX_TOKENS),
+        str(EVAL_MAX_TOKENS),
         "--max-errors",
         "1",
     ]
@@ -370,7 +369,6 @@ def main() -> None:
             REPORT_NONTHINKING_PROFILE,
             LEGACY_NO_SKILL_PROFILE,
         )
-        repo_react_v1_turn100 = args.profile == REPO_REACT_V1_TURN100_PROFILE
         repo_react_v1 = args.profile in (
             REPO_REACT_V1_50X4096_PROFILE,
             REPO_REACT_V1_TURN100_PROFILE,
@@ -401,11 +399,10 @@ def main() -> None:
                 if repo_react_v1
                 else "Action JSON + bash observation"
             ),
-            "max_react_turns": None if report_direct else 100 if repo_react_v1_turn100 else EVAL_MAX_TURNS,
-            "max_turn_tokens": None if report_direct else 81920 if repo_react_v1_turn100 else EVAL_MAX_TOKENS,
-            "max_output_tokens": (
-                81920 if report_direct or repo_react_v1_turn100 else EVAL_MAX_TOKENS
-            ),
+            "evaluation_turn_limit": EVAL_MAX_TURNS,
+            "max_react_turns": None if report_direct else EVAL_MAX_TURNS,
+            "max_turn_tokens": None if report_direct else EVAL_MAX_TOKENS,
+            "max_output_tokens": EVAL_MAX_TOKENS,
         }
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 

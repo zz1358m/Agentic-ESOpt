@@ -86,7 +86,7 @@ def test_evaluator_command_fixes_sampling_and_protocol(tmp_path: Path) -> None:
     assert command[-1] == "--resume"
 
 
-def test_report_profile_uses_four_long_thinking_samples(tmp_path: Path) -> None:
+def test_report_profile_uses_four_4096_token_thinking_samples(tmp_path: Path) -> None:
     command = evaluator_command(
         python=sys.executable,
         evaluator=tmp_path / "eval.py",
@@ -105,7 +105,7 @@ def test_report_profile_uses_four_long_thinking_samples(tmp_path: Path) -> None:
     assert "--top-p 0.95" in joined
     assert "--top-k 20" in joined
     assert "--presence-penalty 1.5" in joined
-    assert "--math-max-tokens 81920" in joined
+    assert "--math-max-tokens 4096" in joined
     assert "--math-mode direct" in joined
     assert "--math-enable-thinking" in command
 
@@ -128,7 +128,7 @@ def test_report_nonthinking_candidate_keeps_reasoning_sampling(tmp_path: Path) -
     assert "--top-p 1.0" in joined
     assert "--top-k 40" in joined
     assert "--presence-penalty 2.0" in joined
-    assert "--math-max-tokens 81920" in joined
+    assert "--math-max-tokens 4096" in joined
     assert "--math-mode direct" in joined
     assert "--math-enable-thinking" not in command
 
