@@ -36,9 +36,15 @@ from verl_trace2skill.docvqa_protocol import (
     paper_react_sampling_params,
     react_step,
 )
+from verl_trace2skill.math_protocol import is_first_bash_action_only
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
+
+def is_text_react_format(tool_format: str) -> bool:
+    """Return whether a format owns its visible text Action protocol."""
+    return tool_format in {"paper_react_cli", "trace2skill"}
 
 
 class AgentState(Enum):
@@ -109,6 +115,8 @@ class ToolAgentLoop(AgentLoopBase):
         cls.tool_schemas = [tool.tool_schema.model_dump(exclude_unset=True, exclude_none=True) for tool in tool_list]
         cls.tool_format = config.actor_rollout_ref.rollout.multi_turn.format
         cls.paper_react_cli = cls.tool_format == "paper_react_cli"
+        cls.trace2skill_react = cls.tool_format == "trace2skill"
+        cls.text_react = is_text_react_format(cls.tool_format)
         if cls.paper_react_cli:
             cls.tool_parser = None
         else:
@@ -121,7 +129,7 @@ class ToolAgentLoop(AgentLoopBase):
         cls.response_length = config.actor_rollout_ref.rollout.response_length
         cls.system_prompt = initial_system_prompt_tokens(
             tokenizer,
-            paper_react_cli=cls.paper_react_cli,
+            paper_react_cli=cls.text_react,
             use_inference_chat_template=cls.use_inference_chat_template,
             apply_chat_template_kwargs=cls.apply_chat_template_kwargs,
         )
@@ -205,7 +213,7 @@ class ToolAgentLoop(AgentLoopBase):
                 None,
                 lambda: self.processor.apply_chat_template(
                     agent_data.messages,
-                    tools=None if self.paper_react_cli else self.tool_schemas,
+                    tools=None if self.text_react else self.tool_schemas,
                     add_generation_prompt=True,
                     tokenize=False,
                     **self.apply_chat_template_kwargs,
@@ -218,7 +226,7 @@ class ToolAgentLoop(AgentLoopBase):
                 None,
                 lambda: self.tokenizer.apply_chat_template(
                     agent_data.messages,
-                    tools=None if self.paper_react_cli else self.tool_schemas,
+                    tools=None if self.text_react else self.tool_schemas,
                     add_generation_prompt=True,
                     tokenize=True,
                     **self.apply_chat_template_kwargs,
@@ -241,7 +249,7 @@ class ToolAgentLoop(AgentLoopBase):
         # assistant generation. Keep the stop token so the parser sees a
         # complete XML call. Do not mutate the shared sampling-params dict.
         turn_sampling_params = dict(sampling_params)
-        if self.paper_react_cli:
+        if self.text_react:
             turn_sampling_params = paper_react_sampling_params(
                 turn_sampling_params,
                 self.tokenizer,
@@ -317,6 +325,29 @@ class ToolAgentLoop(AgentLoopBase):
                 return AgentState.TERMINATED
             return AgentState.GENERATING
 
+        if self.trace2skill_react:
+            _, agent_data.tool_calls = await self.tool_parser.extract_tool_calls(agent_data.response_ids)
+            if agent_data.tool_calls:
+                if not agent_data.used_tool and not is_first_bash_action_only(assistant_message):
+                    agent_data.tool_calls = []
+                    warning = observation_message(
+                        "format_check",
+                        "The first assistant turn must contain only one bash Action and no reasoning text.",
+                    )
+                    if not await self._append_text_messages(agent_data, [{"role": "user", "content": warning}]):
+                        return AgentState.TERMINATED
+                    return AgentState.GENERATING
+                return AgentState.PROCESSING_TOOLS
+            decision = react_step(assistant_message, used_tool=agent_data.used_tool)
+            if decision.kind == "final":
+                return AgentState.TERMINATED
+            if self.max_user_turns and agent_data.user_turns >= self.max_user_turns:
+                return AgentState.TERMINATED
+            warning = observation_message("format_check", decision.message or "No valid bash Action was parsed.")
+            if not await self._append_text_messages(agent_data, [{"role": "user", "content": warning}]):
+                return AgentState.TERMINATED
+            return AgentState.GENERATING
+
         # Extract tool calls
         _, agent_data.tool_calls = await self.tool_parser.extract_tool_calls(agent_data.response_ids)
         if self.max_assistant_turns and agent_data.assistant_turns >= self.max_assistant_turns:
@@ -344,7 +375,7 @@ class ToolAgentLoop(AgentLoopBase):
         with simple_timer("tool_calls", agent_data.metrics):
             responses = await asyncio.gather(*tasks)
 
-        if self.paper_react_cli:
+        if self.text_react:
             agent_data.used_tool = True
             add_messages = []
             for response in responses:

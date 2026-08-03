@@ -108,20 +108,12 @@ class HermesToolParser(ToolParser):
 
 @ToolParser.register("trace2skill")
 class Trace2SkillToolParser(ToolParser):
-    """Parse trace2skill's legacy JSON action and Qwen3.5 native XML calls."""
+    """Parse the canonical Trace2Skill bash Action JSON protocol."""
 
     def __init__(self, tokenizer) -> None:
         super().__init__(tokenizer)
         self.action_regex = re.compile(r"Action:\s*(\{.*?\})\s*$", re.DOTALL | re.IGNORECASE)
         self.fallback_regex = re.compile(r"Action:\s*(\{.*\})", re.DOTALL | re.IGNORECASE)
-        self.qwen_xml_regex = re.compile(
-            r"<tool_call>\s*<function\s*=\s*([^\s>]+)\s*>(.*?)</function>\s*</tool_call>",
-            re.DOTALL | re.IGNORECASE,
-        )
-        self.qwen_parameter_regex = re.compile(
-            r"<parameter\s*=\s*([^\s>]+)\s*>\s*(.*?)\s*</parameter>",
-            re.DOTALL | re.IGNORECASE,
-        )
 
     @rollout_trace_op
     async def extract_tool_calls(self, responses_ids: list[int]) -> tuple[str, list[FunctionCall]]:
@@ -132,16 +124,7 @@ class Trace2SkillToolParser(ToolParser):
         if action is not None:
             return text, [action]
 
-        actions = []
-        for match in self.qwen_xml_regex.finditer(text):
-            name = match.group(1).strip()
-            arguments = {
-                parameter.group(1).strip(): parameter.group(2).strip()
-                for parameter in self.qwen_parameter_regex.finditer(match.group(2))
-            }
-            if name and arguments:
-                actions.append(FunctionCall(name=name, arguments=json.dumps(arguments, ensure_ascii=False)))
-        return text, actions
+        return text, []
 
     def _parse_action(self, text: str) -> FunctionCall | None:
         match = self.action_regex.search(text) or self.fallback_regex.search(text)
@@ -155,6 +138,7 @@ class Trace2SkillToolParser(ToolParser):
             return None
         name = payload.get("name")
         arguments = payload.get("arguments", {})
-        if not isinstance(name, str) or not isinstance(arguments, dict):
+        command = arguments.get("command") if isinstance(arguments, dict) else None
+        if name != "bash" or not isinstance(command, str) or not command.strip():
             return None
         return FunctionCall(name=name, arguments=json.dumps(arguments, ensure_ascii=False))

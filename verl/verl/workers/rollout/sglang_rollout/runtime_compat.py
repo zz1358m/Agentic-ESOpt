@@ -70,3 +70,12 @@ def patch_runtime() -> None:
 
         if not patch_sglang_dense_qwen3next():
             raise RuntimeError("failed to enable dense Qwen3Next compatibility for SGLang")
+
+    # Import this only after Ray has isolated the worker's GPU. Importing the
+    # agent-loop registry from sitecustomize initializes torch too early and
+    # makes every NCCL rank cache the first visible device.
+    if os.environ.get("TRACE2SKILL_REGISTER_TOOL_PARSER") == "1":
+        from verl.experimental.agent_loop.tool_parser import ToolParser
+
+        if "trace2skill" not in ToolParser._registry:
+            raise RuntimeError("trace2skill tool parser was not registered")

@@ -21,12 +21,35 @@ TASK="${TASK:-math}"
 
 case "${TASK}" in
   math)
-    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-32}"
-    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-32}"
+    export MATH_PHYSICAL_GPU_IDS="${MATH_PHYSICAL_GPU_IDS:-3,4,5,6}"
+    TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-20}"
+    PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-20}"
     MAX_RESPONSE_LENGTH="${MAX_RESPONSE_LENGTH:-8192}"
     MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-4096}"
     TOTAL_EPOCHS="${TOTAL_EPOCHS:-15}"
     TEST_FREQ="${TEST_FREQ:-5}"
+    SAVE_FREQ="${SAVE_FREQ:-20}"
+    N_GPUS_PER_NODE="${N_GPUS_PER_NODE:-4}"
+    # Async agent workers each own a one-CPU RewardManagerWorker.  The Ray
+    # driver, four FSDP workers, and four embedded SGLang servers also reserve
+    # CPUs, so the legacy 12-CPU default deadlocks five of eight reward actors.
+    RAY_NUM_CPUS="${RAY_NUM_CPUS:-32}"
+    # Qwen3Next's hybrid recurrent-state pool is sized per concurrent request;
+    # 0.85/1024 cannot initialize even on an 80 GiB A100.  These values tune
+    # service capacity without changing any trajectory turn/token limit.
+    GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.50}"
+    MAX_NUM_SEQS="${MAX_NUM_SEQS:-16}"
+    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/verl_trace2skill/math_bash_tool_config.yaml}"
+    export TRACE2SKILL_PATCH_DENSE_QWEN3NEXT="${TRACE2SKILL_PATCH_DENSE_QWEN3NEXT:-1}"
+    export TRACE2SKILL_REGISTER_TOOL_PARSER="${TRACE2SKILL_REGISTER_TOOL_PARSER:-1}"
+    # A 512-token turn normally completes in well under this bound.  Retry
+    # embedded SGLang/Ray replies that disappear after the server goes idle;
+    # this does not alter the trajectory-level 100-turn/8192-token limits.
+    export TRACE2SKILL_GENERATE_TIMEOUT_SECONDS="${TRACE2SKILL_GENERATE_TIMEOUT_SECONDS:-600}"
+    export TRACE2SKILL_GENERATE_MAX_ATTEMPTS="${TRACE2SKILL_GENERATE_MAX_ATTEMPTS:-3}"
+    export TRACE2SKILL_REWARD_TIMEOUT_SECONDS="${TRACE2SKILL_REWARD_TIMEOUT_SECONDS:-120}"
+    export TRACE2SKILL_REWARD_MAX_ATTEMPTS="${TRACE2SKILL_REWARD_MAX_ATTEMPTS:-3}"
+    DEFAULT_MODEL_PATH="${ROOT}/runs/docvqa_grpo/assets/Qwen3.5-4B-text"
     ;;
   docvqa)
     export DOCVQA_PHYSICAL_GPU_IDS="${DOCVQA_PHYSICAL_GPU_IDS:-auto}"
@@ -41,6 +64,7 @@ case "${TASK}" in
     SAVE_FREQ="${SAVE_FREQ:-1}"
     VAL_BEFORE_TRAIN="${VAL_BEFORE_TRAIN:-False}"
     N_GPUS_PER_NODE="${N_GPUS_PER_NODE:-4}"
+    RAY_NUM_CPUS="${RAY_NUM_CPUS:-${PBS_NCPUS:-12}}"
     MAX_USER_TURNS="${MAX_USER_TURNS:-50}"
     MAX_ASSISTANT_TURNS="${MAX_ASSISTANT_TURNS:-50}"
     MAX_MODEL_LEN="${MAX_MODEL_LEN:-131072}"
@@ -49,6 +73,7 @@ case "${TASK}" in
     LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
     REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
     MULTI_TURN_FORMAT="${MULTI_TURN_FORMAT:-paper_react_cli}"
+    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/verl_trace2skill/local_bash_tool_config.yaml}"
     ;;
   *)
     echo "TASK must be math or docvqa, got ${TASK}" >&2
@@ -92,6 +117,20 @@ if [[ "${TASK}" == "docvqa" ]]; then
   fi
   export CUDA_VISIBLE_DEVICES="$(${PY} "${ROOT}/scripts/docvqa/gpu_visibility.py" \
     "${GPU_VISIBILITY_ARGS[@]}" --format cuda)"
+else
+  requested_gpu_plan="${MATH_PHYSICAL_GPU_IDS}"
+  GPU_VISIBILITY_ARGS=(--physical-devices "${requested_gpu_plan}")
+  if [[ -n "${MATH_GPU_UUIDS:-}" ]]; then
+    GPU_VISIBILITY_ARGS+=(--expected-uuids "${MATH_GPU_UUIDS}")
+  fi
+  export MATH_PHYSICAL_GPU_IDS="$(${PY} "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" --format physical)"
+  GPU_VISIBILITY_ARGS=(--physical-devices "${MATH_PHYSICAL_GPU_IDS}")
+  if [[ -n "${MATH_GPU_UUIDS:-}" ]]; then
+    GPU_VISIBILITY_ARGS+=(--expected-uuids "${MATH_GPU_UUIDS}")
+  fi
+  export CUDA_VISIBLE_DEVICES="$(${PY} "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" --format cuda)"
 fi
 
 export PYTHONUNBUFFERED=1
@@ -103,9 +142,6 @@ export TMPDIR="${TRACE2SKILL_TMPDIR:-${TMPDIR:-/tmp}}"
 export TMP="${TMPDIR}"
 export TEMP="${TMPDIR}"
 mkdir -p "${TMPDIR}"
-export TRACE2SKILL_MATH_TOOL_CWD="${TRACE2SKILL_MATH_TOOL_CWD:-${ROOT}}"
-mkdir -p "${TRACE2SKILL_MATH_TOOL_CWD}"
-
 SITE_PACKAGES="$(${PY} - <<'PY'
 import site
 
@@ -139,7 +175,7 @@ if (( ${#LIB_PARTS[@]} )); then
   export LD_LIBRARY_PATH="${JOINED_LIB_PATH}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
 
-MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3.5-4B}"
+MODEL_PATH="${MODEL_PATH:-${DEFAULT_MODEL_PATH:-Qwen/Qwen3.5-4B}}"
 REF_MODEL_PATH="${REF_MODEL_PATH:-${MODEL_PATH}}"
 DATA_DIR="${DATA_DIR:-${ROOT}/data/trace2skill/verl}"
 RUN_TAG="${RUN_TAG:-trace2skill-verl-qwen35-4b-${TASK}-$(date -u +%Y%m%d_%H%M%S)}"
@@ -147,6 +183,11 @@ CKPT_ROOT="${CKPT_ROOT:-${ROOT}/runs/multiturn_grpo/checkpoints}"
 CKPT_DIR="${CKPT_DIR:-${CKPT_ROOT}/${RUN_TAG}}"
 LOG_DIR="${LOG_DIR:-${ROOT}/runs/multiturn_grpo/logs/${RUN_TAG}}"
 mkdir -p "${CKPT_DIR}" "${LOG_DIR}"
+TRAJECTORY_ROOT="${TRAJECTORY_ROOT:-${ROOT}/runs/multiturn_grpo/trajectories/${RUN_TAG}}"
+ROLLOUT_DATA_DIR="${ROLLOUT_DATA_DIR:-${TRAJECTORY_ROOT}/train_raw}"
+VALIDATION_DATA_DIR="${VALIDATION_DATA_DIR:-${TRAJECTORY_ROOT}/validation_raw}"
+export TRACE2SKILL_MATH_TOOL_CWD="${TRACE2SKILL_MATH_TOOL_CWD:-${TRAJECTORY_ROOT}/tool_workspace}"
+mkdir -p "${ROLLOUT_DATA_DIR}" "${VALIDATION_DATA_DIR}" "${TRACE2SKILL_MATH_TOOL_CWD}"
 export TRACE2SKILL_TRITON_CACHE_ROOT="${TRACE2SKILL_TRITON_CACHE_ROOT:-${LOG_DIR}/triton_cache}"
 mkdir -p "${TRACE2SKILL_TRITON_CACHE_ROOT}"
 
@@ -165,6 +206,51 @@ if [[ "${TASK}" == "docvqa" ]]; then
     --epochs "${TOTAL_EPOCHS}" \
     --check-torch \
     --out "${LOG_DIR}/experiment_config.json"
+else
+  "${PY}" "${ROOT}/scripts/docvqa/gpu_visibility.py" \
+    "${GPU_VISIBILITY_ARGS[@]}" \
+    --format json \
+    --out "${LOG_DIR}/gpu_resources.json" >/dev/null
+  "${PY}" "${ROOT}/scripts/math/experiment_config.py" \
+    --physical-gpus "${MATH_PHYSICAL_GPU_IDS}" \
+    --train-batch-size "${TRAIN_BATCH_SIZE}" \
+    --ppo-mini-batch-size "${PPO_MINI_BATCH_SIZE}" \
+    --rollout-n "${ROLLOUT_N:-8}" \
+    --epochs "${TOTAL_EPOCHS}" \
+    --world-size "${N_GPUS_PER_NODE}" \
+    --test-freq "${TEST_FREQ}" \
+    --save-freq "${SAVE_FREQ}" \
+    --ray-num-cpus "${RAY_NUM_CPUS}" \
+    --max-user-turns "${MAX_USER_TURNS:-100}" \
+    --max-assistant-turns "${MAX_ASSISTANT_TURNS:-100}" \
+    --max-response-length "${MAX_RESPONSE_LENGTH}" \
+    --max-turn-response-length "${MAX_TURN_RESPONSE_LENGTH:-512}" \
+    --rollout-data-dir "${ROLLOUT_DATA_DIR}" \
+    --validation-data-dir "${VALIDATION_DATA_DIR}" \
+    --tool-config-path "${TOOL_CONFIG_PATH}" \
+    --model-path "${MODEL_PATH}" \
+    --max-prompt-length "${MAX_PROMPT_LENGTH}" \
+    --learning-rate "${LR:-1e-6}" \
+    --use-kl-loss "${USE_KL_LOSS:-True}" \
+    --kl-loss-coef "${KL_LOSS_COEF:-0.001}" \
+    --temperature "${TEMPERATURE:-1.0}" \
+    --top-p "${TOP_P:-1.0}" \
+    --top-k "${TOP_K:-40}" \
+    --presence-penalty "${PRESENCE_PENALTY:-2.0}" \
+    --repetition-penalty "${REPETITION_PENALTY:-1.0}" \
+    --data-shuffle "${DATA_SHUFFLE:-True}" \
+    --data-seed "${DATA_SEED:-1}" \
+    --val-before-train "${VAL_BEFORE_TRAIN:-True}" \
+    --gpu-memory-utilization "${GPU_MEMORY_UTILIZATION}" \
+    --max-num-seqs "${MAX_NUM_SEQS}" \
+    --generate-timeout-seconds "${TRACE2SKILL_GENERATE_TIMEOUT_SECONDS}" \
+    --generate-max-attempts "${TRACE2SKILL_GENERATE_MAX_ATTEMPTS}" \
+    --reward-timeout-seconds "${TRACE2SKILL_REWARD_TIMEOUT_SECONDS}" \
+    --reward-max-attempts "${TRACE2SKILL_REWARD_MAX_ATTEMPTS}" \
+    --parser-enabled "${TRACE2SKILL_REGISTER_TOOL_PARSER:-0}" \
+    --dense-qwen3next-patch-enabled "${TRACE2SKILL_PATCH_DENSE_QWEN3NEXT:-0}" \
+    --check-torch \
+    --out "${LOG_DIR}/experiment_config.json" >/dev/null
 fi
 
 "${PY}" "${ROOT}/scripts/trace2skill/prepare_verl_trace2skill_data.py" \
@@ -185,7 +271,7 @@ cd "${VERL_ROOT}"
 "${PY}" -m verl.trainer.main_ppo \
   --config-path="${VERL_ROOT}/examples/sglang_multiturn/config" \
   --config-name="gsm8k_multiturn_grpo" \
-  ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS:-${PBS_NCPUS:-12}}" \
+  ray_kwargs.ray_init.num_cpus="${RAY_NUM_CPUS}" \
   +ray_kwargs.ray_init.include_dashboard=False \
   algorithm.adv_estimator=grpo \
   algorithm.use_kl_in_reward=False \
@@ -245,7 +331,7 @@ cd "${VERL_ROOT}"
   actor_rollout_ref.rollout.multi_turn.max_turn_response_length="${MAX_TURN_RESPONSE_LENGTH:-512}" \
   actor_rollout_ref.rollout.multi_turn.max_tool_response_length="${MAX_TOOL_RESPONSE_LENGTH:-6000}" \
   actor_rollout_ref.rollout.multi_turn.tool_response_truncate_side=middle \
-  actor_rollout_ref.rollout.multi_turn.tool_config_path="${ROOT}/verl_trace2skill/local_bash_tool_config.yaml" \
+  actor_rollout_ref.rollout.multi_turn.tool_config_path="${TOOL_CONFIG_PATH}" \
   actor_rollout_ref.rollout.multi_turn.format="${MULTI_TURN_FORMAT:-trace2skill}" \
   actor_rollout_ref.rollout.val_kwargs.top_p="${VAL_TOP_P:-1.0}" \
   actor_rollout_ref.rollout.val_kwargs.temperature="${VAL_TEMPERATURE:-1.0}" \
@@ -262,9 +348,11 @@ cd "${VERL_ROOT}"
   trainer.n_gpus_per_node="${N_GPUS_PER_NODE:-8}" \
   trainer.nnodes="${NNODES:-1}" \
   trainer.default_local_dir="${CKPT_DIR}" \
+  trainer.rollout_data_dir="${ROLLOUT_DATA_DIR}" \
+  trainer.validation_data_dir="${VALIDATION_DATA_DIR}" \
   trainer.save_freq="${SAVE_FREQ:-5}" \
-  trainer.max_actor_ckpt_to_keep="${MAX_ACTOR_CKPT_TO_KEEP:-1}" \
-  trainer.max_critic_ckpt_to_keep="${MAX_CRITIC_CKPT_TO_KEEP:-1}" \
+  trainer.max_actor_ckpt_to_keep="${MAX_ACTOR_CKPT_TO_KEEP:-null}" \
+  trainer.max_critic_ckpt_to_keep="${MAX_CRITIC_CKPT_TO_KEEP:-null}" \
   trainer.test_freq="${TEST_FREQ}" \
   trainer.val_before_train="${VAL_BEFORE_TRAIN:-True}" \
   trainer.total_epochs="${TOTAL_EPOCHS}" \
@@ -273,3 +361,5 @@ cd "${VERL_ROOT}"
 
 echo "ckpt_dir=${CKPT_DIR}"
 echo "log_dir=${LOG_DIR}"
+echo "rollout_data_dir=${ROLLOUT_DATA_DIR}"
+echo "validation_data_dir=${VALIDATION_DATA_DIR}"

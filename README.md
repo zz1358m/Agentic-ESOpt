@@ -163,6 +163,55 @@ reward, and parser implementation:
 scripts/math/run_grpo.sh
 ```
 
+For the complete fixed long-running DAPO-400 experiment (baseline, training,
+post-evaluation, trajectory export, and report), use the persistent pipeline:
+
+```bash
+python scripts/math/run_experiment_until_complete.py
+```
+
+Its atomic state and append-only control log are written to
+`runs/multiturn_grpo/reports/qwen35-4b-math-grpo-dapo400-e15-seed1/`.
+The pipeline waits rather than starting a second process when GPUs 3–6 are
+occupied, and every evaluation/training stage resumes its existing outputs.
+
+For the training stage alone, use the persistent training watchdog:
+
+```bash
+python scripts/math/run_training_until_complete.py
+```
+
+It waits until all approved physical GPUs `3,4,5,6` are free, restarts
+non-capacity failures at the same limits from VERL's latest checkpoint, and
+applies the approved turn/token fallback tiers only after explicit
+OOM/context-capacity evidence. Attempts are recorded in the run report tree.
+
+The Math launcher is fixed to physical GPUs `3,4,5,6`, the checked-in
+DAPO-Math-17k 400/100 split, batch size 20, `rollout.n=8`, and 15 epochs. It
+uses GRPO (DAPO names the dataset only), writes immutable train/validation
+JSONL under `runs/multiturn_grpo/trajectories/`, and resumes from the latest
+checkpoint automatically. Bash actions use the text protocol
+`Action: {"name":"bash",...}` and execute in a run-specific tool workspace.
+
+Run the matched four-replica DAPO-100/AIME 2026 evaluation with:
+
+```bash
+python scripts/math/run_four_gpu_eval.py \
+  --model-path /path/to/hf_model --out-dir /path/to/eval --resume
+```
+
+The ReAct evaluator uses 50 turns, 4096 generated tokens per assistant request,
+and a 262144-token context. For the four-sample table comparison, add
+`--samples 4 --profile repo-react-v1-50x4096`.
+
+Validate the fixed source data and export replayable trajectory JSONL plus
+per-epoch/step success/failure Markdown with:
+
+```bash
+python scripts/math/validate_data.py --out /path/to/data_manifest.json
+python scripts/trace2skill/export_math_trajectories.py --help
+```
+
 The launcher defaults to the bundled `verl/`; set `VERL_ROOT` only to test a
 different checkout. Evaluation and PBS helper commands are documented in
 [`scripts/trace2skill/README.md`](scripts/trace2skill/README.md).

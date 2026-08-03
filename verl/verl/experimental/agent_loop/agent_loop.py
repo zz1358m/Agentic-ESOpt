@@ -45,6 +45,40 @@ logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 
+async def _await_remote_result(
+    make_pending,
+    *,
+    timeout_seconds: float,
+    max_attempts: int,
+    label: str,
+    on_timeout=None,
+):
+    """Await a Ray/coroutine result with bounded retries for lost replies."""
+    if timeout_seconds < 0:
+        raise ValueError("timeout_seconds must be non-negative")
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be at least 1")
+    for attempt in range(1, max_attempts + 1):
+        pending = make_pending()
+        try:
+            if timeout_seconds:
+                return await asyncio.wait_for(pending, timeout=timeout_seconds)
+            return await pending
+        except asyncio.TimeoutError as error:
+            logger.warning(
+                "%s timed out after %.1fs (attempt %d/%d)",
+                label,
+                timeout_seconds,
+                attempt,
+                max_attempts,
+            )
+            if on_timeout is not None:
+                await on_timeout()
+            if attempt == max_attempts:
+                raise TimeoutError(f"{label} timed out after {max_attempts} attempts") from error
+    raise AssertionError("unreachable")
+
+
 class AsyncLLMServerManager:
     """
     A class to manage multiple OpenAI compatible LLM servers. This class provides
@@ -70,6 +104,16 @@ class AsyncLLMServerManager:
 
         # LRU cache to map request_id to server
         self.request_id_to_server = LRUCache(maxsize=max_cache_size)
+
+        # An individual turn is bounded (512 tokens for the Math run), so an
+        # indefinitely pending Ray result is never useful. Keep this opt-in for
+        # other recipes and enable it explicitly in the Math launcher.
+        self.generate_timeout_seconds = float(os.getenv("TRACE2SKILL_GENERATE_TIMEOUT_SECONDS", "0"))
+        self.generate_max_attempts = int(os.getenv("TRACE2SKILL_GENERATE_MAX_ATTEMPTS", "1"))
+        if self.generate_timeout_seconds < 0:
+            raise ValueError("TRACE2SKILL_GENERATE_TIMEOUT_SECONDS must be non-negative")
+        if self.generate_max_attempts < 1:
+            raise ValueError("TRACE2SKILL_GENERATE_MAX_ATTEMPTS must be at least 1")
 
     def _choose_server(self, request_id: str) -> ray.actor.ActorHandle:
         # TODO: implement server pressure awareness load balancing
@@ -102,13 +146,41 @@ class AsyncLLMServerManager:
             TokenOutput: token output
         """
         server = self._choose_server(request_id)
-        output = await server.generate.remote(
-            request_id=request_id,
-            prompt_ids=prompt_ids,
-            sampling_params=sampling_params,
-            image_data=image_data,
-        )
-        return output
+        for attempt in range(1, self.generate_max_attempts + 1):
+            pending = server.generate.remote(
+                request_id=request_id,
+                prompt_ids=prompt_ids,
+                sampling_params=dict(sampling_params),
+                image_data=image_data,
+            )
+            try:
+                if self.generate_timeout_seconds:
+                    return await asyncio.wait_for(pending, timeout=self.generate_timeout_seconds)
+                return await pending
+            except asyncio.TimeoutError as error:
+                logger.warning(
+                    "generation request %s timed out after %.1fs (attempt %d/%d)",
+                    request_id,
+                    self.generate_timeout_seconds,
+                    attempt,
+                    self.generate_max_attempts,
+                )
+                await self._abort_timed_out_request(server, request_id)
+                if attempt == self.generate_max_attempts:
+                    raise TimeoutError(
+                        f"generation request {request_id} timed out after "
+                        f"{self.generate_max_attempts} attempts"
+                    ) from error
+        raise AssertionError("unreachable")
+
+    @staticmethod
+    async def _abort_timed_out_request(server: ray.actor.ActorHandle, request_id: str) -> None:
+        """Best-effort cleanup before retrying the same deterministic request."""
+        try:
+            abort_method = server.abort_request
+            await asyncio.wait_for(abort_method.remote(request_id=request_id), timeout=30.0)
+        except Exception:
+            logger.exception("failed to abort timed-out generation request %s", request_id)
 
 
 class AgentLoopMetrics(BaseModel):
@@ -409,6 +481,12 @@ class AgentLoopWorker:
                 soft=False,
             ),
         ).remote(self.config, local_path, self.rm_executor)
+        self.reward_timeout_seconds = float(os.getenv("TRACE2SKILL_REWARD_TIMEOUT_SECONDS", "0"))
+        self.reward_max_attempts = int(os.getenv("TRACE2SKILL_REWARD_MAX_ATTEMPTS", "1"))
+        if self.reward_timeout_seconds < 0:
+            raise ValueError("TRACE2SKILL_REWARD_TIMEOUT_SECONDS must be non-negative")
+        if self.reward_max_attempts < 1:
+            raise ValueError("TRACE2SKILL_REWARD_MAX_ATTEMPTS must be at least 1")
 
         trace_config = self.config.actor_rollout_ref.rollout.get("trace", {})
         RolloutTraceConfig.init(
@@ -628,7 +706,15 @@ class AgentLoopWorker:
                     batch=batch,
                     non_tensor_batch=non_tensor_batch,
                 )
-                result = await self.reward_manager_worker.compute_score.remote(data)
+                result = await _await_remote_result(
+                    lambda: self.reward_manager_worker.compute_score.remote(data),
+                    timeout_seconds=self.reward_timeout_seconds,
+                    max_attempts=self.reward_max_attempts,
+                    label=(
+                        f"reward step={trajectory['step']} "
+                        f"sample={trajectory['sample_index']}"
+                    ),
+                )
                 output.reward_score = result["reward_score"]
                 output.extra_fields["reward_extra_info"] = result["reward_extra_info"]
 

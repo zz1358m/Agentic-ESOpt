@@ -14,6 +14,16 @@ intentionally override the bundled source. The launcher prepares only the
 selected task, verifies every Parquet record routes to `tool_agent`, and writes
 checkpoints and logs under `runs/multiturn_grpo/` by default.
 
+The complete fixed DAPO-400 Math pipeline should be launched through
+`scripts/math/run_experiment_until_complete.py`. It serializes the baseline,
+training, post-evaluation, trajectory export, and final report while preserving
+and validating each stage's resumable outputs. For training alone,
+`scripts/math/run_training_until_complete.py` waits for physical GPUs 3–6,
+preserves the same tier for ordinary restarts, resumes the latest checkpoint
+automatically, and progressively reduces trajectory turn/token limits only when
+explicit OOM/sequence-capacity evidence is present. Dataset size, epochs,
+`rollout.n`, and raw trajectory dumping remain fixed across tiers.
+
 The standalone 16-sample evaluation client targets an OpenAI-compatible vLLM
 server and evaluates DAPO-100, AIME 2026, and DocVQA:
 
@@ -28,6 +38,16 @@ Set `DOCVQA_ROOT` to the directory containing
 `data/trace2skill/docvqa/test.jsonl` and its images. Outputs default to
 `runs/trace2skill_vllm/`; `TRACE2SKILL_VLLM_OUT` or `--out-dir` overrides that
 location.
+
+For the fixed Math before/after comparison, use
+`scripts/math/run_four_gpu_eval.py`. It starts four SGLang TP=1 replicas on
+physical GPUs 3–6 and refuses incomplete, duplicate-key, or request-error
+outputs. The matched profile requires 16 samples for each of 100 DAPO and 30
+AIME 2026 items; the table-alignment profile requires four. Math ReAct
+evaluation is fixed to 50 turns and 4096 generated tokens per assistant
+request, with a 262144-token server context by default. Use `--samples 4
+--profile repo-react-v1-50x4096` for the table-alignment run. Its command-line
+bash workspaces live below the evaluation output directory.
 
 For the Qwen3.5 text-backbone compatibility conversion:
 

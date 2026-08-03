@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
@@ -17,7 +18,11 @@ class LocalBashTool(BaseTool):
     def __init__(self, config: dict, tool_schema: OpenAIFunctionToolSchema):
         super().__init__(config, tool_schema)
         self._instances: dict[str, dict[str, Any]] = {}
-        self._default_cwd = str(Path(config.get("default_cwd", os.getcwd())).resolve())
+        default_cwd = config.get("default_cwd", os.getcwd())
+        default_cwd_env = config.get("default_cwd_env")
+        if default_cwd_env:
+            default_cwd = os.environ.get(str(default_cwd_env), default_cwd)
+        self._default_cwd = str(Path(default_cwd).resolve())
         self._timeout = float(config.get("timeout", 20))
         self._max_output_chars = int(config.get("max_output_chars", 6000))
         self._sandbox = bool(config.get("sandbox", False))
@@ -87,15 +92,16 @@ class LocalBashTool(BaseTool):
                 env=env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                start_new_session=True,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             text = self._format_output(proc.returncode, stdout, stderr)
             metrics = {"bash_returncode": float(proc.returncode)}
         except asyncio.TimeoutError:
             try:
-                proc.kill()
+                os.killpg(proc.pid, signal.SIGKILL)
                 await proc.communicate()
-            except Exception:
+            except (ProcessLookupError, PermissionError):
                 pass
             text = f"Bash timed out after {timeout:.1f}s."
             metrics = {"bash_error": 1.0, "bash_timeout": 1.0}

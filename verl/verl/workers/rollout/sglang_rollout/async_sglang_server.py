@@ -237,6 +237,10 @@ class SGLangHttpServer:
             log_probs = None
         return TokenOutput(token_ids=token_ids, log_probs=log_probs)
 
+    async def abort_request(self, request_id: str):
+        """Abort one embedded SGLang request after a manager-side timeout."""
+        return self.tokenizer_manager.abort_request(rid=request_id)
+
 
 _rollout_worker_actor_cls = ray.remote(ServerAdapter)
 
