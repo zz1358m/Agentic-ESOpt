@@ -18,7 +18,11 @@ class SandboxResult:
 
 
 def _python_runtime_prefix() -> Path:
-    return Path(sys.executable).resolve().parent.parent
+    # ``sys.executable`` is commonly a symlink to /usr/bin/python inside a
+    # virtual environment. Resolving it loses the environment that contains
+    # DocVQA's Pillow/OCR dependencies and leaves ``python`` unavailable in
+    # the sandbox. ``sys.prefix`` is the runtime environment root by design.
+    return Path(sys.prefix).absolute()
 
 
 def _runtime_prefixes() -> list[Path]:
@@ -26,6 +30,9 @@ def _runtime_prefixes() -> list[Path]:
     conda_prefix = os.environ.get("CONDA_PREFIX")
     if conda_prefix:
         prefixes.append(Path(conda_prefix))
+    tool_prefix = os.environ.get("DOCVQA_TOOL_PREFIX")
+    if tool_prefix:
+        prefixes.append(Path(tool_prefix))
     return prefixes
 
 
@@ -65,14 +72,14 @@ def _truncate(text: str, limit: int) -> str:
 def run_sandboxed_bash(
     command: str,
     *,
-    image_path: str | Path,
+    image_path: str | Path | None = None,
     timeout: float = 20.0,
     max_output_chars: int = 6000,
     runtime_roots: tuple[str | Path, ...] = (),
     bwrap_path: str | Path | None = None,
 ) -> SandboxResult:
-    image = Path(image_path).expanduser().resolve()
-    if not image.is_file():
+    image = Path(image_path).expanduser().resolve() if image_path is not None else None
+    if image is not None and not image.is_file():
         raise FileNotFoundError(f"DocVQA image not found: {image}")
     bwrap = str(bwrap_path or shutil.which("bwrap") or "")
     if not bwrap:
@@ -118,9 +125,6 @@ def run_sandboxed_bash(
             "/tmp",
             "--dir",
             "/workspace",
-            "--ro-bind",
-            str(image),
-            DOCVQA_IMAGE_PATH,
             "--chdir",
             "/workspace",
             "--setenv",
@@ -142,6 +146,18 @@ def run_sandboxed_bash(
             command,
         ]
     )
+    if image is not None:
+        command_index = len(args) - 5
+        args[command_index:command_index] = ["--ro-bind", str(image), DOCVQA_IMAGE_PATH]
+    tool_prefix = os.environ.get("DOCVQA_TOOL_PREFIX")
+    if tool_prefix:
+        tool_root = Path(tool_prefix)
+        library_dir = tool_root / "lib" / "x86_64-linux-gnu"
+        tessdata_dir = tool_root / "share" / "tesseract-ocr" / "4.00" / "tessdata"
+        if library_dir.is_dir():
+            args[-5:-5] = ["--setenv", "LD_LIBRARY_PATH", str(library_dir)]
+        if tessdata_dir.is_dir():
+            args[-5:-5] = ["--setenv", "TESSDATA_PREFIX", str(tessdata_dir)]
     try:
         proc = subprocess.run(args, capture_output=True, timeout=timeout, check=False)
         stdout = proc.stdout.decode("utf-8", errors="replace")

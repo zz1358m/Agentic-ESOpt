@@ -117,7 +117,7 @@ class DocVQASandboxTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.returncode, 0, result.text)
-        expected_prefix = str(Path(sys.executable).resolve().parent.parent)
+        expected_prefix = str(Path(sys.prefix).absolute())
         self.assertIn(expected_prefix, result.text)
 
     def test_invalid_null_byte_command_becomes_tool_observation(self) -> None:

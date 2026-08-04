@@ -574,12 +574,14 @@ async def run_math_react(
                 observation = "No shell command was provided."
             else:
                 used_bash = True
-                observation = run_bash(
+                sandbox_result = await asyncio.to_thread(
+                    run_sandboxed_bash,
                     command,
-                    ROOT,
+                    image_path=None,
                     timeout=args.math_python_timeout,
-                    limit=args.tool_observation_limit,
+                    max_output_chars=args.tool_observation_limit,
                 )
+                observation = sandbox_result.text
         else:
             observation = f"Unknown action '{name}'. Available action is bash."
 
@@ -1171,8 +1173,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-p", type=float, default=0.0)
     parser.add_argument("--presence-penalty", type=float, default=2.0)
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
-    parser.add_argument("--math-max-tokens", type=int, default=512)
-    parser.add_argument("--math-max-turns", type=int, default=30)
+    parser.add_argument("--math-max-tokens", type=int, default=4096)
+    parser.add_argument("--math-max-turns", type=int, default=50)
     parser.add_argument("--math-python-timeout", type=float, default=20.0)
     parser.add_argument("--docvqa-max-tokens", type=int, default=512)
     parser.add_argument("--docvqa-max-total-tokens", type=int, default=32768)

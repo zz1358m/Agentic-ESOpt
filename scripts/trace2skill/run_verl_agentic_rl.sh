@@ -31,6 +31,7 @@ case "${TASK}" in
   docvqa)
     export DOCVQA_PHYSICAL_GPU_IDS="${DOCVQA_PHYSICAL_GPU_IDS:-auto}"
     export DOCVQA_TRAIN_LIMIT="${DOCVQA_TRAIN_LIMIT:-50}"
+    # Use the first 100 rows of the held-out split for the aligned experiment.
     export DOCVQA_VAL_LIMIT="${DOCVQA_VAL_LIMIT:-100}"
     TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-4}"
     PPO_MINI_BATCH_SIZE="${PPO_MINI_BATCH_SIZE:-4}"

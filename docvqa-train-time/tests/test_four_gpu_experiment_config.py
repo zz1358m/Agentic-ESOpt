@@ -29,6 +29,10 @@ class FourGpuExperimentConfigTests(unittest.TestCase):
         launcher = (LAUNCHER.parents[1] / "trace2skill" / "run_verl_agentic_rl.sh").read_text(encoding="utf-8")
         self.assertIn("+data.apply_chat_template_kwargs.enable_thinking=False", launcher)
 
+    def test_canonical_runner_uses_first_100_trace2skill_heldout_rows(self) -> None:
+        launcher = (LAUNCHER.parents[1] / "trace2skill" / "run_verl_agentic_rl.sh").read_text(encoding="utf-8")
+        self.assertIn('DOCVQA_VAL_LIMIT="${DOCVQA_VAL_LIMIT:-100}"', launcher)
+
     def test_training_can_keep_reference_model_separate_from_actor_weights(self) -> None:
         launcher = (LAUNCHER.parents[1] / "trace2skill" / "run_verl_agentic_rl.sh").read_text(encoding="utf-8")
         self.assertIn(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,17 @@ SPEC.loader.exec_module(MODULE)
 
 
 class PrepareVerlDocVQATests(unittest.TestCase):
+    def test_zero_jsonl_limit_reads_the_full_trace2skill_split(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.jsonl"
+            path.write_text(
+                "".join(json.dumps({"id": index}) + "\n" for index in range(3)),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(len(MODULE._read_jsonl(path, 0)), 3)
+            self.assertEqual(len(MODULE._read_jsonl(path, 2)), 2)
+
     def test_script_is_directly_executable_from_repo_root(self) -> None:
         process = subprocess.run(
             [sys.executable, str(SCRIPT), "--help"],

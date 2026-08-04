@@ -386,7 +386,18 @@ def limit_bash_command(command: str) -> str:
 
 
 def is_dangerous_bash_command(command: str) -> bool:
-    pattern = r"(^|[;&|()`$<>\s])(?:sudo|su|kill|pkill|killall|reboot|shutdown|halt|poweroff|screen|tmux|ray)(\s|$)"
+    # Tool rollouts run unattended.  In addition to process/system controls,
+    # reject desktop launchers so a model-generated command cannot repeatedly
+    # open browser windows or interactive GUI prompts on the host session.
+    pattern = (
+        r"(^|[;&|()`$<>\s])(?:"
+        r"sudo|su|pkexec|gksu|gksudo|kdesu|"
+        r"kill|pkill|killall|reboot|shutdown|halt|poweroff|screen|tmux|ray|"
+        r"xdg-open|gio|sensible-browser|x-www-browser|"
+        r"firefox|google-chrome(?:-stable)?|chromium(?:-browser)?|brave(?:-browser)?|"
+        r"opera|epiphany|zenity|kdialog|xmessage|notify-send"
+        r")(\s|$)"
+    )
     return re.search(pattern, command, flags=re.IGNORECASE) is not None
 
 
@@ -398,16 +409,23 @@ def run_bash(command: str, cwd: Path, timeout: float, limit: int) -> str:
     except Exception:
         pass
     if is_dangerous_bash_command(command):
-        return "Blocked unsafe shell command in math tool sandbox."
+        return "Blocked unsafe or interactive desktop command in math tool sandbox."
+    child_env = os.environ.copy()
+    for name in ("DISPLAY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS"):
+        child_env.pop(name, None)
+    child_env["BROWSER"] = "/bin/false"
     proc: subprocess.Popen[str] | None = None
     try:
         proc = subprocess.Popen(
             limit_bash_command(command),
             shell=True,
+            executable="/bin/bash",
             cwd=str(cwd),
             text=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             start_new_session=True,
+            env=child_env,
         )
         stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:

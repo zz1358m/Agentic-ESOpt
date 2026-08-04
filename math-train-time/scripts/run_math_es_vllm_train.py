@@ -84,6 +84,62 @@ def chunks(items: list[Any], size: int) -> list[list[Any]]:
     return [items[i : i + size] for i in range(0, len(items), size)]
 
 
+def token_budget_batches(request_tokens: list[int], token_budget: int) -> list[list[int]]:
+    """Pack requests without letting one vLLM call overcommit live KV tokens."""
+    if not request_tokens:
+        return []
+    budget = int(token_budget)
+    if budget <= 0:
+        return [list(range(len(request_tokens)))]
+
+    batches: list[list[int]] = []
+    current: list[int] = []
+    current_tokens = 0
+    for index, tokens in enumerate(request_tokens):
+        request_size = max(1, int(tokens))
+        if current and current_tokens + request_size > budget:
+            batches.append(current)
+            current = []
+            current_tokens = 0
+        current.append(index)
+        current_tokens += request_size
+        if current_tokens >= budget:
+            batches.append(current)
+            current = []
+            current_tokens = 0
+    if current:
+        batches.append(current)
+    return batches
+
+
+def compact_rollout_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """Keep resume/accounting data while dropping large training transcripts."""
+    compact = {key: value for key, value in summary.items() if key != "scores"}
+    keep = {
+        "key",
+        "task_id",
+        "row_index",
+        "sample_index",
+        "score",
+        "prediction",
+        "latency_s",
+        "used_bash",
+        "termination_reason",
+        "answer_status",
+        "context_trims",
+        "max_context_tokens",
+        "generated_tokens",
+        "trajectory_tokens",
+        "trace_rounds",
+        "score_method",
+    }
+    compact["scores"] = [
+        {key: value for key, value in row.items() if key in keep}
+        for row in summary.get("scores", [])
+    ]
+    return compact
+
+
 def task_to_payload(task: MathTask) -> dict[str, str]:
     return {
         "id": task.id,
@@ -156,6 +212,8 @@ def summarize_rows(rows: list[dict[str, Any]], *, items: int, samples: int) -> d
         answer_status = str(row.get("answer_status") or "unknown")
         answer_statuses[answer_status] = answer_statuses.get(answer_status, 0) + 1
     max_at_n = sum(max(task_scores) for task_scores in by_task.values()) / len(by_task) if by_task else 0.0
+    pass_at_n_count = sum(max(task_scores) >= 1.0 for task_scores in by_task.values())
+    pass_at_n = pass_at_n_count / len(by_task) if by_task else 0.0
     average = sum(scores) / len(scores) if scores else 0.0
     return {
         "count": len(rows),
@@ -169,6 +227,8 @@ def summarize_rows(rows: list[dict[str, Any]], *, items: int, samples: int) -> d
         "average": average,
         "mean_score": average,
         f"max@{samples}": max_at_n,
+        f"pass@{samples}": pass_at_n,
+        f"pass@{samples}_count": pass_at_n_count,
         "max": max(scores) if scores else 0.0,
         "score_methods": score_methods,
         "termination_reasons": termination_reasons,
@@ -184,7 +244,11 @@ def summarize_rows(rows: list[dict[str, Any]], *, items: int, samples: int) -> d
     }
 
 
-def write_trace_logs(trace_dir: Path | None, rows: list[dict[str, Any]]) -> None:
+def write_trace_logs(
+    trace_dir: Path | None,
+    rows: list[dict[str, Any]],
+    filename_prefix: str = "",
+) -> None:
     if trace_dir is None:
         return
     trace_dir.mkdir(parents=True, exist_ok=True)
@@ -199,8 +263,12 @@ def write_trace_logs(trace_dir: Path | None, rows: list[dict[str, Any]]) -> None
         outcome = "SUCCEED" if float(row.get("score", -1.0)) >= 1.0 else "FAILED"
         safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", task.id)
         sample_index = int(row.get("sample_index", 0))
-        path = trace_dir / f"math_agent_{safe_id}_sample{sample_index:02d}_{outcome}.md"
-        path.write_text(trace_markdown(task=task, row=row, transcript=row.get("react_steps", [])), encoding="utf-8")
+        path = trace_dir / f"math_agent_{filename_prefix}{safe_id}_sample{sample_index:02d}_{outcome}.md"
+        path.write_text(
+            trace_markdown(task=task, row=row, transcript=row.get("react_steps", [])),
+            encoding="utf-8",
+            errors="replace",
+        )
         row["trace_log"] = str(path)
 
 
@@ -276,10 +344,10 @@ class MathVllmActor:
         return self.llm.collective_rpc("status_math_es")
 
     def apply_perturbation(self, *, seed: int, sigma: float) -> list[dict]:
-        return self.llm.collective_rpc("apply_perturbation", args=(int(seed), float(sigma)))
+        return self.llm.collective_rpc("apply_math_es", args=(int(seed), float(sigma)))
 
     def revert_perturbation(self, *, seed: int, sigma: float) -> list[dict]:
-        return self.llm.collective_rpc("revert_perturbation", args=(int(seed), float(sigma)))
+        return self.llm.collective_rpc("revert_math_es", args=(int(seed), float(sigma)))
 
     def update_es(self, *, seeds: list[int], weights: list[float], alpha: float) -> list[dict]:
         return self.llm.collective_rpc("dipu", args=(seeds, weights, float(alpha)))
@@ -377,14 +445,21 @@ class MathVllmActor:
         encoded = self.tokenizer(prompt, add_special_tokens=False, return_attention_mask=False)
         return len(encoded["input_ids"])
 
-    def _fit_prompt_to_context(self, messages: list[dict[str, Any]], *, reserve_tokens: int) -> tuple[str | None, int]:
+    def _fit_prompt_to_context(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        reserve_tokens: int,
+        trim_context: bool,
+    ) -> tuple[str | None, int, int]:
         trims = 0
         while True:
             prompt = self._render_messages(messages)
-            if self._prompt_token_count(prompt) + max(1, int(reserve_tokens)) <= self.max_model_len:
-                return prompt, trims
-            if not trim_oldest_react_exchange(messages):
-                return None, trims
+            prompt_tokens = self._prompt_token_count(prompt)
+            if prompt_tokens + max(1, int(reserve_tokens)) <= self.max_model_len:
+                return prompt, trims, prompt_tokens
+            if not trim_context or not trim_oldest_react_exchange(messages):
+                return None, trims, prompt_tokens
             trims += 1
 
     def rollout_batch(
@@ -401,8 +476,12 @@ class MathVllmActor:
         max_turns: int,
         python_timeout: float,
         tool_observation_limit: int,
+        trim_context: bool,
+        rollout_token_budget: int,
+        max_total_tokens: int,
         seed: int,
     ) -> list[dict[str, Any]]:
+        del max_total_tokens  # The standalone Math protocol has no total trajectory cap.
         states = []
         for job in jobs:
             task_payload = job["task"]
@@ -434,6 +513,8 @@ class MathVllmActor:
                     "react_error": None,
                     "termination_reason": None,
                     "context_trims": 0,
+                    "max_context_tokens": 0,
+                    "generated_tokens": 0,
                     "done": False,
                     "started_at": time.time(),
                     "seed_base": seed_base,
@@ -452,7 +533,11 @@ class MathVllmActor:
             sampling_params = []
             for state in active:
                 output_tokens = int(max_tokens) if int(max_tokens) > 0 else self.default_max_tokens
-                prompt, trims = self._fit_prompt_to_context(state["messages"], reserve_tokens=output_tokens)
+                prompt, trims, prompt_tokens = self._fit_prompt_to_context(
+                    state["messages"],
+                    reserve_tokens=output_tokens,
+                    trim_context=trim_context,
+                )
                 state["context_trims"] += trims
                 if prompt is None:
                     state["done"] = True
@@ -460,6 +545,8 @@ class MathVllmActor:
                     state["react_error"] = "context_length_exceeded"
                     continue
                 generation_states.append(state)
+                state["max_context_tokens"] = max(int(state["max_context_tokens"]), int(prompt_tokens))
+                state["current_prompt_tokens"] = int(prompt_tokens)
                 prompts.append(prompt)
                 sampling_params.append(
                     self._sampling_params(
@@ -480,13 +567,33 @@ class MathVllmActor:
             current_turn = turn + 1
             turn += 1
 
+            output_tokens = int(max_tokens) if int(max_tokens) > 0 else self.default_max_tokens
+            request_tokens = [
+                int(state["current_prompt_tokens"]) + output_tokens
+                for state in generation_states
+            ]
+            request_batches = token_budget_batches(request_tokens, rollout_token_budget)
+            if len(request_batches) > 1 and (current_turn == 1 or current_turn % 10 == 0):
+                print(
+                    f"[rollout_microbatch] turn={current_turn} requests={len(request_tokens)} "
+                    f"groups={len(request_batches)} token_budget={rollout_token_budget}",
+                    flush=True,
+                )
+
             generated = []
-            try:
-                outputs = self.llm.generate(prompts, sampling_params, use_tqdm=False)
-                generated = list(zip(generation_states, outputs))
-            except Exception:
+            for request_batch in request_batches:
+                batch_states = [generation_states[index] for index in request_batch]
+                batch_prompts = [prompts[index] for index in request_batch]
+                batch_params = [sampling_params[index] for index in request_batch]
+                try:
+                    outputs = self.llm.generate(batch_prompts, batch_params, use_tqdm=False)
+                    generated.extend(zip(batch_states, outputs))
+                    continue
+                except Exception:
+                    pass
+
                 # A single invalid prompt must not invalidate every active rollout.
-                for state, prompt, params in zip(generation_states, prompts, sampling_params):
+                for state, prompt, params in zip(batch_states, batch_prompts, batch_params):
                     try:
                         output = self.llm.generate([prompt], [params], use_tqdm=False)[0]
                         generated.append((state, output))
@@ -498,6 +605,14 @@ class MathVllmActor:
             for state, output in generated:
                 try:
                     completion = self._output_text(output)
+                    candidates = getattr(output, "outputs", None) or []
+                    token_ids = getattr(candidates[0], "token_ids", None) if candidates else None
+                    completion_tokens = len(token_ids) if token_ids is not None else self._prompt_token_count(completion)
+                    state["generated_tokens"] += int(completion_tokens)
+                    state["max_context_tokens"] = max(
+                        int(state["max_context_tokens"]),
+                        int(state["current_prompt_tokens"]) + int(completion_tokens),
+                    )
                     state["completion"] = completion
                     state["messages"].append({"role": "assistant", "content": completion})
 
@@ -598,6 +713,8 @@ class MathVllmActor:
                     "termination_reason": termination_reason,
                     "answer_status": answer_status,
                     "context_trims": int(state["context_trims"]),
+                    "max_context_tokens": int(state["max_context_tokens"]),
+                    "generated_tokens": int(state["generated_tokens"]),
                     "react_error": state["react_error"],
                     "react_steps": state["steps"],
                     "trace_rounds": len(state["steps"]),
@@ -620,6 +737,9 @@ def rollout_kwargs(args: argparse.Namespace) -> dict[str, Any]:
         "max_turns": args.max_turns,
         "python_timeout": args.python_timeout,
         "tool_observation_limit": args.tool_observation_limit,
+        "trim_context": args.trim_context,
+        "rollout_token_budget": args.rollout_token_budget,
+        "max_total_tokens": args.max_total_tokens,
     }
 
 
@@ -673,7 +793,12 @@ def eval_tasks_vllm(
             submit_next(engine_index)
 
     while refs:
-        ready, refs = ray.wait(refs, num_returns=1)
+        ready, refs = ray.wait(refs, num_returns=1, timeout=args.ray_result_timeout)
+        if not ready:
+            raise TimeoutError(
+                f"No {label} vLLM batch completed for {args.ray_result_timeout:.0f}s; "
+                "aborting before a stuck engine can hold the server indefinitely."
+            )
         ref = ready[0]
         engine_index, chunk_index, engine_chunks = meta.pop(ref)
         batch_rows = ray.get(ref)
@@ -689,6 +814,7 @@ def eval_tasks_vllm(
             f"chunk={chunk_index + 1}/{engine_chunks} rows={len(batch_rows)} "
             f"done={len(rows)}/{total_jobs} batch_mean={mean_valid(batch_scores):.4f} "
             f"mean={current['mean_score']:.4f} max@{samples}={current[f'max@{samples}']:.4f} "
+            f"pass@{samples}_count={current[f'pass@{samples}_count']}/{current['items']} "
             f"elapsed_s={elapsed:.1f}",
             flush=True,
         )
@@ -815,11 +941,35 @@ def main() -> None:
     parser.add_argument("--population", type=int, default=int(os.environ.get("MATH_ES_POPULATION", "8")))
     parser.add_argument("--case-batch-size", type=int, default=int(os.environ.get("MATH_ES_CASE_BATCH", "8")))
     parser.add_argument("--inference-batch-size", type=int, default=int(os.environ.get("MATH_INFERENCE_BATCH_SIZE", "16")))
+    parser.add_argument(
+        "--rollout-token-budget",
+        type=int,
+        default=int(os.environ.get("MATH_ROLLOUT_TOKEN_BUDGET", "0")),
+        help="Maximum summed prompt+output tokens per vLLM generate call; 0 disables microbatching.",
+    )
+    parser.add_argument(
+        "--max-total-tokens",
+        type=int,
+        default=int(os.environ.get("MATH_MAX_TOTAL_TOKENS", "0")),
+        help="Maximum accumulated generated+observation tokens per trajectory; 0 disables the cap.",
+    )
+    parser.add_argument(
+        "--ray-result-timeout",
+        type=float,
+        default=float(os.environ.get("MATH_RAY_RESULT_TIMEOUT", "3600")),
+        help="Abort after this many seconds without a completed Ray rollout batch.",
+    )
     parser.add_argument("--train-samples", type=int, default=int(os.environ.get("MATH_TRAIN_SAMPLES", "1")))
     parser.add_argument("--eval-samples", type=int, default=int(os.environ.get("MATH_EVAL_SAMPLES", "16")))
     parser.add_argument("--max-react-rounds", "--max-turns", dest="max_turns", type=int, default=int(os.environ.get("MATH_MAX_REACT_ROUNDS", os.environ.get("MATH_MAX_TURNS", "0"))))
     parser.add_argument("--python-timeout", type=float, default=float(os.environ.get("MATH_PYTHON_TIMEOUT", "20.0")))
     parser.add_argument("--tool-observation-limit", type=int, default=int(os.environ.get("MATH_TOOL_OBSERVATION_LIMIT", "6000")))
+    parser.add_argument(
+        "--trim-context",
+        action=argparse.BooleanOptionalAction,
+        default=os.environ.get("MATH_TRIM_CONTEXT", "1").lower() in {"1", "true", "yes"},
+        help="Trim oldest ReAct exchanges to stay in context. Disable to cap the complete trajectory.",
+    )
     parser.add_argument("--write-trace-logs", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--eval-limit", type=int, default=int(os.environ.get("MATH_EVAL_LIMIT", "100")))
     parser.add_argument("--aime-limit", type=int, default=int(os.environ.get("MATH_AIME_LIMIT", "30")))
@@ -856,6 +1006,11 @@ def main() -> None:
     parser.add_argument("--final-eval-vllm-default-max-tokens", type=int, default=int(os.environ.get("MATH_FINAL_EVAL_VLLM_DEFAULT_MAX_TOKENS", "4096")))
     parser.add_argument("--resume-history", default=os.environ.get("MATH_ES_RESUME_HISTORY", ""))
     parser.add_argument(
+        "--reuse-initial-eval-history",
+        default=os.environ.get("MATH_ES_REUSE_INITIAL_EVAL_HISTORY", ""),
+        help="Reuse one completed generation=-1 eval record and start training at generation 0.",
+    )
+    parser.add_argument(
         "--resume-generations",
         type=int,
         default=int(os.environ.get("MATH_ES_RESUME_GENERATIONS", "-1")),
@@ -880,16 +1035,20 @@ def main() -> None:
     train_env = None if args.eval_only else MathReasoningEnv(args.train_data, skill_file=args.skill_file)
     eval_env = MathReasoningEnv(args.eval_data, limit=args.eval_limit, skill_file=args.skill_file)
     aime_env = MathReasoningEnv(args.aime_data, limit=args.aime_limit, skill_file=args.skill_file)
-    result_root = ROOT / "runs/math_es_vllm" / args.run_id
+    result_subdir = os.environ.get("MATH_ES_RESULT_SUBDIR", "runs/math_es_vllm")
+    result_root = ROOT / result_subdir / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
     history_path = Path(args.history_file).expanduser().resolve() if args.history_file else result_root / "history.json"
 
     print(
         f"[setting] backend=vllm model_path={args.model_path} model={args.model} "
         f"num_engines={args.num_engines} batch={args.inference_batch_size} "
+        f"rollout_token_budget={args.rollout_token_budget} "
+        f"max_total_tokens={args.max_total_tokens} "
         f"gpu_fraction={args.gpu_fraction} "
         f"population={args.population} train_samples={args.train_samples} "
         f"eval_samples={args.eval_samples} max_turns={args.max_turns} "
+        f"max_model_len={args.max_model_len} trim_context={args.trim_context} "
         f"max_tokens={args.max_tokens} vllm_default_max_tokens={args.vllm_default_max_tokens} "
         f"sampling=(temperature={args.temperature}, top_p={args.top_p}, top_k={args.top_k}, "
         f"min_p={args.min_p}, presence_penalty={args.presence_penalty}, "
@@ -911,6 +1070,16 @@ def main() -> None:
                 "sigma_warmup_steps": sigma_warmup_steps,
                 "alpha": args.alpha,
                 "population": args.population,
+                "case_batch_size": args.case_batch_size,
+                "inference_batch_size": args.inference_batch_size,
+                "rollout_token_budget": args.rollout_token_budget,
+                "max_total_tokens": args.max_total_tokens,
+                "ray_result_timeout": args.ray_result_timeout,
+                "max_turns": args.max_turns,
+                "max_model_len": args.max_model_len,
+                "trim_context": args.trim_context,
+                "eval_samples": args.eval_samples,
+                "final_eval_samples": args.final_eval_samples,
                 "seed": args.seed,
                 "history_file": str(history_path),
                 "backend": "vllm",
@@ -919,6 +1088,28 @@ def main() -> None:
     ]
     try:
         start_generation = 0
+        if args.reuse_initial_eval_history:
+            if args.resume_history:
+                raise ValueError(
+                    "--reuse-initial-eval-history and --resume-history are mutually exclusive"
+                )
+            source_history = read_history(args.reuse_initial_eval_history)
+            initial_eval_records = [
+                record
+                for record in source_history
+                if isinstance(record, dict) and record.get("generation") == -1
+            ]
+            if len(initial_eval_records) != 1:
+                raise ValueError(
+                    "Expected exactly one generation=-1 record in "
+                    f"{args.reuse_initial_eval_history}, found {len(initial_eval_records)}"
+                )
+            history.append(initial_eval_records[0])
+            args.skip_initial_eval = True
+            print(
+                f"[initial_eval_reused] history={args.reuse_initial_eval_history}",
+                flush=True,
+            )
         if args.resume_history:
             source_history = read_history(args.resume_history)
             replay_limit = None if args.resume_generations < 0 else args.resume_generations
@@ -1032,16 +1223,28 @@ def main() -> None:
             refs = [item[3] for item in sample_refs]
             meta = {item[3]: item[:3] for item in sample_refs}
             while refs:
-                ready, refs = ray.wait(refs, num_returns=1)
+                ready, refs = ray.wait(refs, num_returns=1, timeout=args.ray_result_timeout)
+                if not ready:
+                    pending = [meta[ref] for ref in refs]
+                    raise TimeoutError(
+                        f"No generation {generation} population sample completed for "
+                        f"{args.ray_result_timeout:.0f}s; pending={pending}"
+                    )
                 ref = ready[0]
                 idx, seed, engine_index = meta[ref]
                 payload = ray.get(ref)
                 result = summarize_rows(payload["rows"], items=len(batch), samples=args.train_samples)
+                if args.write_trace_logs:
+                    write_trace_logs(
+                        result_root / "trace_logs" / "train",
+                        payload["rows"],
+                        filename_prefix=f"gen{generation:03d}_candidate{idx:02d}_seed{seed}_",
+                    )
                 samples_by_idx[idx] = {
                     "engine_index": engine_index,
                     "seed": seed,
                     "reward": result["average"],
-                    "result": result,
+                    "result": compact_rollout_summary(result),
                 }
                 print(
                     f"[sample] gen={generation} idx={idx} engine={engine_index} "

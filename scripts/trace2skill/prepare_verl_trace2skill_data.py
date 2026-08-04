@@ -35,6 +35,10 @@ Final answer: \\boxed{<answer>}
 Do not include tool outputs in the final answer."""
 
 def _read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
+    # CLI limits use zero to mean "all records". Normalize it here so zero
+    # cannot accidentally stop after the first appended row.
+    if limit is not None and limit <= 0:
+        limit = None
     rows = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -186,6 +190,7 @@ def main() -> None:
         "--docvqa-val-limit",
         type=int,
         default=int(os.environ.get("DOCVQA_VAL_LIMIT", "100")),
+        help="Held-out DocVQA rows to export; defaults to the first 100 rows.",
     )
     args = parser.parse_args()
 

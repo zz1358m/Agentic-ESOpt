@@ -24,6 +24,12 @@ if os.environ.get("TRACE2SKILL_EAGER_PATCH_DENSE_QWEN3NEXT") == "1":
     patch_sglang_dense_qwen3next()
 
 
+if os.environ.get("TRACE2SKILL_PATCH_VLLM_DENSE_QWEN3NEXT") == "1":
+    from verl_trace2skill.vllm_dense_qwen3next_compat import patch_vllm_dense_qwen3next
+
+    patch_vllm_dense_qwen3next()
+
+
 def _register_trace2skill_tool_parser() -> None:
     try:
         from verl.experimental.agent_loop.tool_parser import FunctionCall, ToolParser
