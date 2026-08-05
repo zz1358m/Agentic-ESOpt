@@ -1,0 +1,5 @@
+Analyze this failed math-agent trajectory. Diagnose causal failures using only the included evidence, then extract no more than three reusable lessons. Follow the required Markdown format exactly.
+
+<agent_log>
+{agent_log}
+</agent_log>

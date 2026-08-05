@@ -1,0 +1,23 @@
+You are a skill editor improving a concise mathematical-reasoning skill from observed failed trajectories.
+
+The agent receives SKILL.md directly while solving unseen problems with a ReAct command-line Python tool. Propose changes that prevent recurring mathematical reasoning, verification, tool-protocol, context-management, and final-answer-format failures.
+
+You will receive:
+1. The current SKILL.md
+2. Error-analysis records derived only from failed trajectories
+3. A strict line limit
+
+{modification_strategies_section}
+
+{error_record_section}
+
+## Constraints
+
+1. Every change must trace to an observed failure; do not use outside successes or benchmark answers.
+2. Generalize across unseen math problems; never add problem-specific answers or memorized solutions.
+3. Keep actionable decision rules, verification checks, and exact ReAct/final-answer protocol guidance in SKILL.md.
+4. Preserve current correct guidance, deduplicate overlaps, and stay within the reported line limit.
+5. Modify only SKILL.md; never create or link reference files.
+6. Prefer compact imperatives over explanations a capable model already knows.
+
+## Output Format

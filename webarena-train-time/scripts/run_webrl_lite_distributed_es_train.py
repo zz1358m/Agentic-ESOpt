@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -19,9 +20,13 @@ except Exception:  # pragma: no cover - optional runtime dependency
 
 
 ROOT = Path(os.environ.get("ROOT", Path(__file__).resolve().parents[2])).resolve()
-sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 TRACE_WRAPPER_PATH = ROOT / "webarena-train-time" / "scripts" / "run_trace2skill_webarena_sft.py"
+TRACE_SPEC = importlib.util.spec_from_file_location("trace2skill_webarena_sft", TRACE_WRAPPER_PATH)
+if TRACE_SPEC is None or TRACE_SPEC.loader is None:
+    raise RuntimeError(f"Cannot import {TRACE_WRAPPER_PATH}")
+trace2skill = importlib.util.module_from_spec(TRACE_SPEC)
+TRACE_SPEC.loader.exec_module(trace2skill)
 EMPTY_WEB_ARENA_SKILL = """---
 name: webarena-sft-trace-skill
 description: Skill instructions for WebArena agents using WebRL id actions.
@@ -31,46 +36,18 @@ description: Skill instructions for WebArena agents using WebRL id actions.
 
 """
 
-_TRACE2SKILL_ADAPTER = None
-
-
-def load_trace2skill_adapter():
-    """Load optional Trace2Skill/SkillOpt dependencies only when requested."""
-
-    global _TRACE2SKILL_ADAPTER
-    if _TRACE2SKILL_ADAPTER is not None:
-        return _TRACE2SKILL_ADAPTER
-    spec = importlib.util.spec_from_file_location("trace2skill_webarena_sft", TRACE_WRAPPER_PATH)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot import {TRACE_WRAPPER_PATH}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    _TRACE2SKILL_ADAPTER = module
-    return module
-
 from run_webrl_lite_full_es_train import (
     DEFAULT_CONFIG_DIR,
     DEFAULT_SPLIT,
-    DEFAULT_TRAIN_CONFIG_DIR,
-    DEFAULT_TRAIN_SPLIT,
+    DEFAULT_WEBRL_TRAJECTORIES,
     load_tasks,
     post_json,
     post_json_retry,
     run_episode,
+    resolve_sigma_warmup_steps,
+    sigma_for_generation,
     validate_config_alignment,
 )  # noqa: E402
-from es.run_state import (  # noqa: E402
-    atomic_write_history,
-    completed_update_records,
-    history_prefix_through_updates,
-    map_endpoint_serial,
-    read_history,
-    replay_http_updates,
-    resolve_warmup_steps,
-    sigma_at_step,
-    validate_es_run_shape,
-    validate_seed_sequence,
-)
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -160,7 +137,8 @@ def write_trace2skill_log(task_dir: Path, output_path: Path, html_limit: int) ->
 def evolve_skill_from_es_generation(
     *,
     result_root: Path,
-    generation: int,
+    generation_start: int,
+    generation_end: int,
     skill_file: Path,
     optimizer_model: str,
     analysis_workers: int,
@@ -168,33 +146,49 @@ def evolve_skill_from_es_generation(
     html_limit: int,
     official_prompts: bool,
     optimizer_generation_config: str,
+    analysis_reasoning_effort: str | None,
+    skill_reasoning_effort: str | None,
+    consolidation_reasoning_effort: str | None,
+    replay_source_root: Path | None = None,
+    replay_generations: int = 0,
 ) -> dict:
-    trace2skill = load_trace2skill_adapter()
+    before_hash = hashlib.sha256(skill_file.read_bytes()).hexdigest()
     skill_dir = skill_file.parent
-    update_dir = result_root / "trace2skill_updates" / f"generation_{generation + 1:03d}"
+    update_dir = result_root / "trace2skill_updates" / f"generation_{generation_end + 1:03d}"
     logs_dir = update_dir / "trace_logs"
     if logs_dir.exists():
         shutil.rmtree(logs_dir)
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     records = []
-    sample_dirs = sorted(result_root.glob(f"gen_{generation:03d}_sample_*"))
-    for sample_dir in sample_dirs:
-        for task_dir in sorted(sample_dir.glob("task_*")):
-            record = write_trace2skill_log(
-                task_dir,
-                logs_dir
-                / (
-                    f"webarena_agent_{sample_dir.name}_{task_dir.name}_"
-                    f"{'SUCCEED' if task_score(task_dir) >= 1.0 else 'FAILED'}.md"
-                ),
-                html_limit,
-            )
-            if record:
-                records.append(record)
+    for generation in range(generation_start, generation_end + 1):
+        source_root = (
+            replay_source_root
+            if replay_source_root is not None and generation < replay_generations
+            else result_root
+        )
+        sample_dirs = sorted(source_root.glob(f"gen_{generation:03d}_sample_*"))
+        for sample_dir in sample_dirs:
+            for task_dir in sorted(sample_dir.glob("task_*")):
+                record = write_trace2skill_log(
+                    task_dir,
+                    logs_dir
+                    / (
+                        f"webarena_agent_{sample_dir.name}_{task_dir.name}_"
+                        f"{'SUCCEED' if task_score(task_dir) >= 1.0 else 'FAILED'}.md"
+                    ),
+                    html_limit,
+                )
+                if record:
+                    records.append(record)
     trace2skill.write_json(update_dir / "source_traces.json", records)
     if not records:
-        return {"generation": generation, "trace_count": 0, "updated": False}
+        return {
+            "generation_start": generation_start,
+            "generation_end": generation_end,
+            "trace_count": 0,
+            "updated": False,
+        }
     trace2skill.run_analysis_and_evolve(
         update_dir,
         skill_dir,
@@ -203,10 +197,22 @@ def evolve_skill_from_es_generation(
         seed,
         official_prompts=official_prompts,
         optimizer_generation_config=optimizer_generation_config,
+        analysis_reasoning_effort=analysis_reasoning_effort,
+        skill_reasoning_effort=skill_reasoning_effort,
+        consolidation_reasoning_effort=consolidation_reasoning_effort,
     )
-    snapshot = result_root / f"skill_generation_{generation + 1:03d}.md"
+    after_hash = hashlib.sha256(skill_file.read_bytes()).hexdigest()
+    snapshot = result_root / f"skill_generation_{generation_end + 1:03d}.md"
     shutil.copy2(skill_file, snapshot)
-    return {"generation": generation, "trace_count": len(records), "updated": True, "skill": str(snapshot)}
+    return {
+        "generation_start": generation_start,
+        "generation_end": generation_end,
+        "trace_count": len(records),
+        "updated": before_hash != after_hash,
+        "skill": str(snapshot),
+        "skill_hash_before": before_hash,
+        "skill_hash_after": after_hash,
+    }
 
 
 def write_eval_scalars(writer: object | None, prefix: str, eval_rec: dict, step: int) -> None:
@@ -387,10 +393,20 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoints", required=True, help="Comma-separated model server base URLs.")
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--split", default=str(DEFAULT_TRAIN_SPLIT))
+    parser.add_argument("--split", default="")
     parser.add_argument("--eval-split", default=str(DEFAULT_SPLIT))
     parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
-    parser.add_argument("--train-config-dir", default=str(DEFAULT_TRAIN_CONFIG_DIR))
+    parser.add_argument("--train-config-dir", default="")
+    parser.add_argument(
+        "--train-source",
+        default=os.environ.get("WEBRL_ES_TRAIN_SOURCE", "environment"),
+        choices=["environment", "webrl_sft"],
+        help=(
+            "environment runs perturbed policies in browser tasks. "
+            "webrl_sft is reserved for offline WebRL trajectory objectives and is not implemented here."
+        ),
+    )
+    parser.add_argument("--webrl-trajectories", default=str(DEFAULT_WEBRL_TRAJECTORIES))
     parser.add_argument("--sites", default="shopping,shopping_admin,reddit,gitlab,wikipedia,map")
     parser.add_argument("--episodes", type=int, default=0)
     parser.add_argument("--generations", type=int, default=3)
@@ -398,25 +414,30 @@ def main() -> None:
     parser.add_argument("--case-batch-size", type=int, default=16)
     parser.add_argument("--case-workers-per-sample", type=int, default=4)
     parser.add_argument("--eval-workers-per-endpoint", type=int, default=4)
-    parser.add_argument("--sigma-start", type=float, default=float(os.environ.get("WEBRL_ES_SIGMA_START", "1e-3")))
-    parser.add_argument("--sigma-end", type=float, default=float(os.environ.get("WEBRL_ES_SIGMA_END", os.environ.get("WEBRL_ES_SIGMA_START", "1e-3"))))
+    parser.add_argument("--sigma", type=float, default=1e-3)
     parser.add_argument(
         "--sigma-schedule",
         default=os.environ.get("WEBRL_ES_SIGMA_SCHEDULE", "constant"),
-        choices=["constant", "linear", "cosine"],
+        choices=["constant", "cosine-after-warmup"],
     )
     parser.add_argument(
         "--sigma-warmup-steps",
         type=int,
-        default=int(os.environ.get("WEBRL_ES_SIGMA_WARMUP_STEPS", "0")),
-        help="Number of initial generations to keep sigma fixed.",
+        default=int(os.environ.get("WEBRL_ES_SIGMA_WARMUP_STEPS", "-1")),
+        help="Number of initial generations to keep sigma fixed. Defaults to generations // 4.",
+    )
+    parser.add_argument(
+        "--sigma-min-ratio",
+        type=float,
+        default=0.0,
+        help="Minimum sigma as a fraction of --sigma for cosine scheduling.",
     )
     parser.add_argument("--alpha", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=20260605)
     parser.add_argument("--reward-normalization", default="zscore")
     parser.add_argument(
         "--skill-file",
-        default="",
+        default=str(ROOT / "webarena-train-time/skills/webarena_default_skill_v2.md"),
     )
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--eval-limit", type=int, default=0)
@@ -443,6 +464,23 @@ def main() -> None:
         action="store_true",
         help="After each ES generation, summarize that generation's traces into the run skill file.",
     )
+    parser.add_argument(
+        "--trace2skill-interval",
+        type=int,
+        default=0,
+        help="Aggregate traces and evolve the skill every N generations. Use 0 to disable.",
+    )
+    parser.add_argument(
+        "--replay-history",
+        default="",
+        help="Historical ES run directory or history.json used to replay recorded seed/reward updates.",
+    )
+    parser.add_argument(
+        "--replay-generations",
+        type=int,
+        default=0,
+        help="Number of initial generations to replay from --replay-history.",
+    )
     parser.add_argument("--init-empty-skill", action="store_true", help="Create an empty SKILL.md when --skill-file is missing.")
     parser.add_argument("--trace2skill-optimizer-model", default="gpt-4.1-mini")
     parser.add_argument("--trace2skill-analysis-workers", type=int, default=16)
@@ -454,28 +492,40 @@ def main() -> None:
     )
     parser.add_argument("--trace2skill-optimizer-generation-config", default="")
     parser.add_argument(
+        "--trace2skill-analysis-reasoning-effort",
+        choices=["none", "low", "medium", "high", "xhigh"],
+        default=None,
+    )
+    parser.add_argument(
+        "--trace2skill-skill-reasoning-effort",
+        choices=["none", "low", "medium", "high", "xhigh"],
+        default=None,
+    )
+    parser.add_argument(
+        "--trace2skill-consolidation-reasoning-effort",
+        choices=["none", "low", "medium", "high", "xhigh"],
+        default=None,
+    )
+    parser.add_argument(
         "--tensorboard-dir",
         default="",
         help="TensorBoard log directory. Defaults to <result_root>/tensorboard.",
     )
-    parser.add_argument("--history-file", default=os.environ.get("WEBRL_ES_HISTORY_FILE", ""))
-    parser.add_argument("--resume-history", default=os.environ.get("WEBRL_ES_RESUME_HISTORY", ""))
-    parser.add_argument("--resume-generations", type=int, default=int(os.environ.get("WEBRL_ES_RESUME_GENERATIONS", "-1")))
     args = parser.parse_args()
-    validate_es_run_shape(
-        generations=args.generations,
-        population=args.population,
-        case_batch_size=args.case_batch_size,
-        allow_zero_generations=args.eval_only,
-    )
-    sigma_warmup_steps = resolve_warmup_steps(args.generations, args.sigma_warmup_steps)
+    trace2skill_interval = 1 if args.trace2skill_every_generation else args.trace2skill_interval
+    if trace2skill_interval < 0:
+        raise ValueError("--trace2skill-interval must be non-negative.")
+    if args.replay_generations < 0 or args.replay_generations > args.generations:
+        raise ValueError("--replay-generations must be between 0 and --generations.")
+    if args.replay_generations and not args.replay_history:
+        raise ValueError("--replay-generations requires --replay-history.")
+    sigma_warmup_steps = resolve_sigma_warmup_steps(args.generations, args.sigma_warmup_steps)
 
     endpoints = [item.strip().rstrip("/") for item in args.endpoints.split(",") if item.strip()]
     if not endpoints:
         raise RuntimeError("No endpoints provided.")
     result_root = ROOT / "runs/webrl_lite_full_es" / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
-    history_path = Path(args.history_file).expanduser().resolve() if args.history_file else result_root / "history.json"
     tensorboard_dir = Path(args.tensorboard_dir) if args.tensorboard_dir else result_root / "tensorboard"
     writer = SummaryWriter(str(tensorboard_dir)) if SummaryWriter is not None else None
     allowed_sites = {site.strip() for site in args.sites.split(",") if site.strip()}
@@ -483,17 +533,26 @@ def main() -> None:
     config_dir = Path(args.config_dir)
     if not config_dir.exists():
         raise FileNotFoundError(config_dir)
+    if not args.eval_only and args.train_source == "webrl_sft":
+        trajectory_path = Path(args.webrl_trajectories)
+        if not trajectory_path.exists():
+            raise FileNotFoundError(
+                f"WebRL SFT trajectories not found: {trajectory_path}. "
+                "Run webarena-train-time/scripts/prepare_standard_webarena_data.py after placing WebRL raw data."
+            )
+        raise NotImplementedError(
+            "Offline WebRL-SFT ES training is not implemented in this runner. "
+            "Use --train-source environment with --split and --train-config-dir for browser-interaction ES, "
+            "or add an explicit trajectory-scoring objective before enabling WebRL-SFT ES."
+        )
     if not args.eval_only and not args.split:
         raise ValueError(
             "--split is required for environment ES training. "
-            "Use data/webarena/vab_nonlite_split/train/items.json with --train-config-dir."
+            "Use data/webarena/vab_lite_split/items.json only for VAB/WebRL WebArena-Lite evaluation; "
+            "training needs a config-backed split plus --train-config-dir."
         )
-    train_task_ids = (
-        load_tasks(Path(args.split), allowed_sites, args.episodes)
-        if not args.eval_only and args.split
-        else []
-    )
-    train_config_dir = Path(args.train_config_dir) if train_task_ids and args.train_config_dir else None
+    train_task_ids = load_tasks(Path(args.split), allowed_sites, args.episodes) if args.split else []
+    train_config_dir = Path(args.train_config_dir) if args.train_config_dir else None
     if train_task_ids and train_config_dir is None:
         raise ValueError("--train-config-dir is required when --split is set.")
     if train_config_dir is not None and not train_config_dir.exists():
@@ -507,52 +566,70 @@ def main() -> None:
             skill_file.write_text(EMPTY_WEB_ARENA_SKILL, encoding="utf-8")
         else:
             raise FileNotFoundError(skill_file)
-    if args.trace2skill_every_generation and skill_file is None:
-        raise ValueError("--trace2skill-every-generation requires --skill-file.")
+    if trace2skill_interval and skill_file is None:
+        raise ValueError("Trace2Skill updates require --skill-file.")
+
+    replay_source_root = None
+    replay_by_generation: dict[int, dict] = {}
+    if args.replay_history:
+        replay_path = Path(args.replay_history).resolve()
+        replay_history_path = replay_path if replay_path.is_file() else replay_path / "history.json"
+        if not replay_history_path.is_file():
+            raise FileNotFoundError(replay_history_path)
+        replay_source_root = replay_history_path.parent
+        replay_records = json.loads(replay_history_path.read_text(encoding="utf-8"))
+        replay_by_generation = {
+            int(record["generation"]): record
+            for record in replay_records
+            if isinstance(record.get("generation"), int) and record["generation"] >= 0
+        }
+        missing = [
+            generation
+            for generation in range(args.replay_generations)
+            if generation not in replay_by_generation
+        ]
+        if missing:
+            raise ValueError(f"Replay history is missing generations: {missing}")
 
     print(
         f"[setting] endpoints={endpoints} population={args.population} "
         f"case_batch_size={args.case_batch_size} case_workers_per_sample={args.case_workers_per_sample} "
         f"eval_workers_per_endpoint={args.eval_workers_per_endpoint} "
-        f"sigma_start={args.sigma_start} sigma_end={args.sigma_end} sigma_schedule={args.sigma_schedule} "
-        f"sigma_warmup_steps={sigma_warmup_steps} "
+        f"sigma={args.sigma} sigma_schedule={args.sigma_schedule} "
+        f"sigma_warmup_steps={sigma_warmup_steps} sigma_min_ratio={args.sigma_min_ratio} "
         f"alpha={args.alpha} "
         f"parameter_scope={args.parameter_scope} skill_file={skill_file or ''} "
+        f"trace2skill_interval={trace2skill_interval} "
+        f"replay_generations={args.replay_generations} "
+        f"replay_source={replay_source_root or ''} "
         f"train_config_dir={train_config_dir or ''} eval_config_dir={config_dir} "
         f"tensorboard_dir={tensorboard_dir if writer is not None else ''}",
         flush=True,
     )
 
-    history = [{"config": {"sigma_start": args.sigma_start, "sigma_end": args.sigma_end, "sigma_schedule": args.sigma_schedule, "sigma_warmup_steps": sigma_warmup_steps, "alpha": args.alpha, "population": args.population, "seed": args.seed, "history_file": str(history_path), "trace2skill_every_generation": args.trace2skill_every_generation}}]
-    start_generation = 0
-    if not args.eval_only or args.resume_history:
-        init_records = []
-        for endpoint in endpoints:
-            init = post_json(f"{endpoint}/es/init", {"parameter_scope": args.parameter_scope, "verbose": True})
-            init_records.append({"endpoint": endpoint, "init": init})
-        print(f"[es_init] {init_records}", flush=True)
-    if args.resume_history:
-        source_history = read_history(args.resume_history)
-        replay_limit = None if args.resume_generations < 0 else args.resume_generations
-        resume_records = completed_update_records(source_history, limit=replay_limit)
-        start_generation = validate_seed_sequence(resume_records, population=args.population, seed=args.seed)
-        replay_log = replay_http_updates(
-            endpoints=endpoints,
-            records=resume_records,
-            post_json=post_json,
-            timeout=600,
-            default_alpha=args.alpha,
-            default_reward_normalization=args.reward_normalization,
-        )
-        history = history_prefix_through_updates(source_history, len(resume_records))
-        history.append({"resume": {"source": str(Path(args.resume_history).expanduser().resolve()), "replayed_generations": start_generation, "replay_log": replay_log}})
-        if start_generation > args.generations:
-            raise ValueError(
-                f"Resume history has {start_generation} generations, but --generations={args.generations}."
-            )
-        print(f"[resume] replayed={start_generation} next_generation={start_generation}", flush=True)
-    atomic_write_history(history_path, history)
-
+    history = []
+    manifest = {
+        "run_id": args.run_id,
+        "generations": args.generations,
+        "population": args.population,
+        "case_batch_size": args.case_batch_size,
+        "sigma": args.sigma,
+        "sigma_schedule": args.sigma_schedule,
+        "alpha": args.alpha,
+        "reward_normalization": args.reward_normalization,
+        "seed": args.seed,
+        "trace2skill_interval": trace2skill_interval,
+        "trace2skill_optimizer_model": args.trace2skill_optimizer_model,
+        "trace2skill_analysis_reasoning_effort": args.trace2skill_analysis_reasoning_effort,
+        "trace2skill_skill_reasoning_effort": args.trace2skill_skill_reasoning_effort,
+        "trace2skill_consolidation_reasoning_effort": args.trace2skill_consolidation_reasoning_effort,
+        "max_skill_lines": int(os.environ.get("TRACE2SKILL_MAX_SKILL_LINES", "100")),
+        "max_skill_tokens": int(os.environ.get("TRACE2SKILL_MAX_SKILL_TOKENS", "0")),
+        "max_references": int(os.environ.get("TRACE2SKILL_MAX_REFERENCES", "5")),
+        "replay_generations": args.replay_generations,
+        "replay_source": str(replay_source_root) if replay_source_root else "",
+    }
+    (result_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     if args.eval_only:
         eval_rec = eval_tasks_distributed(
             endpoints=endpoints,
@@ -574,12 +651,18 @@ def main() -> None:
             repetition_penalty=args.repetition_penalty,
         )
         history.append({"generation": None, "kind": "eval_only", "eval": eval_rec})
-        atomic_write_history(history_path, history)
-        write_eval_scalars(writer, "eval_only", eval_rec, start_generation)
+        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n")
+        write_eval_scalars(writer, "eval_only", eval_rec, 0)
         if writer is not None:
             writer.close()
         print(f"[eval_only] {eval_rec}", flush=True)
         return
+
+    init_records = []
+    for endpoint in endpoints:
+        init = post_json(f"{endpoint}/es/init", {"parameter_scope": args.parameter_scope, "verbose": True})
+        init_records.append({"endpoint": endpoint, "init": init})
+    print(f"[es_init] {init_records}", flush=True)
 
     if not args.skip_initial_eval:
         initial_eval = eval_tasks_distributed(
@@ -602,81 +685,142 @@ def main() -> None:
             repetition_penalty=args.repetition_penalty,
         )
         history.append({"generation": -1, "kind": "initial_base_eval", "eval": initial_eval})
-        atomic_write_history(history_path, history)
+        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n")
         write_eval_scalars(writer, "initial_eval", initial_eval, 0)
         print(f"[initial_eval] {initial_eval}", flush=True)
 
     rng = random.Random(args.seed)
-    for _ in range(start_generation * args.population):
-        rng.randrange(1, 2**31 - 1)
-    for generation in range(start_generation, args.generations):
-        sigma_t = sigma_at_step(
-            sigma_start=args.sigma_start,
-            sigma_end=args.sigma_end,
-            step=generation,
-            total_steps=args.generations,
+    last_skill_update_generation = -1
+    for generation in range(args.generations):
+        sigma_t = sigma_for_generation(
+            sigma_max=args.sigma,
+            generation=generation,
+            generations=args.generations,
             schedule=args.sigma_schedule,
             warmup_steps=sigma_warmup_steps,
+            min_ratio=args.sigma_min_ratio,
         )
         batch_start = (generation * args.case_batch_size) % len(train_task_ids)
         selected = [train_task_ids[(batch_start + i) % len(train_task_ids)] for i in range(args.case_batch_size)]
         seeds = [rng.randrange(1, 2**31 - 1) for _ in range(args.population)]
         print(f"[generation {generation}] sigma={sigma_t:.12g} case_batch={selected}", flush=True)
 
-        def eval_direction(i: int, endpoint: str):
-            return i, eval_population_sample(
-                    endpoint=endpoint,
-                    seed=seeds[i],
-                    sigma=sigma_t,
-                    task_ids=selected,
-                    config_dir=train_config_dir,
-                    result_root=result_root,
-                    run_name=f"gen_{generation:03d}_sample_{i:02d}_seed_{seeds[i]}",
-                    skill_file=skill_file,
-                    case_workers=args.case_workers_per_sample,
-                    instruction_path=args.instruction_path,
-                    model_name=args.model_name,
-                    mode=args.mode,
-                    stop_token=args.stop_token,
-                    temperature=args.temperature,
-                    top_p=args.top_p,
-                    top_k=args.top_k,
-                    min_p=args.min_p,
-                    presence_penalty=args.presence_penalty,
-                    repetition_penalty=args.repetition_penalty,
+        replayed = generation < args.replay_generations
+        if replayed:
+            replay_record = replay_by_generation[generation]
+            if replay_record.get("case_batch") != selected:
+                raise ValueError(
+                    f"Replay generation {generation} case batch differs: "
+                    f"{replay_record.get('case_batch')} != {selected}"
                 )
-
-        sample_records = map_endpoint_serial(
-            endpoints=endpoints,
-            count=args.population,
-            worker=eval_direction,
-        )
-        for i, rec in enumerate(sample_records):
+            if replay_record.get("seeds") != seeds:
+                raise ValueError(
+                    f"Replay generation {generation} seeds differ: "
+                    f"{replay_record.get('seeds')} != {seeds}"
+                )
+            replay_sigma = float(replay_record.get("sigma", sigma_t))
+            if abs(replay_sigma - sigma_t) > 1e-12:
+                raise ValueError(
+                    f"Replay generation {generation} sigma differs: "
+                    f"{replay_sigma} != {sigma_t}"
+                )
+            rewards = [float(value) for value in replay_record["rewards"]]
+            if len(rewards) != args.population:
+                raise ValueError(
+                    f"Replay generation {generation} has {len(rewards)} rewards; "
+                    f"expected {args.population}."
+                )
+            sample_records = replay_record.get("samples", [])
             print(
-                f"[sample] gen={generation} sample={i} endpoint={rec['endpoint']} "
-                f"seed={rec['seed']} case_scores={rec['case_scores']} reward={rec['reward']}",
+                f"[replay] gen={generation} source={replay_source_root} rewards={rewards}",
                 flush=True,
             )
-        rewards = [rec["reward"] for rec in sample_records]
-        update_records = []
-        for endpoint in endpoints:
-            update = post_json(
-                f"{endpoint}/es/update",
-                {
-                    "seeds": seeds,
-                    "rewards": rewards,
-                    "alpha": args.alpha,
-                    "reward_normalization": args.reward_normalization,
-                },
-            )
-            update_records.append({"endpoint": endpoint, "update": update})
+        else:
+            samples_by_index: dict[int, dict] = {}
+            with ThreadPoolExecutor(max_workers=len(endpoints)) as pool:
+                endpoint_queues = {
+                    endpoint: iter(range(endpoint_index, len(seeds), len(endpoints)))
+                    for endpoint_index, endpoint in enumerate(endpoints)
+                }
+                futures: dict[object, tuple[int, str]] = {}
+
+                def submit_next(endpoint: str) -> None:
+                    try:
+                        i = next(endpoint_queues[endpoint])
+                    except StopIteration:
+                        return
+                    future = pool.submit(
+                        eval_population_sample,
+                        endpoint=endpoint,
+                        seed=seeds[i],
+                        sigma=sigma_t,
+                        task_ids=selected,
+                        config_dir=train_config_dir,
+                        result_root=result_root,
+                        run_name=f"gen_{generation:03d}_sample_{i:02d}_seed_{seeds[i]}",
+                        skill_file=skill_file,
+                        case_workers=args.case_workers_per_sample,
+                        instruction_path=args.instruction_path,
+                        model_name=args.model_name,
+                        mode=args.mode,
+                        stop_token=args.stop_token,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
+                        top_k=args.top_k,
+                        min_p=args.min_p,
+                        presence_penalty=args.presence_penalty,
+                        repetition_penalty=args.repetition_penalty,
+                    )
+                    futures[future] = (i, endpoint)
+
+                for endpoint in endpoints:
+                    submit_next(endpoint)
+
+                while futures:
+                    future = next(as_completed(tuple(futures)))
+                    i, endpoint = futures.pop(future)
+                    rec = future.result()
+                    samples_by_index[i] = rec
+                    print(
+                        f"[sample] gen={generation} sample={i} endpoint={rec['endpoint']} "
+                        f"seed={rec['seed']} case_scores={rec['case_scores']} reward={rec['reward']}",
+                        flush=True,
+                    )
+                    submit_next(endpoint)
+
+            sample_records = [samples_by_index[i] for i in range(args.population)]
+            rewards = [rec["reward"] for rec in sample_records]
+        update_payload = {
+            "seeds": seeds,
+            "rewards": rewards,
+            "alpha": args.alpha,
+            "reward_normalization": args.reward_normalization,
+        }
+        with ThreadPoolExecutor(max_workers=len(endpoints)) as pool:
+            update_futures = {
+                endpoint: pool.submit(
+                    post_json,
+                    f"{endpoint}/es/update",
+                    update_payload,
+                )
+                for endpoint in endpoints
+            }
+            update_records = [
+                {"endpoint": endpoint, "update": update_futures[endpoint].result()}
+                for endpoint in endpoints
+            ]
         print(f"[update] gen={generation} {update_records}", flush=True)
 
         skill_update_rec = None
-        if args.trace2skill_every_generation and skill_file is not None:
+        should_update_skill = trace2skill_interval > 0 and (
+            (generation + 1) % trace2skill_interval == 0
+            or (generation + 1) == args.generations
+        )
+        if should_update_skill and skill_file is not None:
             skill_update_rec = evolve_skill_from_es_generation(
                 result_root=result_root,
-                generation=generation,
+                generation_start=last_skill_update_generation + 1,
+                generation_end=generation,
                 skill_file=skill_file,
                 optimizer_model=args.trace2skill_optimizer_model,
                 analysis_workers=args.trace2skill_analysis_workers,
@@ -684,7 +828,15 @@ def main() -> None:
                 html_limit=args.trace2skill_html_limit,
                 official_prompts=args.trace2skill_official_prompts,
                 optimizer_generation_config=args.trace2skill_optimizer_generation_config,
+                analysis_reasoning_effort=args.trace2skill_analysis_reasoning_effort,
+                skill_reasoning_effort=args.trace2skill_skill_reasoning_effort,
+                consolidation_reasoning_effort=(
+                    args.trace2skill_consolidation_reasoning_effort
+                ),
+                replay_source_root=replay_source_root,
+                replay_generations=args.replay_generations,
             )
+            last_skill_update_generation = generation
             print(f"[trace2skill] gen={generation} {skill_update_rec}", flush=True)
 
         eval_rec = None
@@ -716,23 +868,20 @@ def main() -> None:
             "generation": generation,
             "case_batch": selected,
             "sigma": sigma_t,
-            "sigma_start": args.sigma_start,
-            "sigma_end": args.sigma_end,
-            "sigma_schedule": args.sigma_schedule,
-            "sigma_warmup_steps": sigma_warmup_steps,
             "seeds": seeds,
             "rewards": rewards,
-            "alpha": args.alpha,
-            "reward_normalization": args.reward_normalization,
             "samples": sample_records,
             "updates": update_records,
+            "replayed": replayed,
         }
+        if replayed:
+            record["replay_source"] = str(replay_source_root)
         if skill_update_rec is not None:
             record["trace2skill"] = skill_update_rec
         if eval_rec is not None:
             record["eval"] = eval_rec
         history.append(record)
-        atomic_write_history(history_path, history)
+        (result_root / "history.json").write_text(json.dumps(history, indent=2) + "\n")
         write_generation_scalars(
             writer,
             generation=generation + 1,
