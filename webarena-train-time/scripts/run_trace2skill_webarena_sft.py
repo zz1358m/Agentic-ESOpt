@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILLOPT_SRC = ROOT / "webarena-train-time" / "methods" / "skillopt" / "source"
+SKILLOPT_SRC = ROOT / "webarena-train-time" / "third_party" / "skillopt"
 TRACE_SRC = ROOT / "webarena-train-time" / "methods" / "trace2skill" / "source"
 EMPTY_WEB_ARENA_SKILL = """---
 name: webarena-sft-trace-skill
@@ -28,10 +28,6 @@ description: Skill instructions for WebArena agents using WebRL id actions.
 # WebArena Skill
 
 """
-if str(SKILLOPT_SRC) not in sys.path:
-    sys.path.insert(0, str(SKILLOPT_SRC))
-
-from skillopt.envs.webarena_sft.rollout import run_batch
 
 
 def load_json(path: Path):
@@ -413,6 +409,18 @@ def run_webarena_rollout(
     timeout: int,
     max_steps: int,
 ) -> list[dict]:
+    if str(SKILLOPT_SRC) not in sys.path:
+        sys.path.insert(0, str(SKILLOPT_SRC))
+    try:
+        from skillopt.envs.webarena_sft.rollout import run_batch
+    except ModuleNotFoundError as exc:
+        if exc.name == "skillopt":
+            raise RuntimeError(
+                "Missing SkillOpt WebArena runtime. Clone it into "
+                f"{SKILLOPT_SRC} as described in data/README.md."
+            ) from exc
+        raise
+
     old_thinking = os.environ.get("WEBRL_LOCAL_ENABLE_THINKING")
     old_openai_key = os.environ.get("OPENAI_API_KEY")
     old_openai_base = os.environ.get("OPENAI_BASE_URL")

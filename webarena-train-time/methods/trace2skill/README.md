@@ -16,6 +16,11 @@ Training uses `data/webarena/vab_nonlite_split/{train,val}/items.json`. Testing
 always uses the official 165 WebArena-Lite tasks. Outputs and the current skill
 are stored under `runs/trace2skill_webarena_sft/<run-id>/`.
 
+WebArena-specific success/error distillation templates are versioned under
+`prompts/`. Select them with `--no-official-prompts` in the standalone runner,
+or `--no-trace2skill-official-prompts` in the distributed ES runner. The
+provided WebArena Trace2Skill+ES launcher enables these templates.
+
 `scripts/webarena/run.sh trace2skill_es train` uses that learned skill for
 Dynamic-Agent. `WEBARENA_TRACE2SKILL_EVERY_GENERATION=1` enables joint
 generation-by-generation skill and model-weight updates.

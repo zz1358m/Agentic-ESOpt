@@ -35,6 +35,8 @@ You will be given a WebArena execution log that may include:
 4. Extract Success Memory Items
    - Identify the key strategies that made the trajectory work.
    - Frame each insight as a general lesson for WebArena-style browser tasks, not a task-specific fact.
+   - Never carry task-specific answers, requested numbers, dates, names, IDs, search strings, or other instance constants into a Success Memory Item. Rewrite them as semantic variables such as the requested value, target date, target object, or user-specified filter.
+   - Repetition across samples of the same task is still evidence from one task, not a cross-task pattern.
 
 # Output Requirements
 Produce the following sections.
@@ -52,6 +54,7 @@ Generate no more than 3 Success Memory Items. Each item must be a generalizable 
 - Write from the perspective of the target agent, which only had access to the task instruction, page observations, and its available browser actions.
 - Do not fabricate page state, actions, or evidence absent from the log.
 - Do not include failed attempts in the Lean Solution Path unless the retry itself was the decisive successful action.
+- Concrete task literals may describe the observed Lean Solution Path, but they must not appear as reusable instructions or implied defaults in Success Memory Items.
 
 # Output Format
 ```markdown
@@ -77,3 +80,5 @@ Generate no more than 3 Success Memory Items. Each item must be a generalizable 
 ## Content
 <1-3 sentences describing the WebArena strategy and why it was effective>
 ```
+
+Replace every `<i>` with a consecutive integer. Do not output the literal text `<i>`.

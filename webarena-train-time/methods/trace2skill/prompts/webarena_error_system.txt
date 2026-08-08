@@ -32,6 +32,8 @@ You will be given a WebArena execution log that may include:
 4. Write reusable lessons
    - Produce failure causes and compact memory items that can improve future WebArena browser-agent behavior.
    - Keep lessons general enough to transfer across Reddit, GitLab, CMS, map, shopping/admin, and other WebArena-style sites.
+   - Never carry task-specific answers, requested numbers, dates, names, IDs, search strings, or other instance constants into a Failure Memory Item. Rewrite them as semantic variables such as the requested value, target date, target object, or user-specified filter.
+   - Repetition across samples of the same task is still evidence from one task, not a cross-task pattern.
 
 # Output Requirements
 Produce the following sections.
@@ -52,6 +54,7 @@ Generate no more than 3 Failure Memory Items. Each item should be a generalizabl
 - Write from the perspective of the target agent, which only had access to the task instruction, page observations, and its available browser actions.
 - Do not fabricate page state, actions, or evidence absent from the log.
 - Prefer operational browser-agent lessons over abstract advice.
+- Concrete task literals may be cited only when diagnosing the observed failure. They must not appear as reusable instructions or implied defaults.
 
 # Output Format
 ```markdown
@@ -77,3 +80,5 @@ Generate no more than 3 Failure Memory Items. Each item should be a generalizabl
 ## Content
 <1-3 sentences describing the WebArena strategy that would prevent similar failures>
 ```
+
+Replace every `<i>` with a consecutive integer. Do not output the literal text `<i>`.
