@@ -102,7 +102,14 @@ def bash_action_command(action: dict[str, Any]) -> tuple[str | None, str | None]
     return command, None
 
 
-def build_docvqa_messages(question: str) -> list[dict[str, str]]:
+def build_docvqa_messages(question: str, skill: str = "") -> list[dict[str, str]]:
+    system = DOCVQA_SYSTEM
+    if skill.strip():
+        system += (
+            "\n\nUse the following distilled skill instructions while solving the task. "
+            "They do not override the required bash/OCR tool-use and final-answer format.\n\n"
+            + skill.strip()
+        )
     user = (
         "Task: Answer the document visual question.\n"
         f"Image path: {DOCVQA_IMAGE_PATH}\n"
@@ -110,7 +117,7 @@ def build_docvqa_messages(question: str) -> list[dict[str, str]]:
         "You must call at least one bash action before giving the final answer."
     )
     return [
-        {"role": "system", "content": DOCVQA_SYSTEM},
+        {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
 

@@ -1,5 +1,26 @@
 # Four-GPU DocVQA GRPO
 
+## Canonical ES/skill workflow
+
+The maintained public ES/Trace2Skill interface has four actions:
+
+```bash
+scripts/es_skill_workflow.sh docvqa es-train
+scripts/es_skill_workflow.sh docvqa eval
+scripts/es_skill_workflow.sh docvqa distill-skill
+scripts/es_skill_workflow.sh docvqa skill-eval
+```
+
+The ES run is no-skill and writes the trajectories consumed by
+`distill-skill`. Both evaluations replay the same ES history with the same
+four-GPU vLLM, 131072-token context, bash/OCR ReAct protocol and ANLS scorer;
+`skill-eval` additionally injects the distilled skill into the system prompt.
+This workflow intentionally does not use the legacy direct-image HTTP prompt.
+Configure machine paths through `scripts/settings.local.env`; see
+`scripts/es_skill_workflow.example.env` and
+`scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under
+`docvqa-train-time/results/`.
+
 This branch provides a portable four-GPU Qwen3.5-4B text-backbone GRPO
 experiment for DocVQA. It uses the historical Bash Action protocol and a
 Bubblewrap OCR sandbox. The training reward is continuous ANLS in `[0, 1]` and

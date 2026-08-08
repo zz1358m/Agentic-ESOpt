@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "task": "docvqa",
+  "curation": "completed ES replay and raw-vs-distilled-skill evaluation",
+  "metrics": {
+    "no_skill": {
+      "count": 400,
+      "valid_count": 400,
+      "mean_score": 0.5042599069063876,
+      "pass@4": 0.61,
+      "pass@4_count": 61,
+      "error_count": 0
+    },
+    "skill": {
+      "count": 400,
+      "valid_count": 400,
+      "mean_score": 0.5086059268748209,
+      "pass@4": 0.61,
+      "pass@4_count": 61,
+      "error_count": 0
+    }
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 833,
+      "sha256": "1c36214d131e5de7b2102f9a37437c3316527753ac728a5f39e7a74923388478"
+    },
+    {
+      "path": "distillation/aggregate.txt",
+      "bytes": 162,
+      "sha256": "d83b35667ad38b38f6ab82a4ce5a8dd26a65abc83017364b46225632b10dffdb"
+    },
+    {
+      "path": "distillation/error_analysis.txt",
+      "bytes": 16931,
+      "sha256": "99934da344eea76bfd5db9c68802e9593049c3a2e0612f2e9f9fea8d237a175f"
+    },
+    {
+      "path": "distillation/evolve.txt",
+      "bytes": 29956,
+      "sha256": "5c97e13045c9cc3c4b752b55362a65cce8c25c5573964c695b1929285b12ad58"
+    },
+    {
+      "path": "distillation/hard_compression.txt",
+      "bytes": 385,
+      "sha256": "1f8a17aa98b8338b7ccc74655cfd62345f1e11a913ff449e193a98da3554c54f"
+    },
+    {
+      "path": "distillation/success_analysis.txt",
+      "bytes": 16954,
+      "sha256": "f12f4137af471264cde85db1809af9a4e20840094fe6ad60429a6cade4763f6c"
+    },
+    {
+      "path": "distillation/trajectory_selection_manifest.json",
+      "bytes": 68711,
+      "sha256": "b1980068411e8d45ba76c987153fdaf8685135e2f4c106d6369651933d0dc57e"
+    },
+    {
+      "path": "eval/raw/eval.txt",
+      "bytes": 42963,
+      "sha256": "d2c564a639dbdd0496eee44b75571cf4d595fdee4e960651b39a3248be3ee5d4"
+    },
+    {
+      "path": "eval/raw/results.json",
+      "bytes": 5154409,
+      "sha256": "9a16ed5a1c17bc3bbabb24ebeee010cb82571ef1ed81a0cc2454c25d0f31d7c4"
+    },
+    {
+      "path": "eval/skill/eval.txt",
+      "bytes": 41883,
+      "sha256": "4d69a1829635d21c85c02df18f1b4aa95f285847025a5410068fb5e3bd434749"
+    },
+    {
+      "path": "eval/skill/results.json",
+      "bytes": 5170758,
+      "sha256": "4064773df2498afb2bcf939b185f7ea844899850ccc6bfd755c4c009f037950a"
+    },
+    {
+      "path": "skill/SKILL.md",
+      "bytes": 5649,
+      "sha256": "e1865901d1d06088fb6a1cb26e70db09eab06ac0a9860ddb36143f8fc95d41d6"
+    },
+    {
+      "path": "training/history_first40.json",
+      "bytes": 25769913,
+      "sha256": "d5dee05cb606f32be2f2deeb630e1abea7ff314217c08daf3dbfa9c0fcdd02ff"
+    },
+    {
+      "path": "training/summary.json",
+      "bytes": 279,
+      "sha256": "5aa68653983c60b7a7875fab180580be6b298e2d116dcae18aba43719a9f28d8"
+    }
+  ]
+}

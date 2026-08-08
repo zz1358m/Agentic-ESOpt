@@ -36,6 +36,22 @@ def _runtime_prefixes() -> list[Path]:
     return prefixes
 
 
+def _bwrap_executable(explicit: str | Path | None = None) -> str:
+    if explicit:
+        return str(explicit)
+    discovered = shutil.which("bwrap")
+    if discovered:
+        return discovered
+    tool_prefix = os.environ.get("DOCVQA_TOOL_PREFIX")
+    if tool_prefix:
+        prefix = Path(tool_prefix)
+        for relative in ("bin/bwrap", "usr/bin/bwrap"):
+            candidate = prefix / relative
+            if candidate.is_file():
+                return str(candidate)
+    return ""
+
+
 def _existing_runtime_roots(extra: tuple[Path, ...]) -> list[Path]:
     roots = [Path("/usr"), Path("/bin"), Path("/lib"), Path("/lib64"), Path("/usr/local")]
     roots.extend(_runtime_prefixes())
@@ -81,7 +97,7 @@ def run_sandboxed_bash(
     image = Path(image_path).expanduser().resolve() if image_path is not None else None
     if image is not None and not image.is_file():
         raise FileNotFoundError(f"DocVQA image not found: {image}")
-    bwrap = str(bwrap_path or shutil.which("bwrap") or "")
+    bwrap = _bwrap_executable(bwrap_path)
     if not bwrap:
         raise RuntimeError("bubblewrap executable 'bwrap' is required for DocVQA sandboxing")
 

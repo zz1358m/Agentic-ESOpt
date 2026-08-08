@@ -836,22 +836,27 @@ def init_ray(args: argparse.Namespace):
         [
             str(ROOT),
             str(ROOT / "math-train-time"),
+            str(ROOT / "math-train-time" / "scripts"),
+            str(ROOT / "docvqa-train-time" / "scripts"),
+            str(ROOT / "docvqa-train-time" / "envs"),
             os.environ.get("PYTHONPATH", ""),
         ]
     )
+    worker_env = {
+        "PYTHONPATH": py_path,
+        "ROOT": str(ROOT),
+        "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+        "PATH": os.environ.get("PATH", ""),
+    }
+    if os.environ.get("DOCVQA_TOOL_PREFIX"):
+        worker_env["DOCVQA_TOOL_PREFIX"] = os.environ["DOCVQA_TOOL_PREFIX"]
     if not ray.is_initialized():
         ray.init(
             ignore_reinit_error=True,
             include_dashboard=False,
             _node_ip_address=os.environ.get("RAY_NODE_IP_ADDRESS", "127.0.0.1"),
             _temp_dir=os.environ.get("RAY_TMPDIR", None),
-            runtime_env={
-                "env_vars": {
-                    "PYTHONPATH": py_path,
-                    "ROOT": str(ROOT),
-                    "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
-                }
-            },
+            runtime_env={"env_vars": worker_env},
         )
     return ray
 
@@ -983,6 +988,12 @@ def main() -> None:
     parser.add_argument("--sigma-warmup-steps", type=int, default=int(os.environ.get("MATH_ES_SIGMA_WARMUP_STEPS", "0")))
     parser.add_argument("--alpha", type=float, default=float(os.environ.get("MATH_ES_ALPHA", "5e-4")))
     parser.add_argument("--seed", type=int, default=int(os.environ.get("MATH_ES_SEED", "20260627")))
+    parser.add_argument(
+        "--eval-seed",
+        type=int,
+        default=None,
+        help="Optional rollout seed for initial DAPO/AIME evaluation; --seed remains the ES replay seed.",
+    )
     parser.add_argument("--parameter-scope", default=os.environ.get("MATH_ES_SCOPE", "full"))
     parser.add_argument("--target-modules", default=os.environ.get("MATH_ES_TARGET_MODULES", ""))
     parser.add_argument("--reward-normalization", default=os.environ.get("MATH_ES_REWARD_NORMALIZATION", "zscore"))
@@ -1081,6 +1092,7 @@ def main() -> None:
                 "eval_samples": args.eval_samples,
                 "final_eval_samples": args.final_eval_samples,
                 "seed": args.seed,
+                "eval_seed": args.seed if args.eval_seed is None else args.eval_seed,
                 "history_file": str(history_path),
                 "backend": "vllm",
             }
@@ -1149,13 +1161,14 @@ def main() -> None:
             )
 
         if not args.skip_initial_eval:
+            eval_seed = args.seed if args.eval_seed is None else args.eval_seed
             dapo_eval = eval_tasks_vllm(
                 ray=ray,
                 engines=engines,
                 tasks=eval_env.tasks,
                 batch_size=args.inference_batch_size,
                 samples=args.eval_samples,
-                seed=args.seed,
+                seed=eval_seed,
                 trace_dir=(result_root / "trace_logs" / "dapo_eval") if args.write_trace_logs else None,
                 args=args,
                 label="dapo_initial",
@@ -1167,7 +1180,7 @@ def main() -> None:
                 tasks=aime_env.tasks,
                 batch_size=args.inference_batch_size,
                 samples=args.eval_samples,
-                seed=args.seed,
+                seed=eval_seed,
                 trace_dir=(result_root / "trace_logs" / "aime_eval") if args.write_trace_logs else None,
                 args=args,
                 label="aime_initial",

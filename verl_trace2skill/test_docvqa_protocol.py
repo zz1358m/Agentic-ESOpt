@@ -71,6 +71,14 @@ class DocVQAProtocolTests(unittest.TestCase):
         self.assertIn(f"Image path: {DOCVQA_IMAGE_PATH}", messages[1]["content"])
         self.assertNotIn("<tool_call>", messages[0]["content"])
 
+    def test_messages_include_distilled_skill(self) -> None:
+        messages = build_docvqa_messages(
+            "What is the invoice number?", "Anchor the label first."
+        )
+
+        self.assertIn("Anchor the label first.", messages[0]["content"])
+        self.assertIn("bash/OCR", messages[0]["content"])
+
     def test_endpoint_assignment_round_robins_four_samples_across_four_replicas(self) -> None:
         endpoints = [f"http://127.0.0.1:{18080 + index}/v1" for index in range(4)]
 

@@ -38,8 +38,8 @@ Canonical entry points and default run roots are:
 | Task | Methods | Entry point | Default output root |
 | --- | --- | --- | --- |
 | Sudoku | Dynamic-Agent, multi-turn GRPO | `scripts/sudoku/` | `runs/sudoku_es/` or the configured VERL output |
-| Math | Dynamic-Agent HTTP/vLLM, GRPO, Trace2Skill, combined | `scripts/math/` | `runs/math_es*`, `runs/trace2skill_extra/`, or VERL output |
-| DocVQA | Dynamic-Agent, GRPO, Trace2Skill, combined | `scripts/docvqa/` | `runs/docvqa_es/`, `runs/trace2skill_extra/`, or VERL output |
+| Math | Dynamic-Agent vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh math <action>`; compatibility launchers in `scripts/math/` | `runs/math_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
+| DocVQA | Dynamic-Agent vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh docvqa <action>`; compatibility launchers in `scripts/docvqa/` | `runs/docvqa_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
 | WebArena | Dynamic-Agent, Trace2Skill, combined | `scripts/webarena/run.sh` | `runs/webrl_lite_full_es/` or `runs/trace2skill_webarena_sft/` |
 | AHD | EoH, Sample, and both Agentic ESOpt variants | `scripts/ahd/run.sh` and `scripts/ahd/run_four_method_ahd.sh` | `cache/active_runs/`; curated code is under `ahd-test-time/results/` |
 
@@ -52,13 +52,13 @@ following roles:
 | --- | --- |
 | `es/` | Shared Agentic ESOpt implementation used by every Dynamic-Agent runner. `seeded_model_es.py` applies/reverts seeded weight perturbations and performs updates; `model_es_client.py` calls model-server ES routes; `run_state.py` owns sigma schedules, atomic history, and replay; `registry.py` exposes server-side ES instances; `test_*.py` are CPU state-machine tests. |
 | `sudoku-train-time/` | Sudoku environment, controlled-mask data generator, ES training runner, and adapters for the external `verl-tool` GRPO baseline. |
-| `math-train-time/` | Math reasoning environment plus HTTP-server and in-process vLLM Dynamic-Agent runners; its `tests/` checks rollout accounting. |
-| `docvqa-train-time/` | DocVQA environment, Hugging Face vision server, HTTP/vLLM runners, data validator, and DocVQA pipeline tests. |
+| `math-train-time/` | Math reasoning environment plus HTTP-server and in-process vLLM Dynamic-Agent runners; its `tests/` checks rollout accounting and `results/` holds curated training, distillation, skill, and raw/skill evaluation artifacts. |
+| `docvqa-train-time/` | DocVQA environment, Hugging Face vision server, HTTP/vLLM runners, data validator, pipeline tests, and curated artifacts under `results/`. |
 | `webarena-train-time/` | WebArena/WebRL environment; data preparation and ES runners; Trace2Skill, SkillOpt, and JITRL integrations; versioned skills and local-model templates. |
 | `ahd-test-time/` | Test-time heuristic design for six constructive/ACO tasks. It contains the unified EoH runtime, four-method runner, task evaluators, curated result programs, and ES-adapter regression test. |
-| `scripts/` | User-facing launchers grouped by task. `settings.example.env` is the machine-local settings template and `check_data.py` validates the data contract. |
+| `scripts/` | User-facing launchers grouped by task. `es_skill_workflow.sh` is the canonical four-action Math/DocVQA interface; `settings.example.env` is the machine-local settings template and `check_data.py` validates the data contract. |
 | `data/` | Stable data locations. `data/ahd/settings/` holds AHD YAML/prompt definitions, `data/ahd/datasets/` holds its small datasets, and `data/trace2skill/` holds versioned Math manifests/data. Large local datasets remain ignored. |
-| `trace2skill-settings/` | Math and DocVQA Trace2Skill configs, analysis/evolution prompts, data preparation, trace-to-skill script, and current `SKILL.md` files. |
+| `trace2skill-settings/` | Math and DocVQA Trace2Skill configs, analysis/evolution prompts, trajectory preparation/aggregation/compression helpers, trace-to-skill script, and current `SKILL.md` files. |
 | `verl/` | Bundled VERL source with the multi-turn compatibility changes required by the Math and DocVQA GRPO launchers. It is a dependency tree, not an experiment output. |
 | `verl_trace2skill/` | Maintained local bash tool, parsers, reward functions, DocVQA sandbox/protocol, dense-model compatibility shims, and their unit tests. |
 | `vllm_math_es_worker.py` | Worker used by the four-GPU in-process Math vLLM experiment. |
@@ -67,15 +67,62 @@ following roles:
 | `LICENSE` | Repository license. |
 | `.gitignore` | Separates source and curated AHD programs from checkpoints, caches, logs, and generated reports. |
 
-The task directories use the same convention:
+The complete maintained source/artifact layout is:
 
 ```text
-<task>-train-time/
-|-- envs/       task API, prompts, parsing, and reward/evaluation logic
-|-- scripts/    Python implementations and task-specific data preparation
-|-- tests/      task-level regression tests, where present
-`-- README.md   task-specific details
+Agentic-ESOpt/
+|-- es/                            shared seeded ES, schedules, history, replay
+|-- scripts/
+|   |-- es_skill_workflow.sh       canonical Math/DocVQA four-action interface
+|   |-- es_skill_workflow.example.env
+|   |-- README_ES_SKILL_WORKFLOW.md
+|   |-- math/                      legacy/compatibility Math launchers
+|   |-- docvqa/                    legacy/compatibility DocVQA launchers
+|   |-- sudoku/                    Sudoku launchers
+|   |-- webarena/                  WebArena launchers
+|   |-- ahd/                       AHD launchers and experiment provenance
+|   `-- trace2skill/               VERL data/eval/PBS helpers
+|-- math-train-time/
+|   |-- envs/                      prompts, parsing, rewards
+|   |-- scripts/                   HTTP and in-process vLLM runners
+|   |-- tests/                     rollout regressions
+|   |-- results/
+|   |   |-- training/              ES history and training log
+|   |   |-- distillation/          selection manifests and distillation logs
+|   |   |-- skill/                 evaluated SKILL.md
+|   |   `-- eval/                  no-skill and skill replay results/logs
+|   `-- README.md
+|-- docvqa-train-time/
+|   |-- envs/                      prompts, ANLS reward, data contracts
+|   |-- scripts/                   vision HTTP and text-backbone vLLM runners
+|   |-- tests/                     pipeline regressions
+|   |-- results/
+|   |   |-- training/              generation-0..39 ES history and summary
+|   |   |-- distillation/          trajectory manifest and distillation logs
+|   |   |-- skill/                 evaluated SKILL.md
+|   |   `-- eval/{raw,skill}/      paired replay results and logs
+|   `-- README.md
+|-- trace2skill-settings/
+|   |-- configs/                   task/model settings
+|   |-- prompts/                   analysis/evolution prompts
+|   |-- skills/                    maintained starting skills
+|   `-- scripts/                   prepare, select, aggregate, evolve, compress
+|-- verl_trace2skill/              bash tool, protocols, rewards, sandbox, tests
+|-- verl/                          bundled multi-turn RL dependency
+|-- sudoku-train-time/             Sudoku environment and runners
+|-- webarena-train-time/            WebArena environment and runners
+|-- ahd-test-time/                 EoH/Agentic-ESOpt runtime and curated results
+|-- data/                          stable small-data contracts and manifests
+|-- vllm_math_es_worker.py         in-process Math vLLM worker
+|-- README.md                      main reproduction and structure guide
+|-- PROJECT_LAYOUT.md              compact entry-point map
+`-- LICENSE
 ```
+
+Generated checkpoints and the full per-trajectory Markdown trees remain
+outside git. The curated `results/` directories keep the replayable histories,
+selection manifests, final evaluated skills, aggregate JSON results, and logs
+needed to audit the reported Math and DocVQA comparisons.
 
 The important AHD subtree is:
 
@@ -144,7 +191,9 @@ python -m pip install pillow datasets pandas pyarrow math-verify
 python -m pip install -e ./verl
 ```
 
-Math's in-process runner additionally needs `vllm`. Multi-turn GRPO uses an
+Math's in-process runner additionally needs `vllm`. DocVQA's bash/OCR protocol
+requires `bubblewrap` and `tesseract-ocr` (or equivalents available through
+`DOCVQA_TOOL_PREFIX`). Multi-turn GRPO uses an
 included, locally adapted `verl` tree for Math and DocVQA. Sudoku GRPO still
 uses a separate `verl-tool` checkout. WebArena and the standalone Trace2Skill
 pipeline use the external checkouts listed in `data/README.md`; those
@@ -237,19 +286,25 @@ SUDOKU_TARGET_MASK_COUNT=15 scripts/sudoku/run_grpo.sh
 
 ## Math
 
-Run Dynamic-Agent against already-running HTTP model servers:
+The canonical Math workflow exposes exactly four actions:
 
 ```bash
-MATH_ES_SIGMA_START=5e-4 MATH_ES_SIGMA_END=1e-4 \
-MATH_ES_SIGMA_SCHEDULE=linear scripts/math/run.sh
+scripts/es_skill_workflow.sh math es-train
+scripts/es_skill_workflow.sh math eval
+scripts/es_skill_workflow.sh math distill-skill
+scripts/es_skill_workflow.sh math skill-eval
 ```
 
-The in-process multi-GPU vLLM variant has the same schedule and replay
-semantics:
+`es-train` is always no-skill and records trajectories. `eval` replays the
+saved ES history without a skill, `distill-skill` selects success/failure
+traces and evolves `SKILL.md`, and `skill-eval` replays the same history with
+only that skill added. Copy the needed values from
+`scripts/es_skill_workflow.example.env` into `scripts/settings.local.env`.
 
-```bash
-MODEL_PATH=Qwen/Qwen3.5-4B scripts/math/run_vllm_es_4gpu.sh
-```
+See [`scripts/README_ES_SKILL_WORKFLOW.md`](scripts/README_ES_SKILL_WORKFLOW.md)
+for every setting. Historical HTTP, GRPO, and experiment launchers remain in
+`scripts/math/` as compatibility/provenance code. Curated completed artifacts
+are in [`math-train-time/results/`](math-train-time/results/README.md).
 
 Run multi-turn GRPO using the repository's `verl_trace2skill` bash tool,
 reward, and parser implementation:
@@ -262,49 +317,29 @@ The launcher defaults to the bundled `verl/`; set `VERL_ROOT` only to test a
 different checkout. Evaluation and PBS helper commands are documented in
 [`scripts/trace2skill/README.md`](scripts/trace2skill/README.md).
 
-Run Trace2Skill on existing success/failure traces:
-
-```bash
-TRACE_LOGS=runs/math_es/base/trace_logs/dapo_eval \
-RUN_ID=math_t2s scripts/math/run_trace2skill.sh
-```
-
-Evolve the skill and then optimize the model with Dynamic-Agent:
-
-```bash
-TRACE_LOGS=runs/math_es/base/trace_logs/dapo_eval \
-RUN_ID=math_t2s_dynamic scripts/math/run_trace2skill_es.sh
-```
-
 ## DocVQA
 
-Start the included Hugging Face vision-language server, then run
-Dynamic-Agent in vision-chat mode:
+DocVQA uses the same four-action interface:
 
 ```bash
-DOCVQA_MODEL_PATH=/path/to/vision-language-model \
-scripts/docvqa/start_vision_server.sh
-
-DOCVQA_ENDPOINT_MODE=openai_vision_chat \
-DOCVQA_ES_ENDPOINTS=http://127.0.0.1:11013 \
-DOCVQA_ES_SIGMA_START=5e-4 DOCVQA_ES_SIGMA_END=1e-4 \
-DOCVQA_ES_SIGMA_SCHEDULE=cosine scripts/docvqa/run.sh
+scripts/es_skill_workflow.sh docvqa es-train
+scripts/es_skill_workflow.sh docvqa eval
+scripts/es_skill_workflow.sh docvqa distill-skill
+scripts/es_skill_workflow.sh docvqa skill-eval
 ```
+
+Training and both evaluations share the in-process text-backbone vLLM runner,
+131072-token context, bash/OCR ReAct protocol, and ANLS scorer. Raw and skill
+evaluation replay the same ES history; skill evaluation only adds the distilled
+skill to the system prompt. The legacy direct-image HTTP/vision launchers remain
+in `scripts/docvqa/` for provenance but are not the canonical comparison path.
+Curated completed artifacts are in
+[`docvqa-train-time/results/`](docvqa-train-time/results/README.md).
 
 Run multi-turn GRPO:
 
 ```bash
 scripts/docvqa/run_grpo.sh
-```
-
-Run Trace2Skill or Trace2Skill followed by Dynamic-Agent:
-
-```bash
-TRACE_LOGS=runs/docvqa_es/base/trace_logs/eval_initial \
-RUN_ID=docvqa_t2s scripts/docvqa/run_trace2skill.sh
-
-TRACE_LOGS=runs/docvqa_es/base/trace_logs/eval_initial \
-RUN_ID=docvqa_t2s_dynamic scripts/docvqa/run_trace2skill_es.sh
 ```
 
 The VERL data converter rejects an empty DocVQA validation split. A tiny local

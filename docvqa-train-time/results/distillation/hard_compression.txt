@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/zhi/Dynamic-Agent/trace2skill-settings/scripts/compress_skill_markdown.py", line 97, in <module>
+    main()
+  File "/home/zhi/Dynamic-Agent/trace2skill-settings/scripts/compress_skill_markdown.py", line 90, in main
+    raise RuntimeError(
+RuntimeError: Could not compress skill to <= 80 lines after 3 attempts; last output had 82 lines

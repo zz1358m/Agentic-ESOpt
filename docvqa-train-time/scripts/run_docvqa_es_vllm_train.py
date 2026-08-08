@@ -56,8 +56,7 @@ def job_to_payload(job: Any) -> dict[str, Any]:
 
 
 def react_messages(task: DocVQATask, skill: str) -> list[dict[str, Any]]:
-    del skill  # The paper-aligned evaluator does not inject a skill into this prompt.
-    return build_docvqa_messages(task.question)
+    return build_docvqa_messages(task.question, skill)
 
 
 def extract_trace2skill_answer(text: str) -> str:

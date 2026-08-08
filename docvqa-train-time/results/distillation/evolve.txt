@@ -1,0 +1,299 @@
+20:03:29 INFO __main__: Loaded 50 mixed records from /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/step_001/update_001/task_evidence/task_evidence_records.json + /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/step_001/update_001/task_evidence/empty_success_records.json
+20:03:29 INFO __main__: Backed up skill to /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/skill_backup_20260807_200329
+20:03:30 WARNING __main__: Skill format checker not found at skills/skill-creator/scripts/quick_validate.py; built-in checks will still run
+20:03:30 INFO skill_evolver.parallel_evolving_agent: Frozen original skill state (1 files)
+20:03:30 INFO skill_evolver.parallel_evolving_agent: MAP phase: 50 records in 50 batches (batch_size=1, workers=32)
+MAP:   0%|          | 0/50 [00:00<?, ?batch/s]20:03:35 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:   2%|▏         | 1/50 [00:04<03:46,  4.62s/batch, fail=0, ok=1]20:03:35 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:   4%|▍         | 2/50 [00:05<01:53,  2.37s/batch, fail=0, ok=2]20:03:36 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:   6%|▌         | 3/50 [00:06<01:20,  1.71s/batch, fail=0, ok=3]20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:   8%|▊         | 4/50 [00:06<00:51,  1.11s/batch, fail=0, ok=4]20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  14%|█▍        | 7/50 [00:06<00:18,  2.30batch/s, fail=0, ok=7]20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  18%|█▊        | 9/50 [00:06<00:12,  3.22batch/s, fail=0, ok=9]20:03:37 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:38 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  22%|██▏       | 11/50 [00:07<00:13,  2.96batch/s, fail=0, ok=11]20:03:38 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  24%|██▍       | 12/50 [00:07<00:11,  3.44batch/s, fail=0, ok=12]20:03:38 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:38 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  26%|██▌       | 13/50 [00:08<00:13,  2.77batch/s, fail=0, ok=13]20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  30%|███       | 15/50 [00:08<00:11,  3.14batch/s, fail=0, ok=15]20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  34%|███▍      | 17/50 [00:08<00:07,  4.44batch/s, fail=0, ok=17]20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  36%|███▌      | 18/50 [00:09<00:07,  4.07batch/s, fail=0, ok=18]20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:39 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  42%|████▏     | 21/50 [00:09<00:04,  6.46batch/s, fail=0, ok=21]20:03:40 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:40 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  46%|████▌     | 23/50 [00:09<00:04,  5.77batch/s, fail=0, ok=23]20:03:40 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:40 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  48%|████▊     | 24/50 [00:10<00:06,  4.32batch/s, fail=0, ok=24]20:03:41 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  52%|█████▏    | 26/50 [00:10<00:05,  4.69batch/s, fail=0, ok=26]20:03:41 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  54%|█████▍    | 27/50 [00:11<00:07,  3.27batch/s, fail=0, ok=27]20:03:42 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  56%|█████▌    | 28/50 [00:11<00:06,  3.53batch/s, fail=0, ok=28]20:03:42 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  58%|█████▊    | 29/50 [00:12<00:07,  2.88batch/s, fail=0, ok=29]20:03:43 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  60%|██████    | 30/50 [00:12<00:07,  2.69batch/s, fail=0, ok=30]20:03:43 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  62%|██████▏   | 31/50 [00:12<00:05,  3.20batch/s, fail=0, ok=31]20:03:43 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  64%|██████▍   | 32/50 [00:13<00:05,  3.33batch/s, fail=0, ok=32]20:03:44 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  66%|██████▌   | 33/50 [00:13<00:07,  2.32batch/s, fail=0, ok=33]20:03:44 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:44 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  70%|███████   | 35/50 [00:13<00:04,  3.70batch/s, fail=0, ok=35]20:03:44 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  72%|███████▏  | 36/50 [00:14<00:04,  2.93batch/s, fail=0, ok=36]20:03:45 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  74%|███████▍  | 37/50 [00:15<00:05,  2.20batch/s, fail=0, ok=37]20:03:45 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:45 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:45 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  80%|████████  | 40/50 [00:15<00:02,  4.12batch/s, fail=0, ok=40]20:03:46 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  82%|████████▏ | 41/50 [00:15<00:02,  4.34batch/s, fail=0, ok=41]20:03:46 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  84%|████████▍ | 42/50 [00:16<00:02,  3.60batch/s, fail=0, ok=42]20:03:46 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  86%|████████▌ | 43/50 [00:16<00:01,  4.20batch/s, fail=0, ok=43]20:03:46 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  88%|████████▊ | 44/50 [00:16<00:01,  4.45batch/s, fail=0, ok=44]20:03:47 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  90%|█████████ | 45/50 [00:16<00:01,  3.34batch/s, fail=0, ok=45]20:03:47 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:03:47 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  94%|█████████▍| 47/50 [00:17<00:00,  4.51batch/s, fail=0, ok=47]20:03:49 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  96%|█████████▌| 48/50 [00:18<00:01,  1.91batch/s, fail=0, ok=48]20:03:49 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP:  98%|█████████▊| 49/50 [00:18<00:00,  2.27batch/s, fail=0, ok=49]20:03:49 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+MAP: 100%|██████████| 50/50 [00:19<00:00,  2.02batch/s, fail=0, ok=50]MAP: 100%|██████████| 50/50 [00:19<00:00,  2.57batch/s, fail=0, ok=50]
+20:03:49 INFO skill_evolver.parallel_evolving_agent: MAP phase complete: 50/50 patches produced
+20:03:49 INFO skill_evolver.parallel_evolving_agent: Saved 50 map patches to /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/step_001/update_001/evolution_intermediates/map_patches
+REDUCE L1 (50→10):   0%|          | 0/10 [00:00<?, ?merge/s]20:04:01 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  10%|█         | 1/10 [00:11<01:40, 11.13s/merge, fail=0, ok=1]20:04:05 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  20%|██        | 2/10 [00:15<00:55,  6.88s/merge, fail=0, ok=2]20:04:05 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  30%|███       | 3/10 [00:15<00:27,  3.96s/merge, fail=0, ok=3]20:04:05 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  40%|████      | 4/10 [00:15<00:15,  2.53s/merge, fail=0, ok=4]20:04:06 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  50%|█████     | 5/10 [00:16<00:08,  1.77s/merge, fail=0, ok=5]20:04:06 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  60%|██████    | 6/10 [00:16<00:05,  1.31s/merge, fail=0, ok=6]20:04:06 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  70%|███████   | 7/10 [00:16<00:02,  1.05merge/s, fail=0, ok=7]20:04:07 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  80%|████████  | 8/10 [00:17<00:01,  1.34merge/s, fail=0, ok=8]20:04:08 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10):  90%|█████████ | 9/10 [00:18<00:00,  1.20merge/s, fail=0, ok=9]20:04:10 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L1 (50→10): 100%|██████████| 10/10 [00:20<00:00,  1.28s/merge, fail=0, ok=10]REDUCE L1 (50→10): 100%|██████████| 10/10 [00:20<00:00,  2.05s/merge, fail=0, ok=10]
+20:04:10 INFO skill_evolver.parallel_evolving_agent: REDUCE level 1 complete: 10 patches remaining
+REDUCE L2 (10→2):   0%|          | 0/2 [00:00<?, ?merge/s]20:04:28 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L2 (10→2):  50%|█████     | 1/2 [00:18<00:18, 18.05s/merge, fail=0, ok=1]20:04:31 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L2 (10→2): 100%|██████████| 2/2 [00:20<00:00,  9.06s/merge, fail=0, ok=2]REDUCE L2 (10→2): 100%|██████████| 2/2 [00:20<00:00, 10.41s/merge, fail=0, ok=2]
+20:04:31 INFO skill_evolver.parallel_evolving_agent: REDUCE level 2 complete: 2 patches remaining
+REDUCE L3 (2→1):   0%|          | 0/1 [00:00<?, ?merge/s]20:04:48 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+REDUCE L3 (2→1): 100%|██████████| 1/1 [00:17<00:00, 17.64s/merge, fail=0, ok=1]REDUCE L3 (2→1): 100%|██████████| 1/1 [00:17<00:00, 17.64s/merge, fail=0, ok=1]
+20:04:48 INFO skill_evolver.parallel_evolving_agent: REDUCE level 3 complete: 1 patches remaining
+20:04:48 INFO skill_evolver.parallel_evolving_agent: Saved final merged patch to /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/step_001/update_001/evolution_intermediates/final_patch.json
+20:04:48 INFO skill_evolver.parallel_evolving_agent: TRANSLATION phase: correcting text references for 1 edit(s)...
+20:04:48 INFO skill_evolver.parallel_evolving_agent: TRANSLATION phase: translating 1 edit(s) independently in parallel
+20:05:06 INFO httpx: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+20:05:06 INFO skill_evolver.parallel_evolving_agent: APPLY phase: applying 1 edit(s) programmatically...
+20:05:06 INFO skill_evolver.parallel_evolving_agent: APPLY (programmatic): 1 edit(s) applied, 0 skipped
+20:05:06 INFO skill_evolver.skill_evolving_agent: Wrote SKILL.md (modify)
+20:05:06 INFO skill_evolver.parallel_evolving_agent: VERIFICATION phase: validating and fixing...
+20:05:06 WARNING skill_evolver.skill_evolving_agent: quick_validate.py not found at skills/skill-creator/scripts/quick_validate.py, skipping validation
+20:05:06 INFO skill_evolver.parallel_evolving_agent: Verification passed after 0 fix round(s).
+20:05:06 INFO skill_evolver.parallel_evolving_agent: Saved applied diffs to /home/zhi/Dynamic-Agent/runs/trace2skill_extra/docvqa_es_step040_onepos_oneneg_nobacktrack_gpt54nano_20260807/step_001/update_001/evolution_intermediates/applied_diffs.patch
+  TRANSLATE edit 1/1 (SKILL.md): corrected
+
+============================================================
+PARALLEL COMBINED EVOLUTION SUMMARY
+============================================================
+MAP patches produced:  50
+LLM calls (est):      67
+Edits applied:         1
+Reasoning:             Both patches proposed replacing the entire SKILL.md section under the same target (so they could not be applied together). I merged them into a single consolidated replace_in_section content, deduplic
+
+Diffs:
+
+--- SKILL.md (modify) ---
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -1,5 +1,93 @@
+ # DocVQA Skill
+ 
+-Inspect the document image before answering. Read labels, table headers, nearby
+-text, and layout relationships carefully. Return only the requested answer unless
+-the task explicitly asks for explanation.
++Inspect the document image before answering. Read labels, table headers, nearby text, and layout relationships carefully. Return only the requested answer unless the task explicitly asks for explanation.
++
++## Evidence-first answering (no guessing)
++- Do not infer from “typical document types”. Only answer using visible/extracted evidence.
++- Do not finalize an answer unless you can support it with extracted OCR/visible evidence.
++- If the requested value/entity/phrase cannot be verified from OCR (after targeted recovery), abstain (e.g., “Unable to determine from the provided image/document.”).
++
++## Tool/action protocol (fail-fast; prevent action-parsing loops)
++- Before running any tool/action, ensure the action payload matches the expected schema exactly.
++- For bash-like tools, use the required nesting (example):
++  - `Action: {"name":"bash","arguments":{"command":"<shell command>"}}`
++- If you see “No valid action was parsed” (or similar protocol/schema warnings), immediately correct formatting on the next attempt—do not keep retrying the same malformed call.
++- Never attempt unsupported action types (e.g., a “python” action). If Python is needed, run it via the supported mechanism.
++- If environment/tool execution stays blocked after repeated parse failures (e.g., 2+ consecutive parse errors), stop iterative debugging and return an evidence-safe abstention.
++
++## Extraction-first workflow (bounded retries)
++1) Confirm input type (PDF vs raster image). If raster, use OCR; do not use PDF-only extraction.
++2) Preflight OCR readiness: ensure images are loadable/processable (non-zero dimensions).
++3) OCR with a single stable configuration first; keep output ordering top-to-bottom.
++4) Sanity check: OCR output must be non-empty and plausibly text-like.
++5) Termination discipline: stop immediately once the needed value/entity is verified.
++
++## OCR reliability (prevents common pytesseract/runtime failures)
++- Pass a **PIL.Image.Image** into pytesseract (do not pass file-path strings or raw bytes).
++- Treat `image_to_string` output as text:
++  - Only decode if the result is bytes; if it is already a `str`, do not call `.decode()`.
++- OCR output validation rule: require non-empty OCR containing recognizable alphanumeric/entity-like strings relevant to the question.
++
++## OCR grounding discipline (ROI + exact label/phrase)
++- Use ROI/crops for field questions (header/footer/top/bottom/metadata blocks) instead of whole-page OCR when possible.
++- Grounding rule: the value you output must come from the OCR neighborhood of the relevant label/header/row.
++- Truncation is a failure condition: if snippets look cut off (e.g., end with “...”, incomplete lines), re-run OCR on a targeted ROI around the missing portion.
++
++## Entity lookup & snippet validation (prevents wrong/partial answers)
++- If the exact requested entity/string is not found in OCR, do not treat that as proof of absence.
++- Re-run OCR using targeted cropping/zooming around likely regions; then re-check.
++- If still ambiguous, apply near-match reconciliation for common OCR artifacts (l/1, O/0, rn/m, etc.), but only accept values that are verifiably present in the extracted snippet.
++
++## Ground truth field extraction (label → adjacent value)
++- Locate the exact on-page label/cue relevant to the question.
++- Extract the value adjacent to that label (same line or immediately following tokens; after `:` if present).
++- If multiple similar labels/values exist, filter using the question’s context.
++- Normalize minimally (trim punctuation/whitespace; collapse spaces). Prefer the exact OCR-captured value.
++
++## Label-bound numeric extraction rules
++- Prefer numeric evidence adjacent to the field label (same line or immediate neighboring tokens).
++- Do not guess between multiple label-matched numeric candidates. If multiple candidates appear due to OCR noise, tighten ROI and re-OCR until you get a single label-anchored value.
++
++## Table/spreadsheet cell extraction (preserve row/column relationships)
++- Use OCR table text as intermediate evidence; never jump from any number to the answer.
++- Header-to-column mapping first: find the requested metric’s column header, then extract the value from that column.
++- Row pairing next:
++  - Locate the unique row identifier/value specified by the question.
++  - Extract the paired value from the corresponding cell in the mapped column for the same row.
++- Special case: “Final X for the row where Initial Y = …”
++  - Anchor on the exact Initial column header.
++  - Match the Initial row where Initial Y equals the stated value.
++  - Extract Final from the corresponding Final column cell in the same row.
++  - If pairing is unclear/noisy, do an additional OCR pass with tighter cropping around the specific rows/columns.
++
++## Deterministic numeric/date recovery fallback (when OCR is garbled)
++- Run date-like regex matching on OCR text (e.g., `\d{1,2}[/-]\d{1,2}[/-]\d{2,4}`).
++- Normalize common OCR digit confusions (O/0, l/1, I/1, S/5) before re-checking regex.
++- Only return “unavailable” after ROI-focused OCR attempts + preprocessing/parameter variation + regex+normalization fallback failure.
++
++## OCR grounding for page numbers (proven workflow)
++- When asked for “page X of Y” (or page number): do not infer from layout.
++- Crop the bottom-right corner using relative coordinates so it scales with resolution (e.g., x_start ≈ 0.65*width, y_top ≈ 0.40*height).
++- OCR the crop with an appropriate sparse-text `--psm` (e.g., `--psm 6`).
++- Extract a page-like integer only if OCR produces plausible standalone numeric tokens from that crop.
++- Tolerate OCR swaps by normalization (case-insensitive matching for patterns like `PAGE/PASE/P`, `OF/GF`, `\b\d+\s*(OF|GF)\s*\d+\b`, `\b(\d+)\s*/\s*(\d+)\b`), then re-check patterns after normalization.
++- If the expected digits cannot be validated, abstain (e.g., “Page number not found in the provided image.”).
++
++## Category mapping rule (“Extremely” vs “Very”, proven)
++- Parse into a structure keyed by product/entity and category label: `{product: {extremely: x, very: y}}`.
++- Ensure each percentage/value is associated with both the correct product and the correct category label (“Extremely” vs “Very”).
++- Only conclude insufficient data after targeted re-OCR around the table/category anchors still cannot disambiguate.
++
++## Avoid pixel/metadata traps & brittle pipelines
++- Never base dimensions (height/width) on pixel sizes.
++- Answer only from explicit measurement text/phrases read from the document.
++- If metadata tools fail (e.g., exiftool missing/unavailable), do not fall back to generic sizing; proceed with OCR/content extraction.
++- Do not use fragile shell pipelines/one-liners with tricky quoting; if search fails, switch to better OCR focus (crop/region) and then use straightforward matching.
++
++## Output discipline (format + abstain)
++- Output only the requested final value/text.
++- Copy values exactly as shown; avoid adding/removing units unless required.
++- If normalization is required by evaluation:
++  - Remove negative sign if the question/ground truth expects positive.
++  - Convert digit → spelled-out forms when required.
++- If grounding fails: abstain (do not guess).
+
+Final vs Original Diff:
+--- a/SKILL.md+++ b/SKILL.md@@ -1,5 +1,93 @@ # DocVQA Skill
+ 
+-Inspect the document image before answering. Read labels, table headers, nearby
+-text, and layout relationships carefully. Return only the requested answer unless
+-the task explicitly asks for explanation.
++Inspect the document image before answering. Read labels, table headers, nearby text, and layout relationships carefully. Return only the requested answer unless the task explicitly asks for explanation.
++
++## Evidence-first answering (no guessing)
++- Do not infer from “typical document types”. Only answer using visible/extracted evidence.
++- Do not finalize an answer unless you can support it with extracted OCR/visible evidence.
++- If the requested value/entity/phrase cannot be verified from OCR (after targeted recovery), abstain (e.g., “Unable to determine from the provided image/document.”).
++
++## Tool/action protocol (fail-fast; prevent action-parsing loops)
++- Before running any tool/action, ensure the action payload matches the expected schema exactly.
++- For bash-like tools, use the required nesting (example):
++  - `Action: {"name":"bash","arguments":{"command":"<shell command>"}}`
++- If you see “No valid action was parsed” (or similar protocol/schema warnings), immediately correct formatting on the next attempt—do not keep retrying the same malformed call.
++- Never attempt unsupported action types (e.g., a “python” action). If Python is needed, run it via the supported mechanism.
++- If environment/tool execution stays blocked after repeated parse failures (e.g., 2+ consecutive parse errors), stop iterative debugging and return an evidence-safe abstention.
++
++## Extraction-first workflow (bounded retries)
++1) Confirm input type (PDF vs raster image). If raster, use OCR; do not use PDF-only extraction.
++2) Preflight OCR readiness: ensure images are loadable/processable (non-zero dimensions).
++3) OCR with a single stable configuration first; keep output ordering top-to-bottom.
++4) Sanity check: OCR output must be non-empty and plausibly text-like.
++5) Termination discipline: stop immediately once the needed value/entity is verified.
++
++## OCR reliability (prevents common pytesseract/runtime failures)
++- Pass a **PIL.Image.Image** into pytesseract (do not pass file-path strings or raw bytes).
++- Treat `image_to_string` output as text:
++  - Only decode if the result is bytes; if it is already a `str`, do not call `.decode()`.
++- OCR output validation rule: require non-empty OCR containing recognizable alphanumeric/entity-like strings relevant to the question.
++
++## OCR grounding discipline (ROI + exact label/phrase)
++- Use ROI/crops for field questions (header/footer/top/bottom/metadata blocks) instead of whole-page OCR when possible.
++- Grounding rule: the value you output must come from the OCR neighborhood of the relevant label/header/row.
++- Truncation is a failure condition: if snippets look cut off (e.g., end with “...”, incomplete lines), re-run OCR on a targeted ROI around the missing portion.
++
++## Entity lookup & snippet validation (prevents wrong/partial answers)
++- If the exact requested entity/string is not found in OCR, do not treat that as proof of absence.
++- Re-run OCR using targeted cropping/zooming around likely regions; then re-check.
++- If still ambiguous, apply near-match reconciliation for common OCR artifacts (l/1, O/0, rn/m, etc.), but only accept values that are verifiably present in the extracted snippet.
++
++## Ground truth field extraction (label → adjacent value)
++- Locate the exact on-page label/cue relevant to the question.
++- Extract the value adjacent to that label (same line or immediately following tokens; after `:` if present).
++- If multiple similar labels/values exist, filter using the question’s context.
++- Normalize minimally (trim punctuation/whitespace; collapse spaces). Prefer the exact OCR-captured value.
++
++## Label-bound numeric extraction rules
++- Prefer numeric evidence adjacent to the field label (same line or immediate neighboring tokens).
++- Do not guess between multiple label-matched numeric candidates. If multiple candidates appear due to OCR noise, tighten ROI and re-OCR until you get a single label-anchored value.
++
++## Table/spreadsheet cell extraction (preserve row/column relationships)
++- Use OCR table text as intermediate evidence; never jump from any number to the answer.
++- Header-to-column mapping first: find the requested metric’s column header, then extract the value from that column.
++- Row pairing next:
++  - Locate the unique row identifier/value specified by the question.
++  - Extract the paired value from the corresponding cell in the mapped column for the same row.
++- Special case: “Final X for the row where Initial Y = …”
++  - Anchor on the exact Initial column header.
++  - Match the Initial row where Initial Y equals the stated value.
++  - Extract Final from the corresponding Final column cell in the same row.
++  - If pairing is unclear/noisy, do an additional OCR pass with tighter cropping around the specific rows/columns.
++
++## Deterministic numeric/date recovery fallback (when OCR is garbled)
++- Run date-like regex matching on OCR text (e.g., `\d{1,2}[/-]\d{1,2}[/-]\d{2,4}`).
++- Normalize common OCR digit confusions (O/0, l/1, I/1, S/5) before re-checking regex.
++- Only return “unavailable” after ROI-focused OCR attempts + preprocessing/parameter variation + regex+normalization fallback failure.
++
++## OCR grounding for page numbers (proven workflow)
++- When asked for “page X of Y” (or page number): do not infer from layout.
++- Crop the bottom-right corner using relative coordinates so it scales with resolution (e.g., x_start ≈ 0.65*width, y_top ≈ 0.40*height).
++- OCR the crop with an appropriate sparse-text `--psm` (e.g., `--psm 6`).
++- Extract a page-like integer only if OCR produces plausible standalone numeric tokens from that crop.
++- Tolerate OCR swaps by normalization (case-insensitive matching for patterns like `PAGE/PASE/P`, `OF/GF`, `\b\d+\s*(OF|GF)\s*\d+\b`, `\b(\d+)\s*/\s*(\d+)\b`), then re-check patterns after normalization.
++- If the expected digits cannot be validated, abstain (e.g., “Page number not found in the provided image.”).
++
++## Category mapping rule (“Extremely” vs “Very”, proven)
++- Parse into a structure keyed by product/entity and category label: `{product: {extremely: x, very: y}}`.
++- Ensure each percentage/value is associated with both the correct product and the correct category label (“Extremely” vs “Very”).
++- Only conclude insufficient data after targeted re-OCR around the table/category anchors still cannot disambiguate.
++
++## Avoid pixel/metadata traps & brittle pipelines
++- Never base dimensions (height/width) on pixel sizes.
++- Answer only from explicit measurement text/phrases read from the document.
++- If metadata tools fail (e.g., exiftool missing/unavailable), do not fall back to generic sizing; proceed with OCR/content extraction.
++- Do not use fragile shell pipelines/one-liners with tricky quoting; if search fails, switch to better OCR focus (crop/region) and then use straightforward matching.
++
++## Output discipline (format + abstain)
++- Output only the requested final value/text.
++- Copy values exactly as shown; avoid adding/removing units unless required.
++- If normalization is required by evaluation:
++  - Remove negative sign if the question/ground truth expects positive.
++  - Convert digit → spelled-out forms when required.
++- If grounding fails: abstain (do not guess).
+

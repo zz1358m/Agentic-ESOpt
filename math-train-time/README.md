@@ -1,5 +1,24 @@
 # Math
 
+## Canonical ES/skill workflow
+
+The maintained public interface has four actions:
+
+```bash
+scripts/es_skill_workflow.sh math es-train
+scripts/es_skill_workflow.sh math eval
+scripts/es_skill_workflow.sh math distill-skill
+scripts/es_skill_workflow.sh math skill-eval
+```
+
+The ES run is no-skill and writes the trajectories consumed by
+`distill-skill`. Both evaluation actions replay the same ES history; the only
+prompt difference is the distilled skill passed to `skill-eval`. Configure
+machine paths through `scripts/settings.local.env`; see
+`scripts/es_skill_workflow.example.env` and
+`scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under
+`math-train-time/results/`.
+
 The maintained Math setting uses DAPO train/held-out problems and AIME 2026 OOD
 evaluation. It supports Dynamic-Agent, multi-turn GRPO, Trace2Skill, and their
 Trace2Skill + Dynamic-Agent composition.

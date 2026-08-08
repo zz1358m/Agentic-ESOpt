@@ -1,0 +1,8 @@
+{
+  "source": "/mnt/hdd/zhi/runs/docvqa_es_vllm/docvqa_es_qwen35_4b_100gen_trace2skill_new_evolve50_test100_eval1_cosine_20260803_234700/history.json",
+  "selected_updates": 40,
+  "first_generation": 0,
+  "last_generation": 39,
+  "source_records": 96,
+  "selected_records": 43
+}
