@@ -40,7 +40,30 @@ data/trace2skill/*
 data/jericho/
 data/webarena/
 !data/README.md
-ahd-test-time/results/
+# Generated AHD outputs remain ignored except for the curated four-method
+# archive migrated with the reproducibility scripts.
+ahd-test-time/results/*
+!ahd-test-time/results/eval_aco_results.py
+!ahd-test-time/results/eval_construct_results.py
+!ahd-test-time/results/EoH1000/
+!ahd-test-time/results/EoH1000/**
+!ahd-test-time/results/EoH2000/
+!ahd-test-time/results/EoH2000/**
+!ahd-test-time/results/Sample1000/
+!ahd-test-time/results/Sample1000/**
+!ahd-test-time/results/Sample2000/
+!ahd-test-time/results/Sample2000/**
+!ahd-test-time/results/EoH+AgenticESOpt1000/
+!ahd-test-time/results/EoH+AgenticESOpt1000/**
+!ahd-test-time/results/EoH+AgenticESOpt2000/
+!ahd-test-time/results/EoH+AgenticESOpt2000/**
+!ahd-test-time/results/Sample+AgenticESOpt1000/
+!ahd-test-time/results/Sample+AgenticESOpt1000/**
+!ahd-test-time/results/Sample+AgenticESOpt2000/
+!ahd-test-time/results/Sample+AgenticESOpt2000/**
+# Curated-directory exceptions must not re-include bytecode caches.
+ahd-test-time/results/**/__pycache__/
+ahd-test-time/results/**/*.py[cod]
 sudoku-train-time/results/
 webarena-train-time/results/
 webarena-train-time/third_party/skillopt/

@@ -9,12 +9,12 @@ import concurrent.futures
 import multiprocessing as mp
 import os
 import random
+import threading
 from pathlib import Path
 
 from es import ModelESClient
 from es.run_state import (
     atomic_write_history,
-    map_endpoint_serial,
     normalize_sigma_schedule,
     read_history,
     sigma_at_step,
@@ -85,6 +85,9 @@ class InterfaceEC():
                 Evolution(api_endpoint, api_key, llm_model, llm_use_local, url, debug_mode, prompts, **kwargs)
                 for url in es_urls
             ]
+            # A perturbation must remain installed on one engine until that
+            # engine has generated its completion and has been reverted.
+            self.model_es_client_locks = [threading.Lock() for _ in es_urls]
             if len(es_urls) > 1:
                 self.local_evolutions = self.model_es_evolutions
             init_info = []
@@ -206,7 +209,7 @@ class InterfaceEC():
         }
         if operator == "i1":
             parents = None
-            [offspring['code'],offspring['algorithm']] =  evol.i1()
+            [offspring['code'],offspring['algorithm']] = evol.i1()
         elif operator == "e1":
             parents = self.select.parent_selection(pop,self.m)
             [offspring['code'],offspring['algorithm']] = evol.e1(parents)
@@ -307,6 +310,13 @@ class InterfaceEC():
         return offspring
 
     def _get_offspring_from_parents(self, parents, operator, evol=None):
+        offspring = self._generate_offspring_from_parents(parents, operator, evol=evol)
+        code = self._prepare_code_for_evaluation(offspring['code'])
+        fitness = self._evaluate_code_with_timeout(code)
+        offspring['objective'] = np.round(fitness, 5)
+        return offspring
+
+    def _generate_offspring_from_parents(self, parents, operator, evol=None):
         evol = self.evol if evol is None else evol
         offspring = {
             'algorithm': None,
@@ -314,18 +324,18 @@ class InterfaceEC():
             'objective': None,
             'other_inf': None
         }
-        if operator == "e1":
+        if operator == "i1":
+            offspring['code'], offspring['algorithm'] = evol.i1()
+        elif operator == "e1":
             offspring['code'], offspring['algorithm'] = evol.e1(parents)
         elif operator == "e2":
             offspring['code'], offspring['algorithm'] = evol.e2(parents)
-        elif operator in {"m1", "m2"}:
-            return self._get_offspring_from_parent(parents[0], operator, evol=evol)
+        elif operator == "m1":
+            offspring['code'], offspring['algorithm'] = evol.m1(parents[0])
+        elif operator == "m2":
+            offspring['code'], offspring['algorithm'] = evol.m2(parents[0])
         else:
             raise ValueError(f"Unsupported operator for Model ES: {operator}")
-
-        code = self._prepare_code_for_evaluation(offspring['code'])
-        fitness = self._evaluate_code_with_timeout(code)
-        offspring['objective'] = np.round(fitness, 5)
         return offspring
 
     def _parents_reference_objective(self, parents):
@@ -508,6 +518,15 @@ class InterfaceEC():
 
     def _objective_to_reward(self, offspring, parent, population_worst_objective=None):
         objective = offspring.get('objective')
+        invalid_reward_strategy = str(
+            getattr(self.paras, "llm_es_invalid_reward_strategy", "current")
+        ).strip().lower()
+        try:
+            raw_objective_is_valid = objective is not None and np.isfinite(float(objective))
+        except (TypeError, ValueError):
+            raw_objective_is_valid = False
+        if invalid_reward_strategy == "zero" and not raw_objective_is_valid:
+            return 0.0
         reward_floor = float(getattr(self.paras, "llm_es_reward_floor", -1.0))
         reward_mode = str(getattr(self.paras, "llm_es_reward_mode", "improvement")).lower()
         if reward_mode == "negative_objective":
@@ -534,6 +553,136 @@ class InterfaceEC():
         reward = parent_objective - objective if objective_is_valid else reward_floor
         return reward if population_worst_objective is not None else max(reward, reward_floor)
 
+    def _calibrate_model_es_invalid_rewards(self, offsprings, rewards):
+        """Replace invalid rewards with a finite batch-relative lower bound.
+
+        A fixed value such as -1e30 makes all finite rewards numerically
+        indistinguishable after z-score normalization. This keeps invalid
+        candidates below the worst valid one while preserving the ordering and
+        scale of rewards among valid candidates.
+        """
+        invalid_reward_strategy = str(
+            getattr(self.paras, "llm_es_invalid_reward_strategy", "current")
+        ).strip().lower()
+        # For the explicit zero-reward ablation, _objective_to_reward has already
+        # assigned 0.0 to raw-invalid candidates. Do not overwrite those values
+        # with the dynamic batch-relative floor. Valid-only z-score normalization
+        # and restoring invalid coefficients to zero happen before the ES update.
+        if (
+            not bool(getattr(self.paras, "llm_es_dynamic_invalid_reward", False))
+            or invalid_reward_strategy == "zero"
+        ):
+            return rewards
+
+        valid_indices = []
+        valid_rewards = []
+        for index, (offspring, reward) in enumerate(zip(offsprings, rewards)):
+            objective = offspring.get('objective') if offspring is not None else None
+            try:
+                objective_is_valid = objective is not None and np.isfinite(float(objective))
+                reward_is_valid = reward is not None and np.isfinite(float(reward))
+            except (TypeError, ValueError):
+                objective_is_valid = False
+                reward_is_valid = False
+            if objective_is_valid and reward_is_valid:
+                valid_indices.append(index)
+                valid_rewards.append(float(reward))
+
+        adjusted = [float(reward) for reward in rewards]
+        if valid_rewards:
+            valid_array = np.asarray(valid_rewards, dtype=np.float64)
+            spread = float(np.std(valid_array, ddof=0))
+            eps = float(getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8))
+            margin = max(0.0, float(getattr(self.paras, "llm_es_invalid_reward_margin", 1.0)))
+            if not np.isfinite(spread) or spread <= eps:
+                fallback_fraction = max(
+                    0.0,
+                    float(getattr(self.paras, "llm_es_invalid_reward_fallback_fraction", 0.01)),
+                )
+                min_gap = max(
+                    eps,
+                    float(getattr(self.paras, "llm_es_invalid_reward_min_gap", 1.0)),
+                )
+                spread = max(abs(float(np.mean(valid_array))) * fallback_fraction, min_gap)
+            invalid_floor = float(np.min(valid_array) - margin * spread)
+        else:
+            # With no valid candidate there is no direction signal. Equal zero
+            # rewards intentionally produce a zero ES update for this batch.
+            spread = None
+            invalid_floor = 0.0
+
+        valid_index_set = set(valid_indices)
+        for index, offspring in enumerate(offsprings):
+            raw_reward = adjusted[index]
+            reward_is_valid = index in valid_index_set
+            if not reward_is_valid:
+                adjusted[index] = invalid_floor
+            metadata = offspring.get('other_inf')
+            if not isinstance(metadata, dict):
+                metadata = {}
+                offspring['other_inf'] = metadata
+            metadata.update({
+                'model_es_reward_before_invalid_calibration': raw_reward,
+                'model_es_reward': float(adjusted[index]),
+                'model_es_reward_valid': reward_is_valid,
+                'model_es_dynamic_invalid_reward': True,
+                'model_es_invalid_reward_floor': invalid_floor,
+                'model_es_valid_reward_std': spread,
+                'model_es_valid_count': len(valid_indices),
+            })
+        return adjusted
+
+    def _normalize_zero_strategy_model_es_rewards(self, offsprings, rewards):
+        """Z-score valid rewards only and leave invalid ES directions at zero."""
+        strategy = str(
+            getattr(self.paras, "llm_es_invalid_reward_strategy", "current")
+        ).strip().lower()
+        normalization = str(
+            getattr(self.paras, "llm_es_reward_normalization", "zscore")
+        ).strip().lower()
+        if strategy != "zero" or normalization != "zscore":
+            return rewards, normalization
+
+        valid_indices = []
+        for index, offspring in enumerate(offsprings):
+            objective = None if offspring is None else offspring.get("objective")
+            try:
+                if objective is not None and np.isfinite(float(objective)):
+                    valid_indices.append(index)
+            except (TypeError, ValueError):
+                pass
+
+        normalized = np.zeros(len(rewards), dtype=np.float64)
+        ddof = max(0, int(getattr(self.paras, "llm_es_reward_normalization_ddof", 0)))
+        eps = float(getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8))
+        if len(valid_indices) > ddof:
+            valid_rewards = np.asarray(
+                [float(rewards[index]) for index in valid_indices], dtype=np.float64
+            )
+            mean = float(np.mean(valid_rewards))
+            std = float(np.std(valid_rewards, ddof=ddof))
+            normalized[valid_indices] = (valid_rewards - mean) / (std + eps)
+
+        valid_index_set = set(valid_indices)
+        for index, offspring in enumerate(offsprings):
+            if offspring is None:
+                continue
+            metadata = offspring.get("other_inf")
+            if not isinstance(metadata, dict):
+                metadata = {}
+                offspring["other_inf"] = metadata
+            metadata.update({
+                "model_es_reward_before_normalization": float(rewards[index]),
+                "model_es_reward": float(normalized[index]),
+                "model_es_reward_valid": index in valid_index_set,
+                "model_es_reward_normalization": "valid_only_zscore_invalid_zero",
+            })
+
+        # Rewards are already normalized here, so the server must apply identity
+        # normalization. Invalid seeds remain present with a zero coefficient and
+        # therefore make no contribution to the ES update.
+        return normalized.tolist(), "none"
+
     def _sample_model_es_seeds(self, n=None):
         default_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
         directions = default_directions if n is None else int(n)
@@ -559,7 +708,8 @@ class InterfaceEC():
             self.total_generations = max(1, int(total_generations))
 
     def _current_model_es_sigma(self):
-        sigma_start = float(getattr(self.paras, "llm_es_sigma_start", 1e-3))
+        legacy_sigma = float(getattr(self.paras, "llm_es_sigma", 1e-3))
+        sigma_start = float(getattr(self.paras, "llm_es_sigma_start", legacy_sigma))
         sigma_end = float(getattr(self.paras, "llm_es_sigma_end", sigma_start))
         schedule = normalize_sigma_schedule(getattr(self.paras, "llm_es_sigma_schedule", "constant"))
         warmup_steps = int(getattr(self.paras, "llm_es_sigma_warmup_steps", 0))
@@ -569,7 +719,7 @@ class InterfaceEC():
             step=self.current_generation_index,
             total_steps=self.total_generations,
             schedule=schedule,
-            warmup_steps=int(warmup_steps),
+            warmup_steps=warmup_steps,
         )
 
     def _restore_model_es_history(self):
@@ -596,13 +746,11 @@ class InterfaceEC():
             if seeds != expected:
                 raise ValueError(
                     f"AHD ES history seed mismatch at update {record_index}; "
-                    "resume with the original --seed/operator order/k."
+                    "resume with the original --es-seed/operator order/direction count."
                 )
-            # A disabled update still consumed these seeds in the original run.
-            # Advance/validate the stream, but do not mutate model weights.
             if record.get("update_applied", True) is False:
                 continue
-            kwargs = {
+            update_kwargs = {
                 "seeds": seeds,
                 "rewards": [float(reward) for reward in record["rewards"]],
                 "alpha": float(record.get("alpha", getattr(self.paras, "llm_es_alpha", 5e-4))),
@@ -626,8 +774,9 @@ class InterfaceEC():
                 ),
             }
             for client in self.model_es_clients:
-                client.update(**kwargs)
+                client.update(**update_kwargs)
             replayed_updates += 1
+
         self.model_es_rng = expected_rng
         self.model_es_history = list(source_history)
         if source_path != self.model_es_history_path:
@@ -643,24 +792,27 @@ class InterfaceEC():
         atomic_write_history(self.model_es_history_path, self.model_es_history)
         print(
             f"- Model ES replayed {replayed_updates} updates from {len(records)} "
-            f"sample batches at {source_path}; "
-            f"history: {self.model_es_history_path}"
+            f"sample batches at {source_path}; history: {self.model_es_history_path}"
         )
 
-    def _get_algorithm_with_model_es(self, pop, operator):
-        if len(pop) == 0:
+    def _get_algorithm_with_model_es(self, pop, operator, offspring_count=None):
+        if len(pop) == 0 and operator != "i1":
             return [], []
 
-        base_sigma = float(getattr(self.paras, "llm_es_sigma_start", 1e-3))
+        legacy_sigma = float(getattr(self.paras, "llm_es_sigma", 1e-3))
+        base_sigma = float(getattr(self.paras, "llm_es_sigma_start", legacy_sigma))
         end_sigma = float(getattr(self.paras, "llm_es_sigma_end", base_sigma))
         sigma = self._current_model_es_sigma()
         sigma_schedule = normalize_sigma_schedule(
             getattr(self.paras, "llm_es_sigma_schedule", "constant")
         )
-        sigma_warmup_steps = getattr(self.paras, "llm_es_sigma_warmup_steps", None)
+        sigma_warmup_steps = int(getattr(self.paras, "llm_es_sigma_warmup_steps", 0))
         alpha = float(getattr(self.paras, "llm_es_alpha", 5e-4))
         base_directions = int(getattr(self.paras, "llm_es_directions", self.pop_size))
-        n_directions = self._operator_offspring_count(operator, base_directions)
+        if offspring_count is None:
+            n_directions = self._operator_offspring_count(operator, base_directions)
+        else:
+            n_directions = max(1, int(offspring_count))
         seeds = self._sample_model_es_seeds(n_directions)
         rewards = [None] * len(seeds)
         offsprings = [None] * len(seeds)
@@ -669,94 +821,105 @@ class InterfaceEC():
         population_worst_objective = self._population_worst_objective(pop)
 
         for i, seed in enumerate(seeds):
-            n_parents = self.m if operator in {"e1", "e2"} else 1
-            parents = self.select.parent_selection(pop, n_parents)
+            if operator == "i1":
+                parents = []
+            else:
+                n_parents = self.m if operator in {"e1", "e2"} else 1
+                parents = self.select.parent_selection(pop, n_parents)
             tasks.append((i, seed, parents))
 
-        def eval_direction(i, seed, parents):
+        def generate_direction(i, seed, parents):
             engine_id = i % len(self.model_es_clients)
             client = self.model_es_clients[engine_id]
             evol = self.model_es_evolutions[engine_id]
             parent_objective = self._parents_reference_objective(parents)
-            reward_parent = None if parent_objective is None else {'objective': parent_objective}
+            metadata = {
+                'model_es_seed': int(seed),
+                'model_es_sigma': sigma,
+                'model_es_base_sigma': base_sigma,
+                'model_es_end_sigma': end_sigma,
+                'model_es_sigma_schedule': sigma_schedule,
+                'model_es_sigma_warmup_steps': sigma_warmup_steps,
+                'model_es_generation_index': int(getattr(self, "current_generation_index", 0)),
+                'model_es_total_generations': int(getattr(self, "total_generations", 1)),
+                'model_es_reward': None,
+                'model_es_reward_normalization': getattr(
+                    self.paras, 'llm_es_reward_normalization', 'zscore'
+                ),
+                'model_es_invalid_reward_strategy': getattr(
+                    self.paras, 'llm_es_invalid_reward_strategy', 'current'
+                ),
+                'model_es_parent_objective': parent_objective,
+                'model_es_population_worst_objective': population_worst_objective,
+                'model_es_operator': operator,
+                'model_es_batch_size': len(seeds),
+                'model_es_base_batch_size': base_directions,
+                'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
+                'model_es_engine_id': engine_id,
+                'model_es_two_phase_evaluation': True,
+                'model_es_evaluation_concurrency': max(1, int(self.n_p)),
+            }
             try:
-                client.apply_perturbation(seed=seed, sigma=sigma)
-                try:
-                    offspring = self._get_offspring_from_parents(parents, operator, evol=evol)
-                finally:
-                    client.revert_perturbation(seed=seed, sigma=sigma)
-
-                reward = self._objective_to_reward(
-                    offspring,
-                    reward_parent,
-                    population_worst_objective=population_worst_objective,
-                )
-                offspring['other_inf'] = {
-                    'model_es_seed': int(seed),
-                    'model_es_sigma': sigma,
-                    'model_es_base_sigma': base_sigma,
-                    'model_es_end_sigma': end_sigma,
-                    'model_es_sigma_schedule': sigma_schedule,
-                    'model_es_sigma_warmup_steps': sigma_warmup_steps,
-                    'model_es_generation_index': int(getattr(self, "current_generation_index", 0)),
-                    'model_es_total_generations': int(getattr(self, "total_generations", 1)),
-                    'model_es_reward': float(reward),
-                    'model_es_parent_objective': parent_objective,
-                    'model_es_population_worst_objective': population_worst_objective,
-                    'model_es_operator': operator,
-                    'model_es_batch_size': len(seeds),
-                    'model_es_base_batch_size': base_directions,
-                    'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
-                    'model_es_engine_id': engine_id,
-                }
+                with self.model_es_client_locks[engine_id]:
+                    client.apply_perturbation(seed=seed, sigma=sigma)
+                    try:
+                        offspring = self._generate_offspring_from_parents(parents, operator, evol=evol)
+                    finally:
+                        client.revert_perturbation(seed=seed, sigma=sigma)
+                offspring['other_inf'] = metadata
             except Exception as e:
                 if self.debug:
                     print(f"Model ES direction failed: seed={seed}, error={e}")
+                metadata['model_es_error'] = str(e)
                 offspring = {
                     'algorithm': None,
                     'code': None,
                     'objective': self.invalid_objective,
-                    'other_inf': {
-                        'model_es_seed': int(seed),
-                        'model_es_sigma': sigma,
-                        'model_es_base_sigma': base_sigma,
-                        'model_es_end_sigma': end_sigma,
-                        'model_es_sigma_schedule': sigma_schedule,
-                        'model_es_sigma_warmup_steps': sigma_warmup_steps,
-                        'model_es_generation_index': int(getattr(self, "current_generation_index", 0)),
-                        'model_es_total_generations': int(getattr(self, "total_generations", 1)),
-                        'model_es_reward': None,
-                        'model_es_error': str(e),
-                        'model_es_operator': operator,
-                        'model_es_batch_size': len(seeds),
-                        'model_es_base_batch_size': base_directions,
-                        'm1m2_multiplier': float(getattr(self.paras, "ec_m1m2_multiplier", 1.0)),
-                        'model_es_engine_id': engine_id,
-                    }
+                    'other_inf': metadata,
                 }
-                reward = self._objective_to_reward(
-                    offspring,
-                    reward_parent,
-                    population_worst_objective=population_worst_objective,
-                )
-                offspring['other_inf']['model_es_reward'] = float(reward)
-                offspring['other_inf']['model_es_population_worst_objective'] = population_worst_objective
-            return i, parents, offspring, float(reward)
+            return i, parents, offspring
 
-        def endpoint_worker(i, _endpoint_index):
-            _, seed, parents = tasks[i]
-            _, selected_parents, offspring, reward = eval_direction(i, seed, parents)
-            return i, (selected_parents, offspring, reward)
+        configured_max_workers = getattr(self.paras, "llm_es_max_workers", None)
+        if configured_max_workers is None:
+            configured_max_workers = len(self.model_es_clients)
+        max_workers = min(max(1, int(configured_max_workers)), len(self.model_es_clients), len(tasks))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(generate_direction, *task) for task in tasks]
+            for future in concurrent.futures.as_completed(futures):
+                i, parents, offspring = future.result()
+                offsprings[i] = offspring
+                out_parents[i] = parents
 
-        direction_results = map_endpoint_serial(
-            endpoints=[str(index) for index in range(len(self.model_es_clients))],
-            count=len(tasks),
-            worker=endpoint_worker,
+        # Evaluate only after every perturbed completion has been generated and
+        # every engine has returned to the unperturbed model. The evaluator's
+        # process pool is independently capped by n_p (4 for sample_es).
+        evaluation_indices = [
+            i for i, offspring in enumerate(offsprings)
+            if offspring is not None and offspring.get('code') is not None
+        ]
+        evaluation_pairs = [(out_parents[i], offsprings[i]) for i in evaluation_indices]
+        fitness_values = self._evaluate_offspring_batch_with_timeout(evaluation_pairs)
+        for i, fitness in zip(evaluation_indices, fitness_values):
+            offsprings[i]['objective'] = np.round(fitness, 5)
+
+        for i, offspring in enumerate(offsprings):
+            if offspring.get('objective') is None:
+                offspring['objective'] = self.invalid_objective
+            parent_objective = self._parents_reference_objective(out_parents[i])
+            reward_parent = None if parent_objective is None else {'objective': parent_objective}
+            reward = self._objective_to_reward(
+                offspring,
+                reward_parent,
+                population_worst_objective=population_worst_objective,
+            )
+            rewards[i] = float(reward)
+            offspring['other_inf']['model_es_reward'] = float(reward)
+            offspring['other_inf']['model_es_generation_concurrency'] = max_workers
+
+        rewards = self._calibrate_model_es_invalid_rewards(offsprings, rewards)
+        rewards, update_reward_normalization = self._normalize_zero_strategy_model_es_rewards(
+            offsprings, rewards
         )
-        for i, (parents, offspring, reward) in enumerate(direction_results):
-            rewards[i] = reward
-            offsprings[i] = offspring
-            out_parents[i] = parents
 
         update_info = [
             {
@@ -769,14 +932,16 @@ class InterfaceEC():
                 "alpha": alpha,
                 "sigma": sigma,
                 "base_sigma": base_sigma,
+                "end_sigma": end_sigma,
                 "sigma_schedule": sigma_schedule,
+                "sigma_warmup_steps": sigma_warmup_steps,
             }
         ] if bool(getattr(self.paras, "llm_es_disable_update", False)) else [
             client.update(
                     seeds=seeds,
                     rewards=rewards,
                     alpha=alpha,
-                    reward_normalization=getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+                    reward_normalization=update_reward_normalization,
                     reward_normalization_ddof=getattr(self.paras, "llm_es_reward_normalization_ddof", 0),
                     reward_normalization_eps=getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8),
                 )
@@ -805,12 +970,15 @@ class InterfaceEC():
             "sigma_end": end_sigma,
             "sigma_schedule": sigma_schedule,
             "sigma_warmup_steps": sigma_warmup_steps,
-            "reward_normalization": getattr(self.paras, "llm_es_reward_normalization", "zscore"),
+            "reward_normalization": update_reward_normalization,
             "reward_normalization_ddof": int(
                 getattr(self.paras, "llm_es_reward_normalization_ddof", 0)
             ),
             "reward_normalization_eps": float(
                 getattr(self.paras, "llm_es_reward_normalization_eps", 1e-8)
+            ),
+            "invalid_reward_strategy": getattr(
+                self.paras, "llm_es_invalid_reward_strategy", "current"
             ),
             "update_applied": update_applied,
             "update": update_info,
@@ -838,11 +1006,14 @@ class InterfaceEC():
     #     return result
 
     
-    def get_algorithm(self, pop, operator):
+    def get_algorithm(self, pop, operator, offspring_count=None):
         if self._operator_uses_model_es(operator):
-            return self._get_algorithm_with_model_es(pop, operator)
+            return self._get_algorithm_with_model_es(pop, operator, offspring_count=offspring_count)
 
-        offspring_count = self._operator_offspring_count(operator)
+        if offspring_count is None:
+            offspring_count = self._operator_offspring_count(operator)
+        else:
+            offspring_count = max(1, int(offspring_count))
         if self.local_evolutions:
             pairs = [None] * offspring_count
             results = []
@@ -910,7 +1081,8 @@ class InterfaceEC():
                     print(f"Error: {e}")
                 print("Parallel time out .")
 
-        time.sleep(2)
+        if str(getattr(self.paras, "ec_run_mode", "eoh")) == "eoh":
+            time.sleep(2)
 
 
         out_p = []

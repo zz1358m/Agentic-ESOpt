@@ -1,0 +1,16 @@
+# total task rep estimated_minutes
+1000 aco_cvrp 2 134
+1000 aco_tsp 1 104
+1000 aco_tsp 3 104
+1000 aco_bpp 1 87
+1000 aco_bpp 3 87
+1000 construct_asp 1 61
+2000 aco_cvrp 2 268
+2000 aco_tsp 2 208
+2000 aco_tsp 3 208
+2000 aco_bpp 1 174
+2000 aco_bpp 3 174
+2000 construct_tsp 1 122
+2000 construct_tsp 3 122
+2000 construct_asp 2 122
+2000 construct_kp 2 100

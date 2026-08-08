@@ -78,6 +78,189 @@ class EOH:
                     break
             else:
                 population.append(off)
+
+    @staticmethod
+    def _finite_objective(individual):
+        objective = individual.get('objective')
+        if objective is None:
+            return None
+        try:
+            objective = float(objective)
+        except (TypeError, ValueError):
+            return None
+        return objective if np.isfinite(objective) else None
+
+    def _run_sampling(self, interface_ec, time_start):
+        """Run independent i1 samples, optionally updating the model with ES."""
+        mode = str(getattr(self.paras, "ec_run_mode", "sample"))
+        batch_size = max(1, int(getattr(self.paras, "sample_batch_size", self.pop_size)))
+        if mode == "sample_es":
+            generations = max(1, int(self.n_pop))
+            total = batch_size * generations
+        else:
+            total = max(1, int(getattr(self.paras, "sample_total", batch_size)))
+            generations = (total + batch_size - 1) // batch_size
+
+        print(
+            f"- {mode}: independent i1 sampling, total={total}, "
+            f"batch_size={batch_size}, generations={generations} -",
+            flush=True,
+        )
+        top_population = []
+        samples_written = 0
+        valid_samples = 0
+        samples_path = os.path.join(self.output_path, "results", "samples.jsonl")
+        start_generation = 0
+        resume = mode == 'sample' and bool(getattr(self.paras, 'sample_resume', False))
+
+        if resume:
+            if not os.path.isfile(samples_path):
+                raise FileNotFoundError(f"Cannot resume sample run without {samples_path}")
+            previous_samples = []
+            with open(samples_path) as handle:
+                for line_number, line in enumerate(handle, start=1):
+                    if not line.strip():
+                        continue
+                    try:
+                        previous_samples.append(json.loads(line))
+                    except json.JSONDecodeError as error:
+                        raise ValueError(
+                            f"Invalid JSON in {samples_path} at line {line_number}"
+                        ) from error
+            samples_written = len(previous_samples)
+            if samples_written > total:
+                raise ValueError(
+                    f"Resume source already has {samples_written} samples, exceeding target {total}."
+                )
+            for individual in previous_samples:
+                objective = self._finite_objective(individual)
+                if objective is not None:
+                    valid_samples += 1
+                    top_population.append(individual)
+            top_population.sort(key=lambda individual: float(individual['objective']))
+            top_population = top_population[:batch_size]
+            start_generation = (samples_written + batch_size - 1) // batch_size
+            print(
+                f"- resumed {samples_written}/{total} samples at generation "
+                f"{start_generation}/{generations}; previous best="
+                f"{None if not top_population else top_population[0]['objective']} -",
+                flush=True,
+            )
+        else:
+            # Start clean when a run id is reused; generation JSON files follow
+            # the same overwrite behavior as the original EoH result files.
+            with open(samples_path, 'w'):
+                pass
+
+        for generation in range(start_generation, generations):
+            current_batch_size = min(batch_size, total - samples_written)
+            interface_ec.set_generation_context(generation, generations)
+            _, batch = interface_ec.get_algorithm(
+                [],
+                "i1",
+                offspring_count=current_batch_size,
+            )
+
+            # Preserve failed generations as attempted samples too. This makes
+            # the JSONL length exactly T (or population * generations).
+            if len(batch) < current_batch_size:
+                batch.extend({
+                    'algorithm': None,
+                    'code': None,
+                    'objective': float('inf'),
+                    'other_inf': {'error': 'missing sampling result'},
+                } for _ in range(current_batch_size - len(batch)))
+            elif len(batch) > current_batch_size:
+                batch = batch[:current_batch_size]
+
+            for batch_index, individual in enumerate(batch):
+                sample_index = samples_written + batch_index + 1
+                metadata = individual.get('other_inf')
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                metadata.update({
+                    'sample_mode': mode,
+                    'sample_index': sample_index,
+                    'sample_generation': generation + 1,
+                    'sample_batch_index': batch_index + 1,
+                })
+                individual['other_inf'] = metadata
+                objective = self._finite_objective(individual)
+                if objective is not None:
+                    valid_samples += 1
+                    top_population.append(individual)
+
+            top_population.sort(key=lambda individual: float(individual['objective']))
+            top_population = top_population[:batch_size]
+
+            history_filename = os.path.join(
+                self.output_path,
+                "results",
+                "history",
+                f"sample_generation_{generation + 1}.json",
+            )
+            with open(history_filename, 'w') as handle:
+                json.dump(batch, handle, indent=5)
+
+            with open(samples_path, 'a') as handle:
+                for individual in batch:
+                    handle.write(json.dumps(individual) + "\n")
+
+            population_filename = os.path.join(
+                self.output_path,
+                "results",
+                "pops",
+                f"population_generation_{generation + 1}.json",
+            )
+            with open(population_filename, 'w') as handle:
+                json.dump(top_population, handle, indent=5)
+
+            if top_population:
+                best_filename = os.path.join(
+                    self.output_path,
+                    "results",
+                    "pops_best",
+                    f"population_generation_{generation + 1}.json",
+                )
+                with open(best_filename, 'w') as handle:
+                    json.dump(top_population[0], handle, indent=5)
+
+            samples_written += current_batch_size
+            best = None if not top_population else top_population[0]['objective']
+            print(
+                f"--- {generation + 1} of {generations} sampling generations finished. "
+                f"Samples: {samples_written}/{total}; valid={valid_samples}; "
+                f"best={best}; Time Cost: {((time.time() - time_start) / 60):.1f} m",
+                flush=True,
+            )
+
+        summary = {
+            'mode': mode,
+            'operator': 'i1',
+            'total_samples': samples_written,
+            'valid_samples': valid_samples,
+            'batch_size': batch_size,
+            'generations': generations,
+            'best_objective': None if not top_population else float(top_population[0]['objective']),
+        }
+        if mode == 'sample_es':
+            summary['reward'] = 'negative_training_objective'
+            summary['reward_normalization'] = getattr(
+                self.paras, 'llm_es_reward_normalization', 'zscore'
+            )
+            summary['es_updates'] = generations
+            invalid_reward_strategy = str(
+                getattr(self.paras, 'llm_es_invalid_reward_strategy', 'current')
+            ).strip().lower()
+            summary['invalid_reward_strategy'] = (
+                'valid_only_zscore_invalid_zero'
+                if invalid_reward_strategy == 'zero'
+                else 'batch_relative_below_worst_valid'
+                if getattr(self.paras, 'llm_es_dynamic_invalid_reward', False)
+                else 'fixed_floor'
+            )
+        with open(os.path.join(self.output_path, "results", "sample_summary.json"), 'w') as handle:
+            json.dump(summary, handle, indent=2)
     
 
     # run eoh 
@@ -98,6 +281,10 @@ class EOH:
                                    self.debug_mode, interface_prob, select=self.select,n_p=self.exp_n_proc,
                                    timeout = self.timeout, use_numba=self.use_numba, paras=self.paras
                                    )
+
+        if str(getattr(self.paras, "ec_run_mode", "eoh")) in {"sample", "sample_es"}:
+            self._run_sampling(interface_ec, time_start)
+            return
 
         # initialization
         population = []

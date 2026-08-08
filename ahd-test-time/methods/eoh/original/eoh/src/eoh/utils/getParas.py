@@ -21,6 +21,12 @@ class Paras():
         self.ec_operator_weights = None  # weights for operators, i.e., the probability of use the operator in each iteration, default = [1,1,1,1]
         self.ec_operator_attempts = 1  # number of offspring attempts per operator per generation
         self.ec_m1m2_multiplier = 1.0  # m1/m2 offspring count multiplier relative to population size
+        # All four AHD methods share this EoH runtime. Sampling
+        # repeatedly invokes i1 without feeding prior candidates into prompts.
+        self.ec_run_mode = 'eoh'  # ['eoh', 'sample', 'sample_es']
+        self.sample_total = 1000
+        self.sample_batch_size = 20
+        self.sample_resume = False
         
         #####################
         ### LLM settings  ###
@@ -34,10 +40,12 @@ class Paras():
         self.llm_es_enabled = False  # if update the local LLM itself with evolutionary strategy
         self.llm_es_operators = ['e1', 'e2', 'm1', 'm2']  # EoH operators that trigger model ES updates
         self.llm_es_directions = 8  # number of perturbation directions per ES model update
+        self.llm_es_sigma = 1e-3  # legacy alias used by migrated launchers
         self.llm_es_sigma_start = 1e-3
         self.llm_es_sigma_end = 1e-3
         self.llm_es_sigma_schedule = 'constant'  # ['constant', 'linear', 'cosine']
         self.llm_es_sigma_warmup_steps = 0
+        self.llm_es_sigma_schedule_plateau_fraction = 0.0  # legacy schedule input
         self.llm_es_alpha = 5e-4  # model update step size
         self.llm_es_reward_normalization = 'zscore'
         self.llm_es_reward_normalization_ddof = 0
@@ -47,7 +55,13 @@ class Paras():
         self.llm_es_target_modules = None
         self.llm_es_seed = 2024
         self.llm_es_engine_urls = None
+        self.llm_es_max_workers = None
         self.llm_es_reward_floor = -1.0
+        self.llm_es_invalid_reward_strategy = 'current'  # ['current', 'zero']
+        self.llm_es_dynamic_invalid_reward = False
+        self.llm_es_invalid_reward_margin = 1.0
+        self.llm_es_invalid_reward_fallback_fraction = 0.01
+        self.llm_es_invalid_reward_min_gap = 1.0
         self.llm_es_disable_update = False
         self.llm_es_history_path = None
         self.llm_es_resume_history = None

@@ -1,38 +1,44 @@
 # Project layout
 
-The repository is organized around five maintained tasks.
+The repository is organized around five maintained tasks. The root `README.md`
+is the complete reproduction guide; this file is the compact directory map.
 
 ```text
-Dynamic-Agent/
-|-- es/                       shared model-weight ES and run-state code
-|-- sudoku-train-time/        Sudoku environment and Dynamic-Agent runner
-|-- math-train-time/          Math environment and HTTP/vLLM runners
-|-- docvqa-train-time/        DocVQA environment and Dynamic-Agent runner
-|-- webarena-train-time/      WebArena and Trace2Skill integration
-|-- ahd-test-time/            test-time EoH and Dynamic-Agent
-|-- verl/                     bundled VERL runtime used by Math/DocVQA GRPO
-|-- verl_trace2skill/         VERL tool, parser, and reward functions
-|-- trace2skill-settings/     Math/DocVQA Trace2Skill adapters
-|-- scripts/                  canonical task launchers and data checks
-`-- data/                     stable task data paths (large files ignored)
+Agentic-ESOpt/
+|-- es/                       shared seeded model ES, schedules, history, replay
+|-- sudoku-train-time/        Sudoku env, data preparation, ES runner, GRPO adapter
+|-- math-train-time/          Math env and HTTP/vLLM ES runners
+|-- docvqa-train-time/        DocVQA env, vision server, runners, and tests
+|-- webarena-train-time/      WebArena env, data tools, ES/Trace2Skill/SkillOpt/JITRL
+|-- ahd-test-time/            four AHD methods, six tasks, evaluators, curated programs
+|-- scripts/                  portable task launchers and data validation
+|-- data/                     stable task data/settings contract
+|-- trace2skill-settings/     Math/DocVQA trace-to-skill configs, prompts, and skills
+|-- verl/                     bundled VERL used by Math/DocVQA GRPO
+|-- verl_trace2skill/         VERL tool, parser, rewards, sandbox, and tests
+|-- vllm_math_es_worker.py    in-process Math vLLM ES worker
+|-- README.md                 full structure and experiment commands
+|-- PROJECT_LAYOUT.md         this compact map
+`-- LICENSE
 ```
 
-The user-facing entrypoints are:
+The portable user-facing entry points are:
 
 ```text
 scripts/sudoku/{run_es,run_grpo}.sh
 scripts/math/{run,run_vllm_es_4gpu,run_grpo,run_trace2skill,run_trace2skill_es}.sh
 scripts/docvqa/{start_vision_server,run,run_grpo,run_trace2skill,run_trace2skill_es}.sh
 scripts/webarena/run.sh
-scripts/ahd/run.sh
+scripts/ahd/{start_llama31_8b_servers,run,run_four_method_ahd}.sh
 ```
 
-Task-independent machine settings belong in `scripts/settings.local.env`.
-Run outputs belong in `runs/` or `cache/active_runs/`; neither is source code.
-Every Dynamic-Agent run writes a replayable `history.json` beside its outputs.
+`ahd-test-time/methods/eoh/` is the only AHD runtime. Its canonical four-method
+runner is `ahd-test-time/scripts/run_eoh_ahd.py`; the similarly named
+`run_ahd_four_methods.py` is a compatibility forwarder. The exact eight
+curated result folders are documented in the root README.
 
-Paper sources, figures, plotting utilities, result archives, unrelated
-machine-local external checkouts, and obsolete code are deliberately excluded
-from the core GitHub tree. `verl/` is the intentional exception: its local
-multi-turn compatibility changes are versioned with the launchers that use
-them.
+Task-independent machine settings belong in `scripts/settings.local.env`.
+Ordinary run outputs belong in `runs/` or `cache/active_runs/` and remain
+ignored. Every Dynamic-Agent run writes a replayable `history.json`. Curated
+AHD `final_best_code.py` programs and their two evaluator scripts are the
+intentional result-archive exception.
