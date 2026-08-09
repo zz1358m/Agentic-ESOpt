@@ -39,7 +39,8 @@ data/                       stable data contracts and small source data
 ```
 
 See [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md) for the compact entry-point map
-and each task directory for task-specific parameters.
+and [`scripts/RUN_HYPERPARAMETERS.md`](scripts/RUN_HYPERPARAMETERS.md) for the
+effective defaults of every maintained run launcher.
 
 ## Requirements 🧰
 
@@ -224,8 +225,8 @@ summary; inspect the task README and raw logs together.
 Fast checks do not require a running model server:
 
 ```bash
-python -m unittest es.test_run_state -v
-python -m unittest es.test_seeded_model_es -v
+python -m unittest algorithms.es.test_run_state -v
+python -m unittest algorithms.es.test_seeded_model_es -v
 python -m unittest discover math-train-time/tests -v
 python -m unittest discover docvqa-train-time/tests -v
 python -m unittest algorithms.verl_trace2skill.test_reward -v

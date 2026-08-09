@@ -36,8 +36,8 @@ ahd-test-time/              EoH/AHD 运行时、评测器和程序
 data/                       稳定的数据约定和小型源数据
 ```
 
-简要入口映射见 [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md)，任务的完整参数见各任务
-目录下的 README。
+简要入口映射见 [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md)，每个维护中运行入口的
+实际默认超参数见 [`scripts/RUN_HYPERPARAMETERS.md`](scripts/RUN_HYPERPARAMETERS.md)。
 
 ## 环境要求 🧰
 
@@ -214,8 +214,8 @@ RUN_ID=sudoku_resumed scripts/sudoku/run_es.sh
 下面的快速检查不需要启动模型服务：
 
 ```bash
-python -m unittest es.test_run_state -v
-python -m unittest es.test_seeded_model_es -v
+python -m unittest algorithms.es.test_run_state -v
+python -m unittest algorithms.es.test_seeded_model_es -v
 python -m unittest discover math-train-time/tests -v
 python -m unittest discover docvqa-train-time/tests -v
 python -m unittest algorithms.verl_trace2skill.test_reward -v

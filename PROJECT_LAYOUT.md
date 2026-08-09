@@ -33,6 +33,9 @@ scripts/webarena/run.sh
 scripts/ahd/{start_llama31_8b_servers,run,run_four_method_ahd}.sh
 ```
 
+The effective defaults for every maintained launcher are listed in
+[`scripts/RUN_HYPERPARAMETERS.md`](scripts/RUN_HYPERPARAMETERS.md).
+
 `ahd-test-time/methods/eoh/` is the only AHD runtime. Its canonical four-method
 runner is `ahd-test-time/scripts/run_eoh_ahd.py`; the similarly named
 `run_ahd_four_methods.py` is a compatibility forwarder. The exact eight

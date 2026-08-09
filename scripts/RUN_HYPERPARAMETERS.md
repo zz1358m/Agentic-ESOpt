@@ -1,0 +1,154 @@
+# 运行超参数一览 🧪 / Run hyperparameters
+
+本页列出所有维护中的用户入口脚本的实际默认值。模型路径、endpoint、GPU 编号和
+输出目录等机器相关配置不重复列出。覆盖优先级为：脚本默认值 <
+`scripts/settings.local.env` < 显式环境变量 < 命令行尾部参数。
+
+Agentic-ESOpt 会把真实更新序列写入 `history.json`；Math/DocVQA 的 VERL
+训练还会在日志旁保存 `experiment_config.json`。
+
+## Sudoku
+
+固定 ES 对比入口：
+`sudoku-train-time/scripts/run_es_hyperparams.sh <profile> <mask>`。
+
+| Profile | Generations / population / case batch | Sigma | Alpha | Max turns |
+| --- | --- | --- | --- | --- |
+| `vanilla-es32`, mask 5/10 | 100 / 32 / 32 | `1e-3` constant | `5e-4` | `mask × 3` |
+| `vanilla-es32`, mask 15 | 100 / 32 / 32 | `5e-4` constant | `5e-4` | 45 |
+| `agentic-esopt-es32`, mask 5/10 | 100 / 32 / 32 | `1e-3 → 0` cosine | `5e-4` | `mask × 3` |
+| `agentic-esopt-es32`, mask 15 | 100 / 32 / 32 | `7e-4 → 5e-4` cosine | `5e-4` | 45 |
+
+全部使用全参数更新、z-score normalization、4 case workers、每 turn 64
+tokens、endpoint batch 32；每 10 代评测并重复 3 次。采样为 `T=0.7`、
+`top_p=0.8`、`top_k=20`、`min_p=0`、presence penalty `1.5`、repetition
+penalty `1.0`。
+
+`scripts/sudoku/run_es.sh` 是 smoke/configurable 入口，默认 1 代、population
+8、case batch 8、sigma `5e-4` constant、alpha `5e-4`、90 turns。复现正式
+对比应使用上面的固定 profile。
+
+固定 GRPO 入口：`scripts/sudoku/run_grpo.sh`。
+
+| Parameter | 默认 profile | `run_grpo_hyperparams_t1.sh` |
+| --- | --- | --- |
+| Steps / global batch / generations per prompt | 100 / 32 / 8 | 100 / 32 / 8 |
+| Rollout / train micro-batch | 8 / 2 | 8 / 2 |
+| Policy sample cap | `0`（无限） | `0`（无限） |
+| LR / KL beta / clip epsilon | `1e-6` / `1e-3` / `0.2` | 相同 |
+| Sampling | `T=0.7`, `p=0.8`, `k=20` | `T=1`, `p=1`, `k=-1` |
+
+两组均使用 raw rollout-policy log probability、4 个 Accelerate 进程、
+`mask × 3` turns；训练前评测，此后每 20 steps 评测并重复 3 次。
+
+## Math
+
+标准 Agentic-ESOpt/skill 入口：
+`scripts/es_skill_workflow.sh math <es-train|eval|distill-skill|skill-eval>`。
+
+| Group | Effective defaults |
+| --- | --- |
+| ES | 25 generations, population 16, case batch 16, sigma `1e-3 → 5e-4` cosine, alpha `5e-4`, full parameters, z-score (`ddof=0`, epsilon `1e-8`), seed `20260627` |
+| Rollout | 1 train sample, 50 turns, 4096 tokens/turn, no total-token cap, `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
+| Runtime | 4 vLLM engines, inference batch 16, context 131072, GPU memory utilization 0.85, bfloat16, eager mode |
+| Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; DAPO 100; AIME 30 |
+| Trace2Skill | final 50 task occurrences, at most one success + one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
+
+底层 `scripts/math/run.sh` 与 `run_vllm_es_4gpu.sh` 默认都是 1 代、population
+8、case batch 8、sigma `5e-4` constant、alpha `5e-4`、全参数、z-score、
+1 train sample、16 eval samples、`T=1`、`p=1`、`k=40`、presence penalty 2。
+vLLM 版本另使用 4 engines、context 32768、GPU memory utilization 0.85。
+
+异步 VERL GRPO 训练入口：`scripts/math/run_react_verl_grpo.sh train`
+（等价于 `scripts/math/run_grpo.sh`）。
+
+| Group | Effective defaults |
+| --- | --- |
+| Optimizer | GRPO, LR `1e-6`, mini-batch 20, micro-batch 1/GPU, KL loss `0.001`, low-variance KL |
+| Data/run | train batch 20, 8 rollouts/prompt, 15 epochs, shuffle, seed 1, 4 GPUs |
+| Rollout | async SGLang, TP=1, 100 user + 100 assistant turns, 512 tokens/turn, 8192 response tokens, 6000 tool tokens |
+| Sampling | `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
+| Runtime | context 40960, GPU memory utilization 0.50, max 16 sequences, 8 agent-loop workers |
+| Eval/checkpoint | eval before training and every 5 steps; save every 20 steps |
+
+`scripts/math/run_react_verl_grpo.sh eval` 默认 4 个 TP=1 replicas、每题 4
+samples、`repo-react-v1-50x4096`、50 turns、每次 assistant 请求 4096
+tokens、seed `20260629`、并发 8（失败降到 4）、context 262144。
+
+`scripts/math/run_trace2skill.sh` 默认 seed `20260627`、8 workers、
+`gpt-4.1-mini`、20 行 skill；`run_trace2skill_es.sh` 随后调用底层 Math ES。
+
+## DocVQA
+
+标准 Agentic-ESOpt/skill 入口：
+`scripts/es_skill_workflow.sh docvqa <es-train|eval|distill-skill|skill-eval>`。
+
+| Group | Effective defaults |
+| --- | --- |
+| ES | 40 generations, population 16, case batch 16, sigma `1e-3 → 5e-4` cosine, alpha `5e-4`, full parameters, z-score (`ddof=0`, epsilon `1e-8`), seed `20260627` |
+| Rollout | 1 train sample, 50 turns, 512 tokens/turn, 32768 total tokens, `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
+| Runtime | 4 vLLM engines, inference batch 16, context 131072, GPU memory utilization 0.85, bfloat16, eager mode |
+| Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; 100 held-out documents |
+| Trace2Skill | final 50 task occurrences, at most one success + one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
+
+旧的 direct-image `scripts/docvqa/run.sh` 是 1 代 smoke 入口：population 8、
+case batch 8、sigma `5e-4` constant、alpha `5e-4`、512 tokens、`T=0`、
+`p=0.9`。
+
+异步 VERL GRPO 训练入口：`scripts/docvqa/run_react_verl_grpo.sh train`
+（等价于 `scripts/docvqa/run_grpo.sh`）。
+
+| Group | Effective defaults |
+| --- | --- |
+| Optimizer | GRPO, LR `1e-6`, mini-batch 4, micro-batch 1/GPU, KL loss `0.001`, low-variance KL |
+| Data/run | 50 documents, train batch 4, 8 rollouts/prompt, 15 epochs, seed 42, 4 GPUs |
+| Rollout | async SGLang, TP=1, 50 user + 50 assistant turns, 512 tokens/turn, 32768 response tokens, 6000 tool tokens |
+| Sampling | `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
+| Runtime | context 131072, GPU memory utilization 0.50, max 64 sequences, 4 agent-loop workers |
+| Eval/checkpoint | no validation before/during training; save every step; protect steps 60/120/180 |
+
+`scripts/docvqa/run_react_verl_grpo.sh eval` 默认 held-out 前 100 题、每题 4
+samples、4 个 TP=1 replicas、seed 42、context 131072、并发 8（失败降到 4）、
+GPU memory utilization 0.82。
+
+`scripts/docvqa/run_trace2skill.sh` 与 Math 的 standalone Trace2Skill 默认值
+相同；`run_trace2skill_es.sh` 随后调用 direct-image ES。维护中的 text-backbone
+流程使用 `es_skill_workflow.sh`。
+
+## WebArena
+
+入口：`scripts/webarena/run.sh <method> <stage>`。
+
+| Method | Effective launcher defaults |
+| --- | --- |
+| `no_skill_es` | 1 generation, population 8, case batch 8, sigma `5e-4` constant, alpha `5e-4`, full parameters, all 165 eval tasks |
+| `trace2skill_es` | 相同 ES 默认值并注入 `SKILL.md`；可配置每代更新 skill |
+| `trace2skill` train | 1 skill step, 8 instances, 1 sample/instance, train `T=1`, test `T=0`, `p=0.9`, train/analysis workers 8, test workers 32, seed `20260605` |
+| `trace2skill` test | 32 workers, `T=0`, all 165 eval tasks |
+
+已提交的 70 次更新模型使用固定 launcher，并非上面的单代默认值：
+
+| Launcher | Generations / population / batch | Sigma | Alpha | Sampling | Eval |
+| --- | --- | --- | --- | --- | --- |
+| `launch_qwen35_true_noskill_es_70_cosine.sh` | 70 / 8 / 8 | `1.5e-3 → 5e-4` cosine | `2.5e-4` | `T=0.7`, `p=0.8`, `k=20` | every 10 generations |
+| `launch_qwen35_trace2skill_es_70_constant_1p5e3.sh` | 70 / 8 / 8 | `1.5e-3` constant | `2.5e-4` | `T=0.7`, `p=0.8`, `k=20` | every 10 generations |
+
+两者都使用全参数更新和 z-score normalization；训练使用 non-Lite split，
+评测使用完整 165 题 WebArena-Lite。
+
+## AHD
+
+入口：`scripts/ahd/run.sh <task> <split> <method>`。
+
+| Method | Effective defaults |
+| --- | --- |
+| EoH (`eoh`) | population 10, 25 generations, offspring multiplier `k=1` |
+| Independent sampling (`sample`) | sample total/batch 继续传给底层 runner |
+| EoH + Agentic-ESOpt (`es`) | EoH defaults + operators `e1,e2,m1,m2`, sigma `1e-3` constant, alpha `5e-4`, seed 2024 |
+| Sampling + Agentic-ESOpt (`sample_es`) | sampling settings + 相同 ES defaults |
+
+全任务入口 `scripts/ahd/run_four_method_ahd.sh` 默认 6 tasks × 3 repeats，
+budget 2000、sampling batch 20、EoH population 10、25 generations。
+Agentic-ESOpt profiles 使用 sigma `1e-3 → 0` cosine、alpha `5e-4`、seed
+2024。EoH offspring multiplier 按
+`budget / (2 × population × generations) - 1` 推导。
