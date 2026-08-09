@@ -1,4 +1,4 @@
-# Dynamic-Agent VERL integration
+# Agentic-ESOpt VERL integration
 
 This directory vendors the VERL source used by the Math and DocVQA multi-turn
 GRPO baselines. It is based on upstream commit
@@ -7,13 +7,13 @@ SGLang, Qwen3.5, and multi-turn agent-loop compatibility changes required by
 the maintained launchers.
 
 VERL remains licensed under Apache-2.0; see `LICENSE` and `Notice.txt` in this
-directory. Dynamic-Agent-specific tools, parser registration, and reward
+directory. Agentic-ESOpt-specific tools, parser registration, and reward
 functions live in the sibling `verl_trace2skill/` package.
 
 From the repository root, install this exact tree with:
 
 ```bash
-python -m pip install -e ./verl
+python -m pip install -e ./algorithms/verl
 ```
 
 The launchers select it automatically. Set `VERL_ROOT` only when intentionally

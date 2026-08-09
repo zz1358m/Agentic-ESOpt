@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Trace2Skill math and DocVQA test sets through a vLLM OpenAI server.
+"""Run Trace2Skill Math and DocVQA evaluation or trajectory collection.
 
 Defaults cover DAPO held-out 100, AIME 2026, and DocVQA validation with 16
 stochastic samples per item. The ReAct runners disable Qwen's built-in thinking
@@ -122,6 +122,100 @@ def write_jsonl_record(path: Path, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, ensure_ascii=True) + "\n")
+
+
+def write_trace_markdown(
+    trace_root: Path,
+    dataset: DatasetSpec,
+    source_row: dict[str, Any],
+    record: dict[str, Any],
+) -> Path:
+    """Write one trajectory in the Markdown format consumed by Trace2Skill."""
+    score = float(record.get("score", -1.0))
+    succeeded = score >= 1.0 if dataset.kind == "math" else score > 0.5
+    outcome = "SUCCEED" if succeeded else "FAILED"
+    task_id = str(record.get("task_id", record.get("row_index", "unknown")))
+    safe_task_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", task_id).strip("._") or "unknown"
+    sample_index = int(record.get("sample_index", 0))
+    setting = "math_reasoning" if dataset.kind == "math" else "docvqa"
+    prefix = "math_agent" if dataset.kind == "math" else "docvqa_agent"
+    trace_dir = trace_root / dataset.name
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_path = trace_dir / f"{prefix}_{safe_task_id}_sample{sample_index:02d}_{outcome}.md"
+
+    expected = (
+        str(source_row.get("answer", ""))
+        if dataset.kind == "math"
+        else json.dumps(source_row.get("answers", []), ensure_ascii=False)
+    )
+    failure_reason = record.get("error") or record.get("react_error")
+    if not failure_reason and not succeeded:
+        failure_reason = (
+            "Score was below 1.0."
+            if dataset.kind == "math"
+            else "ANLS did not exceed 0.5."
+        )
+    lines = [
+        f"# Chat History {setting}_{task_id}",
+        "",
+        f"Task ID: {task_id}",
+        f"Setting: {setting}",
+        f"Dataset: {dataset.name}",
+        f"Sample index: {sample_index}",
+        f"Score: {score}",
+        f"Score method: {record.get('score_method', '')}",
+        f"Outcome: {outcome}",
+        f"Failure reason: {failure_reason or ''}",
+        "",
+        "## Problem",
+        "",
+        str(source_row.get("question", "")),
+        "",
+        f"Expected answer: {expected}",
+        "",
+        "## Trace",
+        "",
+    ]
+    for round_index, turn in enumerate(record.get("react_steps", []), 1):
+        lines.extend(
+            [
+                f"## Round {round_index}",
+                "",
+                "### Assistant",
+                "",
+                str(turn.get("assistant", "")).strip(),
+                "",
+            ]
+        )
+        if turn.get("action"):
+            lines.extend(
+                [
+                    "### Action",
+                    "",
+                    "```json",
+                    json.dumps(turn["action"], ensure_ascii=False),
+                    "```",
+                    "",
+                ]
+            )
+        observation = str(turn.get("observation", "")).strip()
+        if observation:
+            lines.extend(["### Observation", "", "```text", observation, "```", ""])
+    lines.extend(
+        [
+            "## Prediction",
+            "",
+            str(record.get("prediction", "")),
+            "",
+            "---",
+            "",
+            "## RESULT",
+            outcome,
+            "",
+        ]
+    )
+    trace_path.write_text("\n".join(lines), encoding="utf-8")
+    return trace_path
 
 
 def normalize_math_answer(value: str) -> str:
@@ -308,6 +402,26 @@ def extract_doc_answer(text: str) -> str:
     return lines[-1] if lines else text.strip()
 
 
+def append_skill_to_system_message(
+    messages: list[dict[str, Any]], skill_text: str
+) -> list[dict[str, Any]]:
+    if not skill_text.strip():
+        return messages
+    enriched = [dict(message) for message in messages]
+    for message in enriched:
+        if message.get("role") == "system" and isinstance(message.get("content"), str):
+            message["content"] = (
+                str(message["content"]).rstrip()
+                + "\n\nUse the following task skill as procedural guidance. "
+                "Apply it only when relevant to the current task.\n\n"
+                "<task_skill>\n"
+                + skill_text.strip()
+                + "\n</task_skill>"
+            )
+            return enriched
+    raise ValueError("Cannot inject a task skill without a text system message")
+
+
 TRACE2SKILL_UPSTREAM_MATH_SYSTEM = r'''You are an expert assistant who can solve any task using tool calls. You will be given a task to solve as best you can.
 To do so, you have been given access to some tools.
 
@@ -419,11 +533,12 @@ Do not include tool outputs in the final answer.'''
 def math_react_messages(
     row: dict[str, Any],
     prompt_profile: str = "matched-agentic",
+    skill_text: str = "",
 ) -> list[dict[str, Any]]:
     if prompt_profile == "matched-agentic":
-        return build_math_messages(str(row.get("question", "")))
-    if prompt_profile == "repo-react-v1":
-        return [
+        messages = build_math_messages(str(row.get("question", "")))
+    elif prompt_profile == "repo-react-v1":
+        messages = [
             {"role": "system", "content": REPO_REACT_V1_MATH_SYSTEM},
             {
                 "role": "user",
@@ -434,12 +549,14 @@ def math_react_messages(
                 ),
             },
         ]
-    if prompt_profile == "trace2skill-upstream":
-        return [
+    elif prompt_profile == "trace2skill-upstream":
+        messages = [
             {"role": "system", "content": TRACE2SKILL_UPSTREAM_MATH_SYSTEM},
             {"role": "user", "content": f"Task: {row.get('question', '')}"},
         ]
-    raise ValueError(f"unknown Math ReAct prompt profile: {prompt_profile}")
+    else:
+        raise ValueError(f"unknown Math ReAct prompt profile: {prompt_profile}")
+    return append_skill_to_system_message(messages, skill_text)
 
 
 def resolve_docvqa_image(row: dict[str, Any], docvqa_root: Path) -> Path:
@@ -449,9 +566,13 @@ def resolve_docvqa_image(row: dict[str, Any], docvqa_root: Path) -> Path:
     return image_path
 
 
-def docvqa_react_messages(row: dict[str, Any], docvqa_root: Path) -> list[dict[str, Any]]:
+def docvqa_react_messages(
+    row: dict[str, Any], docvqa_root: Path, skill_text: str = ""
+) -> list[dict[str, Any]]:
     del docvqa_root
-    return build_docvqa_messages(str(row.get("question", "")))
+    return append_skill_to_system_message(
+        build_docvqa_messages(str(row.get("question", ""))), skill_text
+    )
 
 
 def response_text(response_json: dict[str, Any]) -> str:
@@ -623,7 +744,11 @@ async def run_math_react(
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], str | None]:
     react_prompt = getattr(args, "math_react_prompt", "matched-agentic")
-    messages = math_react_messages(row, react_prompt)
+    messages = math_react_messages(
+        row,
+        react_prompt,
+        getattr(args, "math_skill_text", ""),
+    )
     steps: list[dict[str, Any]] = []
     total_usage: dict[str, Any] | None = None
     used_bash = False
@@ -763,7 +888,11 @@ async def run_docvqa_react(
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], str | None]:
     image_path = resolve_docvqa_image(row, docvqa_root)
-    messages = docvqa_react_messages(row, docvqa_root)
+    messages = docvqa_react_messages(
+        row,
+        docvqa_root,
+        getattr(args, "docvqa_skill_text", ""),
+    )
     steps: list[dict[str, Any]] = []
     total_usage: dict[str, Any] | None = None
     used_tool = False
@@ -1021,7 +1150,11 @@ async def request_one(
         extra = {
             "target": target,
             "mode": "paper_react_cli",
-            "prompt_messages": math_react_messages(row, args.math_react_prompt),
+            "prompt_messages": math_react_messages(
+                row,
+                args.math_react_prompt,
+                args.math_skill_text,
+            ),
             "react_error": react_error,
             "react_steps": react_steps or [],
             "score_method": f"math_paper_react_cli_{score_method}" if not error else score_method,
@@ -1206,6 +1339,10 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
                     args=args,
             )
             async with write_lock:
+                if args.trace_log_dir is not None:
+                    rec["trace_log"] = str(
+                        write_trace_markdown(args.trace_log_dir, dataset, row, rec)
+                    )
                 write_jsonl_record(out_path, rec)
                 completed += 1
                 if rec.get("error"):
@@ -1267,6 +1404,13 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             max_tokens=args.math_max_tokens,
             limit=min(args.math_limit, 100) if args.math_limit > 0 else 100,
         ),
+        "dapo_evolve": DatasetSpec(
+            name="dapo_evolve",
+            kind="math",
+            path=args.math_root / "dapo_evolve.jsonl",
+            enable_thinking=False,
+            max_tokens=args.math_max_tokens,
+        ),
         "aime2026": DatasetSpec(
             name="aime2026",
             kind="math",
@@ -1285,11 +1429,21 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             max_tokens=args.docvqa_max_tokens,
             limit=args.docvqa_limit if args.docvqa_limit > 0 else None,
         ),
+        "docvqa_evolve": DatasetSpec(
+            name="docvqa_evolve",
+            kind="docvqa",
+            path=args.docvqa_evolve_data
+            if args.docvqa_evolve_data is not None
+            else args.docvqa_root / "data/trace2skill/docvqa/evolve.jsonl",
+            enable_thinking=False,
+            max_tokens=args.docvqa_max_tokens,
+        ),
     }
     unknown = wanted - set(all_specs)
     if unknown:
         raise ValueError(f"Unknown datasets: {sorted(unknown)}")
-    return [all_specs[name] for name in ("dapo100", "aime2026", "docvqa") if name in wanted]
+    order = ("dapo100", "dapo_evolve", "aime2026", "docvqa", "docvqa_evolve")
+    return [all_specs[name] for name in order if name in wanted]
 
 
 async def main_async(args: argparse.Namespace) -> None:
@@ -1301,6 +1455,16 @@ async def main_async(args: argparse.Namespace) -> None:
     )
     args.math_tool_cwd.mkdir(parents=True, exist_ok=True)
     specs = build_datasets(args)
+    args.math_skill_text = (
+        args.math_skill_file.read_text(encoding="utf-8")
+        if args.math_skill_file is not None
+        else ""
+    )
+    args.docvqa_skill_text = (
+        args.docvqa_skill_file.read_text(encoding="utf-8")
+        if args.docvqa_skill_file is not None
+        else ""
+    )
     args.docvqa_tokenizer = None
     if any(spec.kind == "docvqa" for spec in specs) and args.tokenizer_path is not None:
         from transformers import AutoTokenizer
@@ -1314,6 +1478,9 @@ async def main_async(args: argparse.Namespace) -> None:
         "base_url": args.base_url,
         "base_urls": args.base_urls,
         "tokenizer_path": str(args.tokenizer_path) if args.tokenizer_path else None,
+        "math_skill_file": str(args.math_skill_file) if args.math_skill_file else None,
+        "docvqa_skill_file": str(args.docvqa_skill_file) if args.docvqa_skill_file else None,
+        "trace_log_dir": str(args.trace_log_dir) if args.trace_log_dir else None,
         "datasets": [spec.name for spec in specs],
         "samples": args.samples,
         "limits": {spec.name: spec.limit for spec in specs if spec.limit is not None},
@@ -1339,7 +1506,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--math-root", type=Path, default=DEFAULT_MATH_ROOT)
     parser.add_argument("--docvqa-root", type=Path, default=DEFAULT_DOCVQA_ROOT)
     parser.add_argument("--docvqa-data", type=Path)
+    parser.add_argument("--docvqa-evolve-data", type=Path)
+    parser.add_argument("--math-skill-file", type=Path)
+    parser.add_argument("--docvqa-skill-file", type=Path)
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--trace-log-dir", type=Path)
     parser.add_argument("--datasets", default="dapo100,aime2026,docvqa")
     parser.add_argument("--samples", type=int, default=16)
     parser.add_argument("--concurrency", type=int, default=64)

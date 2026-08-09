@@ -21,6 +21,7 @@ failed trajectory from each exact final task occurrence. For DocVQA it selects
 one successful and one failed trajectory per task occurrence. It then performs
 task-level Trace2Skill aggregation and writes one `skill_step_001.md`.
 `skill-eval` replays the same ES history and changes only the injected skill.
+All paper Trace2Skill analysis and skill-evolution calls use `gpt-5.4-nano`.
 
 The launcher uses the in-process four-GPU vLLM runner for both tasks. This keeps
 the raw and skill evaluations on the same model checkpoint, seed family,

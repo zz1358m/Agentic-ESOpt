@@ -64,7 +64,7 @@ python3.10 -m venv .venv-es
 source .venv-es/bin/activate
 python -m pip install --upgrade pip
 python -m pip install transformers==4.57.6 vllm==0.19.1 \
-  accelerate datasets pillow pandas pyarrow math-verify
+  accelerate datasets pillow pandas pyarrow math-verify openai tiktoken
 python -m pip install -e 'ahd-test-time/methods/eoh/original/eoh[all]'
 
 # GRPO 环境（另建并激活一个 Python 3.11 环境）
@@ -135,7 +135,8 @@ scripts/es_skill_workflow.sh math skill-eval
 task occurrence 最多保留一条 `FAILED`，所有成功轨迹均排除。DocVQA 对每个选中
 的最终 task occurrence 最多各保留一条 `FAILED` 和一条 `SUCCEED`。若某类轨迹
 不存在，会记录到 selection manifest；`skill-eval` 会重放同一份
-Agentic-ESOpt history 后评测蒸馏得到的 skill。
+Agentic-ESOpt history 后评测蒸馏得到的 skill。本文所有 Trace2Skill 分析和
+skill evolution 都使用 `gpt-5.4-nano`。
 
 在 `scripts/settings.local.env` 中设置 `MODEL_PATH`、`TRAIN_RUN_ID`、数据路径和
 GPU 参数。完整变量见
@@ -190,6 +191,10 @@ WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
 TRACE2SKILL_RUN_ID=webarena_trace2skill \
 scripts/webarena/run.sh trace2skill_noft distill
 ```
+
+WebArena 蒸馏使用所有已完成 ES generation 中的全部 trajectory，不只取最后
+若干代，也不设置 trajectory 数量上限；分析和 skill evolution 同样使用
+`gpt-5.4-nano`。
 
 同一入口可评测 NoSkill/Trace2Skill × NoFT/Agentic-ESOpt 四种设置。完整命令、
 默认超参数、外部代码和服务配置见 [`data/README.md`](data/README.md) 与

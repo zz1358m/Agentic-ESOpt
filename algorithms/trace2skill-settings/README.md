@@ -80,6 +80,9 @@ TRACE_LOGS=/path/to/logs RUN_ID=math_t2s scripts/math/run_trace2skill.sh
 TRACE_LOGS=/path/to/logs RUN_ID=docvqa_t2s scripts/docvqa/run_trace2skill.sh
 ```
 
+The maintained paper default for analysis and skill evolution is
+`gpt-5.4-nano`.
+
 The maintained composition workflow evolves the skill and evaluates it on the
 same replayed Agentic-ESOpt checkpoint:
 

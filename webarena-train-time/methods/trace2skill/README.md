@@ -13,11 +13,12 @@ TRACE2SKILL_RUN_ID=<skill-run> \
 scripts/webarena/run.sh trace2skill_noft distill
 ```
 
-This reads completed `gen_*_sample_*/task_*` trajectories, preserves their
-success/failure labels, runs Trace2Skill error and success analysis, and writes
-the resulting skill to `runs/trace2skill_webarena_sft/<skill-run>/skill/SKILL.md`.
-The exact source trajectory list and distillation parameters are recorded in
-that run's `manifest.json` and `source_traces.json`.
+This reads every available `gen_*_sample_*/task_*` trajectory from every
+completed ES generation, preserves the success/failure labels, and runs
+Trace2Skill error and success analysis with `gpt-5.4-nano`. The resulting skill
+is written to `runs/trace2skill_webarena_sft/<skill-run>/skill/SKILL.md`. The
+exact source trajectory list and distillation parameters are recorded in that
+run's `manifest.json` and `source_traces.json`.
 
 `run_trace2skill_webarena_sft.py` additionally supports standalone iterative
 rollout-and-distill training. The committed WebArena success/error prompts

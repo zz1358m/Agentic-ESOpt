@@ -53,7 +53,15 @@ def _bwrap_executable(explicit: str | Path | None = None) -> str:
 
 
 def _existing_runtime_roots(extra: tuple[Path, ...]) -> list[Path]:
-    roots = [Path("/usr"), Path("/bin"), Path("/lib"), Path("/lib64"), Path("/usr/local")]
+    roots = [
+        Path("/usr"),
+        Path("/bin"),
+        Path("/lib"),
+        Path("/lib64"),
+        Path("/usr/local"),
+        # Ubuntu exposes /usr/bin/which through this alternatives symlink.
+        Path("/etc/alternatives"),
+    ]
     roots.extend(_runtime_prefixes())
     roots.extend(extra)
     result: list[Path] = []
@@ -91,6 +99,7 @@ def run_sandboxed_bash(
     image_path: str | Path | None = None,
     timeout: float = 20.0,
     max_output_chars: int = 6000,
+    memory_limit_gib: float | None = 8.0,
     runtime_roots: tuple[str | Path, ...] = (),
     bwrap_path: str | Path | None = None,
 ) -> SandboxResult:
@@ -107,6 +116,11 @@ def run_sandboxed_bash(
     path_parts.extend(str(prefix / "bin") for prefix in runtime_prefixes if prefix.exists())
     path_parts.extend(["/usr/local/bin", "/usr/bin", "/bin"])
     sandbox_path = ":".join(dict.fromkeys(path_parts))
+    if memory_limit_gib is not None:
+        if memory_limit_gib <= 0:
+            raise ValueError("memory_limit_gib must be positive or None")
+        memory_limit_kib = max(1024, int(memory_limit_gib * 1024 * 1024))
+        command = f"ulimit -v {memory_limit_kib}; {command}"
     args = [bwrap, "--unshare-all", "--new-session", "--die-with-parent", "--clearenv"]
     made_dirs: set[str] = set()
     for root in roots:
@@ -151,6 +165,18 @@ def run_sandboxed_bash(
             "/tmp",
             "--setenv",
             "PIP_NO_INDEX",
+            "1",
+            "--setenv",
+            "OPENBLAS_NUM_THREADS",
+            "1",
+            "--setenv",
+            "OMP_NUM_THREADS",
+            "1",
+            "--setenv",
+            "MKL_NUM_THREADS",
+            "1",
+            "--setenv",
+            "NUMEXPR_NUM_THREADS",
             "1",
             "--setenv",
             "PATH",

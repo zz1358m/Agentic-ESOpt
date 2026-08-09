@@ -185,10 +185,20 @@ def main() -> None:
         action="store_true",
         help="Start from the empty WebArena skill instead of the bundled seed skill.",
     )
-    parser.add_argument("--generations", type=int, default=20)
-    parser.add_argument("--max-traces", type=int, default=256)
+    parser.add_argument(
+        "--generations",
+        type=int,
+        default=0,
+        help="Number of most recent completed ES generations to use; 0 uses all completed generations.",
+    )
+    parser.add_argument(
+        "--max-traces",
+        type=int,
+        default=0,
+        help="Maximum number of trajectories after generation selection; 0 keeps every trajectory.",
+    )
     parser.add_argument("--html-limit", type=int, default=12000)
-    parser.add_argument("--optimizer-model", default="gpt-4.1-mini")
+    parser.add_argument("--optimizer-model", default="gpt-5.4-nano")
     parser.add_argument("--analysis-workers", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20260617)
     parser.add_argument(
@@ -216,6 +226,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.empty_skill and args.initial_skill:
         raise ValueError("Use either --empty-skill or --initial-skill, not both.")
+    if args.generations < 0:
+        raise ValueError("--generations must be non-negative; use 0 for all generations.")
+    if args.max_traces < 0:
+        raise ValueError("--max-traces must be non-negative; use 0 for all trajectories.")
 
     es_run_dir = Path(args.es_run_dir)
     if not es_run_dir.exists():
@@ -256,7 +270,9 @@ def main() -> None:
             "initial_skill": args.initial_skill,
             "empty_skill": args.empty_skill,
             "generations": args.generations,
+            "generation_selection": "all_completed" if args.generations == 0 else "most_recent",
             "max_traces": args.max_traces,
+            "trace_selection": "all" if args.max_traces == 0 else "capped",
             "html_limit": args.html_limit,
             "trace_count": len(records),
             "optimizer_model": args.optimizer_model,

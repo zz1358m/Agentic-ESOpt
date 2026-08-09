@@ -100,7 +100,7 @@ RUN_ID=webarena_noskill_es \
 scripts/webarena/run.sh noskill_agentic_esopt train
 ```
 
-Distill a skill from the last 10 completed generations of those trajectories:
+Distill a skill from every trajectory in all completed ES generations:
 
 ```bash
 WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
@@ -133,11 +133,12 @@ Agentic-ESOpt uses 70 generations, population 8, case batch 8, alpha
 represented uniformly as a cosine schedule from `1.5e-3` to `1.5e-3` with no
 warmup, so it is numerically constant.
 
-Trajectory distillation uses the last 10 generations with no trace cap,
-12,000-character HTML truncation, `gpt-5.4-mini`, 16 analysis workers, medium
-reasoning effort for analysis/evolution/consolidation, an empty initial skill,
-the committed WebArena success/error prompts, and no skill line/token/reference
-cap.
+Trajectory distillation uses all completed ES generations and every available
+trajectory, with 12,000-character HTML truncation, `gpt-5.4-nano`, 16 analysis
+workers, medium reasoning effort for analysis/evolution/consolidation, an empty
+initial skill, the committed WebArena success/error prompts, and no skill
+line/token/reference cap. In the CLI, both `--generations 0` and
+`--max-traces 0` mean unlimited.
 
 Final evaluation uses three runs over all 165 held-out tasks with temperature
 `0.7`, top-p `0.8`, top-k `20`, min-p `0.0`, presence penalty `1.5`, repetition

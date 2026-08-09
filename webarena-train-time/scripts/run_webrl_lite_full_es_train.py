@@ -243,6 +243,7 @@ def run_episode(
                 "DATASET": "webarena",
                 **WEB_URLS,
                 "OPENAI_API_KEY": api_key_path.read_text().strip() if api_key_path.exists() else "dummy",
+                # This is the VAB benchmark grader, not a Trace2Skill analysis/evolution model.
                 "WEBRL_EVAL_MODEL": os.environ.get("WEBRL_EVAL_MODEL", "gpt-4.1-mini"),
                 "PYTHONPATH": str(VAB),
             }

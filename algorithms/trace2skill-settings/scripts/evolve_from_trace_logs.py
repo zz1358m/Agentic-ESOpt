@@ -51,7 +51,10 @@ def main() -> None:
         help="Optional SKILL.md file or skill directory to evolve instead of the setting default.",
     )
     parser.add_argument("--trace2skill-root", default=os.environ.get("TRACE2SKILL_ROOT", str(DEFAULT_TRACE_SRC)))
-    parser.add_argument("--optimizer-model", default=os.environ.get("TRACE2SKILL_OPTIMIZER_MODEL", "gpt-4.1-mini"))
+    parser.add_argument(
+        "--optimizer-model",
+        default=os.environ.get("TRACE2SKILL_OPTIMIZER_MODEL", "gpt-5.4-nano"),
+    )
     parser.add_argument("--analysis-model", default=os.environ.get("TRACE2SKILL_ANALYSIS_MODEL", ""))
     parser.add_argument("--evolution-model", default=os.environ.get("TRACE2SKILL_EVOLUTION_MODEL", ""))
     parser.add_argument("--workers", type=int, default=int(os.environ.get("TRACE2SKILL_WORKERS", "8")))

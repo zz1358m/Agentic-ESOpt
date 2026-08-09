@@ -771,7 +771,7 @@ def main() -> None:
             "http://127.0.0.1:11016/completions"
         ),
     )
-    parser.add_argument("--optimizer-model", default="gpt-4.1-mini")
+    parser.add_argument("--optimizer-model", default="gpt-5.4-nano")
     parser.add_argument("--target-model-name", default="Qwen3-14B")
     parser.add_argument("--instruction-path", default="agent/prompts/jsons/p_webrl_chat.json")
     parser.add_argument("--mode", default="chat")

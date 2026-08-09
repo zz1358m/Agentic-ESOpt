@@ -69,7 +69,7 @@ python3.10 -m venv .venv-es
 source .venv-es/bin/activate
 python -m pip install --upgrade pip
 python -m pip install transformers==4.57.6 vllm==0.19.1 \
-  accelerate datasets pillow pandas pyarrow math-verify
+  accelerate datasets pillow pandas pyarrow math-verify openai tiktoken
 python -m pip install -e 'ahd-test-time/methods/eoh/original/eoh[all]'
 
 # GRPO environment (create and activate a separate Python 3.11 environment)
@@ -144,7 +144,8 @@ trajectories: from each selected final task occurrence it keeps at most one
 `FAILED` trace and excludes every successful trace. DocVQA keeps at most one
 `FAILED` and one `SUCCEED` trace from each selected final task occurrence. The
 selection manifest records any unavailable outcome, and `skill-eval` evaluates
-the resulting skill after replaying the same Agentic-ESOpt history.
+the resulting skill after replaying the same Agentic-ESOpt history. All paper
+Trace2Skill analysis and skill-evolution calls use `gpt-5.4-nano`.
 
 Set `MODEL_PATH`, `TRAIN_RUN_ID`, dataset paths, and GPU settings in
 `scripts/settings.local.env`. Detailed variables are listed in
@@ -200,6 +201,10 @@ WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
 TRACE2SKILL_RUN_ID=webarena_trace2skill \
 scripts/webarena/run.sh trace2skill_noft distill
 ```
+
+WebArena distillation consumes every trajectory from every completed ES
+generation; it does not select only the final generations or impose a trace
+cap. Its analysis and skill evolution also use `gpt-5.4-nano`.
 
 The same entry point evaluates all four NoSkill/Trace2Skill ×
 NoFT/Agentic-ESOpt settings. Exact commands, defaults, external checkouts, and

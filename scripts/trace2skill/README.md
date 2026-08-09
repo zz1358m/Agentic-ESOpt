@@ -39,6 +39,21 @@ Set `DOCVQA_ROOT` to the directory containing
 `runs/trace2skill_vllm/`; `TRACE2SKILL_VLLM_OUT` or `--out-dir` overrides that
 location.
 
+Additional trajectory and fixed-skill helpers:
+
+| Script | Purpose |
+| --- | --- |
+| `eval16_react_4gpu_vllm.sh` | Starts four local vLLM replicas, then runs the shared Math/DocVQA ReAct evaluator with optional skill files. |
+| `collect_noskill_trajectories_4gpu_vllm.sh` | Collects 16 no-skill trajectories for every configured Math and DocVQA evolution item and writes Trace2Skill Markdown logs. |
+| `queue_noskill_trajectory_collection.sh` | Waits for an existing evaluator and its ports, then starts the no-skill collection run. |
+| `queue_distilled_skill_eval4.sh` | Optionally waits for distillation processes, audits the two skill files, and launches the fixed four-sample skill evaluation. |
+| `run_docvqa_fixed_then_resume_trajectory.sh` | Runs the fixed DocVQA evaluation before resuming an explicitly named trajectory collection run. |
+| `consolidate_math_task_units.py` | Consolidates one evidence patch per Math task into a compact skill with `gpt-5.4-nano`. |
+
+Set `MODEL_PATH` before using the four-GPU vLLM launcher. Machine-specific
+paths, process IDs, and validators are supplied through environment variables;
+none are embedded in the maintained scripts.
+
 For the fixed Math before/after comparison, use
 `scripts/math/run_four_gpu_eval.py`. It starts four SGLang TP=1 replicas on
 physical GPUs 3–6 and refuses incomplete, duplicate-key, or request-error

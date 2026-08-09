@@ -89,6 +89,33 @@ class DocVQASandboxTests(unittest.TestCase):
         self.assertLessEqual(len(result.text), 100)
         self.assertIn("...[truncated]...", result.text)
 
+    def test_limits_virtual_memory_to_eight_gibibytes_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "document.png"
+            image.write_bytes(b"not-an-image")
+
+            result = run_sandboxed_bash(
+                "ulimit -v",
+                image_path=image,
+            )
+
+        self.assertEqual(result.returncode, 0, result.text)
+        self.assertEqual(result.text.splitlines()[0], "8388608")
+
+    def test_limits_native_math_libraries_to_one_thread(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "document.png"
+            image.write_bytes(b"not-an-image")
+
+            result = run_sandboxed_bash(
+                "printf '%s %s %s %s' \"$OPENBLAS_NUM_THREADS\" \"$OMP_NUM_THREADS\" "
+                "\"$MKL_NUM_THREADS\" \"$NUMEXPR_NUM_THREADS\"",
+                image_path=image,
+            )
+
+        self.assertEqual(result.returncode, 0, result.text)
+        self.assertEqual(result.text.splitlines()[0], "1 1 1 1")
+
     def test_pip_is_unavailable(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             image = Path(tmpdir) / "document.png"
@@ -101,6 +128,19 @@ class DocVQASandboxTests(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("pip ", result.text.lower())
+
+    def test_which_resolves_sandbox_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image = Path(tmpdir) / "document.png"
+            image.write_bytes(b"not-an-image")
+
+            result = run_sandboxed_bash(
+                "which python",
+                image_path=image,
+            )
+
+        self.assertEqual(result.returncode, 0, result.text)
+        self.assertIn(str(Path(sys.prefix).absolute()), result.text)
 
     def test_uses_running_python_prefix_when_conda_prefix_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

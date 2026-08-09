@@ -474,7 +474,7 @@ def main() -> None:
         ),
     )
     parser.add_argument("--init-empty-skill", action="store_true", help="Create an empty SKILL.md when --skill-file is missing.")
-    parser.add_argument("--trace2skill-optimizer-model", default="gpt-4.1-mini")
+    parser.add_argument("--trace2skill-optimizer-model", default="gpt-5.4-nano")
     parser.add_argument("--trace2skill-analysis-workers", type=int, default=16)
     parser.add_argument("--trace2skill-html-limit", type=int, default=12000)
     parser.add_argument(

@@ -82,7 +82,7 @@ samples、`repo-react-v1-50x4096`、50 turns、每次 assistant 请求 4096
 tokens、seed `20260629`、并发 8（失败降到 4）、context 262144。
 
 `scripts/math/run_trace2skill.sh` 默认 seed `20260627`、8 workers、
-`gpt-4.1-mini`、20 行 skill；与 Agentic-ESOpt 的组合统一使用
+`gpt-5.4-nano`、20 行 skill；与 Agentic-ESOpt 的组合统一使用
 `scripts/es_skill_workflow.sh math <distill-skill|skill-eval>`。
 
 ## DocVQA
@@ -125,7 +125,7 @@ GPU memory utilization 0.82。
 | Method | Effective launcher defaults |
 | --- | --- |
 | `noskill_agentic_esopt train` | 70 generations, population 8, case batch 8, 8 case workers/sample, cosine sigma `1.5e-3 → 1.5e-3`, zero warmup, alpha `2.5e-4`, full parameters, z-score, seed `20260605`, eval every 10 generations |
-| `trace2skill_noft distill` | source ES run's last 10 generations, unlimited traces, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-mini`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
+| `trace2skill_noft distill` | all completed generations and all trajectories from the source ES run, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-nano`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
 | `trace2skill_noft train` | 70 steps, 8 instances/step, 8 samples/instance, eval every 10 steps, 32 train/test workers, 16 analysis workers, the same optimizer and reasoning settings |
 | `trace2skill_agentic_esopt train` | 与 NoSkill Agentic-ESOpt 相同的 ES 参数，并向每个 rollout 注入指定的 `SKILL.md` |
 | all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn |

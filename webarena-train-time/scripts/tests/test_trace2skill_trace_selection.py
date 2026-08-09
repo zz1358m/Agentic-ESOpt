@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +12,14 @@ SPEC = importlib.util.spec_from_file_location("trace2skill_webarena_runner", RUN
 assert SPEC and SPEC.loader
 runner = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runner)
+
+ES_DISTILL_RUNNER = Path(__file__).resolve().parents[1] / "run_trace2skill_from_es_traces.py"
+ES_DISTILL_SPEC = importlib.util.spec_from_file_location(
+    "trace2skill_webarena_es_distill", ES_DISTILL_RUNNER
+)
+assert ES_DISTILL_SPEC and ES_DISTILL_SPEC.loader
+es_distill = importlib.util.module_from_spec(ES_DISTILL_SPEC)
+ES_DISTILL_SPEC.loader.exec_module(es_distill)
 
 
 def result(
@@ -71,6 +81,35 @@ class TraceSelectionTest(unittest.TestCase):
         self.assertEqual(report["excluded_rollouts"]["infrastructure"], 1)
         self.assertEqual(report["excluded_rollouts"]["turn_limit"], 1)
         self.assertEqual(report["excluded_rollouts"]["empty_trace"], 1)
+
+    def test_es_distillation_defaults_to_every_completed_trajectory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_dir = Path(tmpdir)
+            (run_dir / "history.json").write_text(
+                json.dumps([{"generation": 0}, {"generation": 1}]),
+                encoding="utf-8",
+            )
+            for generation, sample, tasks in (
+                (0, 0, (1, 2)),
+                (0, 1, (3,)),
+                (1, 0, (4, 5)),
+                (2, 0, (6,)),
+            ):
+                sample_dir = run_dir / f"gen_{generation:03d}_sample_{sample:03d}_positive"
+                for task in tasks:
+                    (sample_dir / f"task_{task}").mkdir(parents=True)
+
+            selected = es_distill.collect_task_dirs(
+                run_dir,
+                generations=0,
+                max_traces=0,
+            )
+
+        self.assertEqual(
+            {path.name for path in selected},
+            {"task_1", "task_2", "task_3", "task_4", "task_5"},
+        )
+        self.assertNotIn("task_6", {path.name for path in selected})
 
 
 if __name__ == "__main__":
