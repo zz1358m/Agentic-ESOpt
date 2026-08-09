@@ -216,27 +216,22 @@
       "sha256": "5b8aac9ecef68c98458c566729ae1c40a505caa861cdb1b412e27a535941e102"
     },
     {
-      "path": "eval/no_skill_baseline_eval4.json",
+      "path": "eval/qwen35_4b_agentic_esopt_noskill/eval4.json",
       "bytes": 26626508,
       "sha256": "3d4b82160e79a48056ee902be98841266f8ee53438236ad2ffeaf8cbe46207a3"
     },
     {
-      "path": "eval/selection_pass4_86.json",
-      "bytes": 1661,
-      "sha256": "2641dffb87c1573424a6c972b18f55ac23a35b19a07a469f0687c6d7bdd647c1"
-    },
-    {
-      "path": "eval/skill_eval_original.txt",
+      "path": "eval/qwen35_4b_agentic_esopt_trace2skill/eval_original.txt",
       "bytes": 41273,
       "sha256": "4790bda19cd337c76df61ce87ea2aa65707f8c9733bab2a15c3eb76d00c07148"
     },
     {
-      "path": "eval/skill_eval_resample.txt",
+      "path": "eval/qwen35_4b_agentic_esopt_trace2skill/eval_resample.txt",
       "bytes": 45268,
       "sha256": "7fd67d91e4c1566d0a26718ce17ceaf9063e2c2eaf8d8255b38e3923a9a5038e"
     },
     {
-      "path": "eval/trace2skill_selected_eval4.json",
+      "path": "eval/qwen35_4b_agentic_esopt_trace2skill/eval4.json",
       "bytes": 26466502,
       "sha256": "2f2489970203999631eb9f229ec1cb19fe1c4d4c5a028d65cf3d085436232abe"
     },

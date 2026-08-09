@@ -57,22 +57,22 @@
       "sha256": "b1980068411e8d45ba76c987153fdaf8685135e2f4c106d6369651933d0dc57e"
     },
     {
-      "path": "eval/raw/eval.txt",
+      "path": "eval/qwen35_4b_agentic_esopt_noskill/eval.txt",
       "bytes": 42963,
       "sha256": "d2c564a639dbdd0496eee44b75571cf4d595fdee4e960651b39a3248be3ee5d4"
     },
     {
-      "path": "eval/raw/results.json",
+      "path": "eval/qwen35_4b_agentic_esopt_noskill/results.json",
       "bytes": 5154409,
       "sha256": "9a16ed5a1c17bc3bbabb24ebeee010cb82571ef1ed81a0cc2454c25d0f31d7c4"
     },
     {
-      "path": "eval/skill/eval.txt",
+      "path": "eval/qwen35_4b_agentic_esopt_trace2skill/eval.txt",
       "bytes": 41883,
       "sha256": "4d69a1829635d21c85c02df18f1b4aa95f285847025a5410068fb5e3bd434749"
     },
     {
-      "path": "eval/skill/results.json",
+      "path": "eval/qwen35_4b_agentic_esopt_trace2skill/results.json",
       "bytes": 5170758,
       "sha256": "4064773df2498afb2bcf939b185f7ea844899850ccc6bfd755c4c009f037950a"
     },

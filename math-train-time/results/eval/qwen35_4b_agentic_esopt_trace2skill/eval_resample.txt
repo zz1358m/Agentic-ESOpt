@@ -1,0 +1,296 @@
+/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+ERROR 08-08 13:22:25 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+ERROR 08-08 13:22:25 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[setting] backend=vllm model_path=/mnt/hdd/zhi/meta-llama/Qwen3.5-4B-text model=Qwen3.5-4B-text num_engines=4 batch=16 rollout_token_budget=131072 max_total_tokens=0 gpu_fraction=1.0 population=16 train_samples=1 eval_samples=4 max_turns=50 max_model_len=131072 trim_context=False max_tokens=4096 vllm_default_max_tokens=4096 sampling=(temperature=1.0, top_p=1.0, top_k=40, min_p=0.0, presence_penalty=2.0, repetition_penalty=1.0) sigma_start=0.001 sigma_end=0.0005 sigma_schedule=cosine sigma_warmup_steps=0 alpha=0.0005 scope=full reward_normalization=zscore
+2026-08-08 13:22:40,276	INFO worker.py:2024 -- Started a local Ray instance.
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3121180)[0m WARNING 08-08 13:23:10 [arg_utils.py:1390] The global random seed is set to 20260627. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+[36m(MathVllmActor pid=3121180)[0m WARNING 08-08 13:23:10 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+[36m(MathVllmActor pid=3121180)[0m WARNING 08-08 13:23:10 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[36m(MathVllmActor pid=3121180)[0m WARNING 08-08 13:23:11 [system_utils.py:152] We must use the `spawn` multiprocessing start method. Overriding VLLM_WORKER_MULTIPROC_METHOD to 'spawn'. See https://docs.vllm.ai/en/latest/usage/troubleshooting.html#python-multiprocessing for more information. Reasons: In a Ray actor and can only be spawned; CUDA is initialized
+[36m(MathVllmActor pid=3121180)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3121180)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3121180)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3121180)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3121180)[0m ERROR 08-08 13:23:17 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3121180)[0m ERROR 08-08 13:23:17 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3121180)[0m ERROR 08-08 13:23:18 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3121180)[0m ERROR 08-08 13:23:18 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:00<00:00,  1.23it/s]
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.39it/s]
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.37it/s]
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) 
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (16) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   return fn(*contiguous_args, **contiguous_kwargs)
+[vllm_engine_ready] index=1/4
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Exception in thread Thread-1 (_report_usage_worker):
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) Traceback (most recent call last):
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     self.run()
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/usr/lib/python3.10/threading.py", line 953, in run
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     self._target(*self._args, **self._kwargs)
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 174, in _report_usage_worker
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     self._report_usage_once(model_architecture, usage_context, extra_kvs)
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 218, in _report_usage_once
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     info = cpuinfo.get_cpu_info()
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/cpuinfo/cpuinfo.py", line 2762, in get_cpu_info
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     output = json.loads(output, object_hook = _utf_to_str)
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/usr/lib/python3.10/json/__init__.py", line 359, in loads
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     return cls(**kw).decode(s)
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)     raise JSONDecodeError("Expecting value", s, err.value) from None
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122001)[0m WARNING 08-08 13:23:41 [arg_utils.py:1390] The global random seed is set to 20260628. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+[36m(MathVllmActor pid=3122001)[0m WARNING 08-08 13:23:41 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+[36m(MathVllmActor pid=3122001)[0m WARNING 08-08 13:23:41 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[36m(MathVllmActor pid=3122001)[0m WARNING 08-08 13:23:42 [system_utils.py:152] We must use the `spawn` multiprocessing start method. Overriding VLLM_WORKER_MULTIPROC_METHOD to 'spawn'. See https://docs.vllm.ai/en/latest/usage/troubleshooting.html#python-multiprocessing for more information. Reasons: In a Ray actor and can only be spawned; CUDA is initialized
+[36m(MathVllmActor pid=3122001)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3122001)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122001)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3122001)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122001)[0m ERROR 08-08 13:23:48 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122001)[0m ERROR 08-08 13:23:48 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122001)[0m ERROR 08-08 13:23:48 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122001)[0m ERROR 08-08 13:23:48 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:00<00:00,  1.05it/s]
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.21it/s]
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.18it/s]
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) 
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (16) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   return fn(*contiguous_args, **contiguous_kwargs)
+[vllm_engine_ready] index=2/4
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Exception in thread Thread-1 (_report_usage_worker):
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) Traceback (most recent call last):
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     self.run()
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/usr/lib/python3.10/threading.py", line 953, in run
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     self._target(*self._args, **self._kwargs)
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 174, in _report_usage_worker
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     self._report_usage_once(model_architecture, usage_context, extra_kvs)
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 218, in _report_usage_once
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     info = cpuinfo.get_cpu_info()
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/cpuinfo/cpuinfo.py", line 2762, in get_cpu_info
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     output = json.loads(output, object_hook = _utf_to_str)
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/usr/lib/python3.10/json/__init__.py", line 359, in loads
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     return cls(**kw).decode(s)
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)     raise JSONDecodeError("Expecting value", s, err.value) from None
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122809)[0m WARNING 08-08 13:24:13 [arg_utils.py:1390] The global random seed is set to 20260629. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+[36m(MathVllmActor pid=3122809)[0m WARNING 08-08 13:24:13 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+[36m(MathVllmActor pid=3122809)[0m WARNING 08-08 13:24:13 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[36m(MathVllmActor pid=3122809)[0m WARNING 08-08 13:24:13 [system_utils.py:152] We must use the `spawn` multiprocessing start method. Overriding VLLM_WORKER_MULTIPROC_METHOD to 'spawn'. See https://docs.vllm.ai/en/latest/usage/troubleshooting.html#python-multiprocessing for more information. Reasons: In a Ray actor and can only be spawned; CUDA is initialized
+[36m(MathVllmActor pid=3122809)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3122809)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122809)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3122809)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122809)[0m ERROR 08-08 13:24:19 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122809)[0m ERROR 08-08 13:24:19 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122809)[0m ERROR 08-08 13:24:20 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122809)[0m ERROR 08-08 13:24:20 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:00<00:00,  1.02it/s]
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.11it/s]
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.09it/s]
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) 
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (16) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   return fn(*contiguous_args, **contiguous_kwargs)
+[vllm_engine_ready] index=3/4
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Exception in thread Thread-1 (_report_usage_worker):
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) Traceback (most recent call last):
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     self.run()
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/usr/lib/python3.10/threading.py", line 953, in run
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     self._target(*self._args, **self._kwargs)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 174, in _report_usage_worker
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     self._report_usage_once(model_architecture, usage_context, extra_kvs)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 218, in _report_usage_once
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     info = cpuinfo.get_cpu_info()
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/cpuinfo/cpuinfo.py", line 2762, in get_cpu_info
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     output = json.loads(output, object_hook = _utf_to_str)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/usr/lib/python3.10/json/__init__.py", line 359, in loads
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     return cls(**kw).decode(s)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)     raise JSONDecodeError("Expecting value", s, err.value) from None
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+[33m(raylet)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[33m(raylet)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3123597)[0m WARNING 08-08 13:24:44 [arg_utils.py:1390] The global random seed is set to 20260630. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+[36m(MathVllmActor pid=3123597)[0m WARNING 08-08 13:24:44 [vllm.py:848] Enforce eager set, disabling torch.compile and CUDAGraphs. This is equivalent to setting -cc.mode=none -cc.cudagraph_mode=none
+[36m(MathVllmActor pid=3123597)[0m WARNING 08-08 13:24:44 [vllm.py:859] Inductor compilation was disabled by user settings, optimizations settings that are only active during inductor compilation will be ignored.
+[36m(MathVllmActor pid=3123597)[0m WARNING 08-08 13:24:45 [system_utils.py:152] We must use the `spawn` multiprocessing start method. Overriding VLLM_WORKER_MULTIPROC_METHOD to 'spawn'. See https://docs.vllm.ai/en/latest/usage/troubleshooting.html#python-multiprocessing for more information. Reasons: In a Ray actor and can only be spawned; CUDA is initialized
+[36m(MathVllmActor pid=3123597)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3123597)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3123597)[0m /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+[36m(MathVllmActor pid=3123597)[0m   import pynvml  # type: ignore[import]
+[36m(MathVllmActor pid=3123597)[0m ERROR 08-08 13:24:51 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3123597)[0m ERROR 08-08 13:24:51 [config.py:29] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3123597)[0m ERROR 08-08 13:24:52 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3123597)[0m ERROR 08-08 13:24:52 [gpt_oss_triton_kernels_moe.py:64] Failed to import Triton kernels. Please make sure your triton version is compatible. Error: module 'triton.language' has no attribute 'constexpr_function'
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Loading safetensors checkpoint shards:   0% Completed | 0/2 [00:00<?, ?it/s]
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Loading safetensors checkpoint shards:  50% Completed | 1/2 [00:00<00:00,  1.08it/s]
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.22it/s]
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Loading safetensors checkpoint shards: 100% Completed | 2/2 [00:01<00:00,  1.20it/s]
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) 
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (16) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   return fn(*contiguous_args, **contiguous_kwargs)
+[vllm_engine_ready] index=4/4
+[vllm_es_init] engines=4 result0={'ok': True, 'parameter_scope': 'full', 'n_tensors': 330, 'total_params': 4205751296}
+[resume_replay] generation=0 sigma=0.001 reward_mean=0.5195
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Exception in thread Thread-1 (_report_usage_worker):
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) Traceback (most recent call last):
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/usr/lib/python3.10/threading.py", line 1016, in _bootstrap_inner
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     self.run()
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/usr/lib/python3.10/threading.py", line 953, in run
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     self._target(*self._args, **self._kwargs)
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 174, in _report_usage_worker
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     self._report_usage_once(model_architecture, usage_context, extra_kvs)
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/usage/usage_lib.py", line 218, in _report_usage_once
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     info = cpuinfo.get_cpu_info()
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/cpuinfo/cpuinfo.py", line 2762, in get_cpu_info
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     output = json.loads(output, object_hook = _utf_to_str)
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/usr/lib/python3.10/json/__init__.py", line 359, in loads
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     return cls(**kw).decode(s)
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)   File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175)     raise JSONDecodeError("Expecting value", s, err.value) from None
+[36m(MathVllmActor pid=3123597)[0m (Worker pid=3124175) json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+[resume_replay] generation=1 sigma=0.0009978612153434525 reward_mean=0.4492
+[resume_replay] generation=2 sigma=0.0009914814565722672 reward_mean=0.3945
+[resume_replay] generation=3 sigma=0.0009809698831278217 reward_mean=0.6602
+[resume_replay] generation=4 sigma=0.0009665063509461097 reward_mean=0.5703
+[resume_replay] generation=5 sigma=0.0009483383350728089 reward_mean=0.5977
+[resume_replay] generation=6 sigma=0.0009267766952966369 reward_mean=0.6680
+[resume_replay] generation=7 sigma=0.0009021903572521802 reward_mean=0.5703
+[resume_replay] generation=8 sigma=0.000875 reward_mean=0.6875
+[resume_replay] generation=9 sigma=0.0008456708580912725 reward_mean=0.5781
+[resume_replay] generation=10 sigma=0.0008147047612756302 reward_mean=0.6719
+[resume_replay] generation=11 sigma=0.0007826315480550129 reward_mean=0.6445
+[resume_replay] generation=12 sigma=0.00075 reward_mean=0.7344
+[resume_replay] generation=13 sigma=0.0007173684519449872 reward_mean=0.5156
+[resume_replay] generation=14 sigma=0.0006852952387243699 reward_mean=0.5820
+[resume_replay] generation=15 sigma=0.0006543291419087275 reward_mean=0.7578
+[resume_replay] generation=16 sigma=0.0006250000000000001 reward_mean=0.6797
+[resume_replay] generation=17 sigma=0.0005978096427478198 reward_mean=0.8086
+[resume_replay] generation=18 sigma=0.0005732233047033631 reward_mean=0.7109
+[resume_replay] generation=19 sigma=0.0005516616649271913 reward_mean=0.7461
+[resume_replay] generation=20 sigma=0.0005334936490538903 reward_mean=0.7188
+[resume_replay] generation=21 sigma=0.0005190301168721784 reward_mean=0.7461
+[resume_replay] generation=22 sigma=0.000508518543427733 reward_mean=0.7148
+[resume_replay] generation=23 sigma=0.0005021387846565474 reward_mean=0.6953
+[resume_replay] generation=24 sigma=0.0005 reward_mean=0.6406
+[resume_ready] history=/mnt/hdd/zhi/runs/math_es_vllm/math_es_qwen35_4b_25gen_trace2skill_dapo400_test100_aime30_turn50_tok4096_eval1_cosine_resume_gen0_20260805_1645/history.json replayed_generations=25 start_generation=25
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (19) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122001)[0m (Worker pid=3122582)   return fn(*contiguous_args, **contiguous_kwargs)
+[eval_batch] label=dapo_initial engine=0 chunk=1/7 rows=16 done=16/400 batch_mean=0.7500 mean=0.7500 max@4=0.7500 pass@4_count=12/100 elapsed_s=1543.1
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=3 chunk=1/7 rows=16 done=32/400 batch_mean=0.8125 mean=0.7812 max@4=0.8125 pass@4_count=13/100 elapsed_s=1913.8
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=2 chunk=1/7 rows=16 done=48/400 batch_mean=0.8125 mean=0.7917 max@4=0.8125 pass@4_count=13/100 elapsed_s=2631.2
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=1 chunk=1/7 rows=16 done=64/400 batch_mean=0.8125 mean=0.7969 max@4=0.8125 pass@4_count=13/100 elapsed_s=2755.5
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=0 chunk=2/7 rows=16 done=80/400 batch_mean=0.8750 mean=0.8125 max@4=0.8438 pass@4_count=27/100 elapsed_s=3035.9
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.8750
+[eval_batch] label=dapo_initial engine=1 chunk=2/7 rows=16 done=96/400 batch_mean=1.0000 mean=0.8438 max@4=0.9062 pass@4_count=29/100 elapsed_s=3780.9
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=1.0000
+[eval_batch] label=dapo_initial engine=3 chunk=2/7 rows=16 done=112/400 batch_mean=0.8125 mean=0.8393 max@4=0.9062 pass@4_count=29/100 elapsed_s=4264.7
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (27) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   return fn(*contiguous_args, **contiguous_kwargs)
+[eval_batch] label=dapo_initial engine=2 chunk=2/7 rows=16 done=128/400 batch_mean=0.8750 mean=0.8438 max@4=0.9062 pass@4_count=29/100 elapsed_s=4546.9
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.8750
+[eval_batch] label=dapo_initial engine=0 chunk=3/7 rows=16 done=144/400 batch_mean=0.7500 mean=0.8333 max@4=0.8542 pass@4_count=41/100 elapsed_s=4878.3
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=1 chunk=3/7 rows=16 done=160/400 batch_mean=0.7500 mean=0.8250 max@4=0.8750 pass@4_count=42/100 elapsed_s=5249.7
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=3 chunk=3/7 rows=16 done=176/400 batch_mean=0.8125 mean=0.8239 max@4=0.8750 pass@4_count=42/100 elapsed_s=5496.8
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=2 chunk=3/7 rows=16 done=192/400 batch_mean=0.8125 mean=0.8229 max@4=0.8750 pass@4_count=42/100 elapsed_s=5682.6
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=1 chunk=4/7 rows=16 done=208/400 batch_mean=0.7500 mean=0.8173 max@4=0.8438 pass@4_count=54/100 elapsed_s=6769.8
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=0 chunk=4/7 rows=16 done=224/400 batch_mean=0.8125 mean=0.8170 max@4=0.8750 pass@4_count=56/100 elapsed_s=7153.3
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.8125
+[eval_batch] label=dapo_initial engine=2 chunk=4/7 rows=16 done=240/400 batch_mean=0.7500 mean=0.8125 max@4=0.9062 pass@4_count=58/100 elapsed_s=7371.6
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=3 chunk=4/7 rows=16 done=256/400 batch_mean=0.7500 mean=0.8086 max@4=0.9062 pass@4_count=58/100 elapsed_s=7460.8
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=dapo_initial engine=1 chunk=5/7 rows=16 done=272/400 batch_mean=0.6875 mean=0.8015 max@4=0.8625 pass@4_count=69/100 elapsed_s=8611.5
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[eval_batch] label=dapo_initial engine=3 chunk=5/7 rows=16 done=288/400 batch_mean=0.6875 mean=0.7951 max@4=0.8750 pass@4_count=70/100 elapsed_s=8825.2
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[eval_batch] label=dapo_initial engine=2 chunk=5/7 rows=16 done=304/400 batch_mean=0.6875 mean=0.7895 max@4=0.8875 pass@4_count=71/100 elapsed_s=8838.1
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:1181: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (2) < num_heads (16). This may indicate the inputs were passed in head-first format [B, H, T, ...] Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   return fn(*args, **kwargs)
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (2) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3121180)[0m (Worker pid=3121788)   return fn(*contiguous_args, **contiguous_kwargs)
+[eval_batch] label=dapo_initial engine=0 chunk=5/7 rows=16 done=320/400 batch_mean=0.6875 mean=0.7844 max@4=0.8875 pass@4_count=71/100 elapsed_s=9184.6
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[eval_batch] label=dapo_initial engine=1 chunk=6/7 rows=16 done=336/400 batch_mean=0.6875 mean=0.7798 max@4=0.8542 pass@4_count=82/100 elapsed_s=10710.2
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[eval_batch] label=dapo_initial engine=3 chunk=6/7 rows=16 done=352/400 batch_mean=0.5625 mean=0.7699 max@4=0.8750 pass@4_count=84/100 elapsed_s=10729.7[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.5625
+
+[eval_batch] label=dapo_initial engine=3 chunk=7/7 rows=4 done=356/400 batch_mean=0.7500 mean=0.7697 max@4=0.8700 pass@4_count=87/100 elapsed_s=11169.2
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=4/4 rows=4 mean=0.7500
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (6) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   return fn(*contiguous_args, **contiguous_kwargs)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:1181: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (6) < num_heads (16). This may indicate the inputs were passed in head-first format [B, H, T, ...] Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   return fn(*args, **kwargs)
+[eval_batch] label=dapo_initial engine=2 chunk=6/7 rows=16 done=372/400 batch_mean=0.6875 mean=0.7661 max@4=0.8800 pass@4_count=88/100 elapsed_s=11371.5
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[eval_batch] label=dapo_initial engine=1 chunk=7/7 rows=4 done=376/400 batch_mean=0.5000 mean=0.7633 max@4=0.8800 pass@4_count=88/100 elapsed_s=11850.3
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=4/4 rows=4 mean=0.5000
+[eval_batch] label=dapo_initial engine=2 chunk=7/7 rows=4 done=380/400 batch_mean=0.7500 mean=0.7632 max@4=0.8800 pass@4_count=88/100 elapsed_s=11918.7
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=4/4 rows=4 mean=0.7500
+[eval_batch] label=dapo_initial engine=0 chunk=6/7 rows=16 done=396/400 batch_mean=0.5625 mean=0.7551 max@4=0.8800 pass@4_count=88/100 elapsed_s=12331.6
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.5625
+[eval_batch] label=dapo_initial engine=0 chunk=7/7 rows=4 done=400/400 batch_mean=0.7500 mean=0.7550 max@4=0.8800 pass@4_count=88/100 elapsed_s=13183.5
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=4/4 rows=4 mean=0.7500
+[eval_batch] label=aime_initial engine=3 chunk=1/2 rows=16 done=16/120 batch_mean=0.7500 mean=0.7500 max@4=0.7500 pass@4_count=12/30 elapsed_s=2059.3
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=16/16 rows=16 mean=0.6875[eval_batch] label=aime_initial engine=2 chunk=1/2 rows=16 done=32/120 batch_mean=0.6875 mean=0.7188 max@4=0.8125 pass@4_count=13/30 elapsed_s=2128.6
+
+[eval_batch] label=aime_initial engine=1 chunk=1/2 rows=16 done=48/120 batch_mean=0.7500 mean=0.7292 max@4=0.8125 pass@4_count=13/30 elapsed_s=2265.2
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=16/16 rows=16 mean=0.7500
+[eval_batch] label=aime_initial engine=0 chunk=1/2 rows=16 done=64/120 batch_mean=0.6875 mean=0.7188 max@4=0.8125 pass@4_count=13/30 elapsed_s=2323.7
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=16/16 rows=16 mean=0.6875
+[36m(MathVllmActor pid=3122809)[0m [rollout_microbatch] turn=10 requests=6 groups=2 token_budget=131072
+[36m(MathVllmActor pid=3121180)[0m [rollout_microbatch] turn=10 requests=5 groups=2 token_budget=131072
+[36m(MathVllmActor pid=3122001)[0m [rollout_microbatch] turn=10 requests=5 groups=2 token_budget=131072
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:1181: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (2) < num_heads (16). This may indicate the inputs were passed in head-first format [B, H, T, ...] Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   return fn(*args, **kwargs)
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370) /mnt/hdd/zhi/venvs/dynamic-agent/lib/python3.10/site-packages/vllm/model_executor/layers/fla/ops/utils.py:113: UserWarning: Input tensor shape suggests potential format mismatch: seq_len (2) < num_heads (32). This may indicate the inputs were passed in head-first format [B, H, T, ...] when head_first=False was specified. Please verify your input tensor format matches the expected shape [B, T, H, ...].
+[36m(MathVllmActor pid=3122809)[0m (Worker pid=3123370)   return fn(*contiguous_args, **contiguous_kwargs)
+[eval_batch] label=aime_initial engine=3 chunk=2/2 rows=14 done=78/120 batch_mean=0.7143 mean=0.7179 max@4=0.7667 pass@4_count=23/30 elapsed_s=4589.0
+[36m(MathVllmActor pid=3123597)[0m [engine_batch] done=14/14 rows=14 mean=0.7143
+[eval_batch] label=aime_initial engine=2 chunk=2/2 rows=14 done=92/120 batch_mean=0.7143 mean=0.7174 max@4=0.8667 pass@4_count=26/30 elapsed_s=4689.6
+[36m(MathVllmActor pid=3122809)[0m [engine_batch] done=14/14 rows=14 mean=0.7143
+[eval_batch] label=aime_initial engine=1 chunk=2/2 rows=14 done=106/120 batch_mean=0.7857 mean=0.7264 max@4=0.8667 pass@4_count=26/30 elapsed_s=5042.9
+[36m(MathVllmActor pid=3122001)[0m [engine_batch] done=14/14 rows=14 mean=0.7857
+[eval_batch] label=aime_initial engine=0 chunk=2/2 rows=14 done=120/120 batch_mean=0.5000 mean=0.7000 max@4=0.9000 pass@4_count=27/30 elapsed_s=5771.3
+[36m(MathVllmActor pid=3121180)[0m [engine_batch] done=14/14 rows=14 mean=0.5000
