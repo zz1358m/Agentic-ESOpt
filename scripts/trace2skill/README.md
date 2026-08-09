@@ -1,7 +1,7 @@
 # VERL and Trace2Skill launchers
 
 Math and DocVQA multi-turn GRPO share `run_verl_agentic_rl.sh`. The task-level
-wrappers select the task and use the bundled `verl/` runtime:
+wrappers select the task and use the bundled `algorithms/verl/` runtime:
 
 ```bash
 scripts/math/run_grpo.sh

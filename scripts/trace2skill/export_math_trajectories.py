@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from verl_trace2skill.trajectory import (  # noqa: E402
+from algorithms.verl_trace2skill.trajectory import (  # noqa: E402
     export_trajectory_records,
     load_raw_trajectory_records,
     normalize_evaluation_record,

@@ -13,7 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from es import SeedReplayModelES  # noqa: E402
+from algorithms.es import SeedReplayModelES  # noqa: E402
 
 
 def main() -> None:

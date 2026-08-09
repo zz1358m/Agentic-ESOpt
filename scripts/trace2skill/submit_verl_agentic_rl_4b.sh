@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
-VERL_ROOT="${VERL_ROOT:-${ROOT}/verl}"
+VERL_ROOT="${VERL_ROOT:-${ROOT}/algorithms/verl}"
 JOB="${JOB:-}"
 
 if [[ -z "${JOB}" || ! -f "${JOB}" ]]; then

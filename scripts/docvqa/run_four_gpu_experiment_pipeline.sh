@@ -15,7 +15,7 @@ export DOCVQA_GPU_UUIDS="${DOCVQA_GPU_UUIDS:-}"
 export PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${ROOT}/verl${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH="${ROOT}/algorithms/verl_trace2skill:${ROOT}:${ROOT}/algorithms/verl${PYTHONPATH:+:${PYTHONPATH}}"
 
 gpu_args=(--physical-devices "${DOCVQA_PHYSICAL_GPU_IDS}")
 if [[ -n "${DOCVQA_GPU_UUIDS}" ]]; then

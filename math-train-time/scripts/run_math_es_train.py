@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "math-train-time"))
 
 from envs.math_reasoning import MathReasoningEnv, MathRolloutJob, MathTask, post_json  # noqa: E402
-from es.run_state import (  # noqa: E402
+from algorithms.es.run_state import (  # noqa: E402
     atomic_write_history,
     completed_update_records,
     history_prefix_through_updates,

@@ -335,7 +335,11 @@ def main() -> None:
             env["TRITON_CACHE_DIR"] = str((logs_dir / "triton_cache" / f"gpu{gpu}").resolve())
             Path(env["TRITON_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
             root = Path(__file__).resolve().parents[2]
-            python_paths = [str(root / "verl_trace2skill"), str(root), str(root / "verl")]
+            python_paths = [
+                str(root / "algorithms" / "verl_trace2skill"),
+                str(root),
+                str(root / "algorithms" / "verl"),
+            ]
             if env.get("PYTHONPATH"):
                 python_paths.append(env["PYTHONPATH"])
             env["PYTHONPATH"] = os.pathsep.join(python_paths)

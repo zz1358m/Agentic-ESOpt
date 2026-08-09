@@ -14,7 +14,7 @@ if [[ -f "${ROOT}/scripts/settings.local.env" ]]; then
   source "${ROOT}/scripts/settings.local.env"
 fi
 
-VERL_ROOT="${VERL_ROOT:-${ROOT}/verl}"
+VERL_ROOT="${VERL_ROOT:-${ROOT}/algorithms/verl}"
 CONDA_ENV="${CONDA_ENV-grpo}"
 PY="${PY:-python}"
 TASK="${TASK:-math}"
@@ -39,7 +39,7 @@ case "${TASK}" in
     # service capacity without changing any trajectory turn/token limit.
     GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.50}"
     MAX_NUM_SEQS="${MAX_NUM_SEQS:-16}"
-    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/verl_trace2skill/math_bash_tool_config.yaml}"
+    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/algorithms/verl_trace2skill/math_bash_tool_config.yaml}"
     export TRACE2SKILL_PATCH_DENSE_QWEN3NEXT="${TRACE2SKILL_PATCH_DENSE_QWEN3NEXT:-1}"
     export TRACE2SKILL_REGISTER_TOOL_PARSER="${TRACE2SKILL_REGISTER_TOOL_PARSER:-1}"
     # A 512-token turn normally completes in well under this bound.  Retry
@@ -74,7 +74,7 @@ case "${TASK}" in
     LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
     REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU="${REF_LOG_PROB_MAX_TOKEN_LEN_PER_GPU:-40960}"
     MULTI_TURN_FORMAT="${MULTI_TURN_FORMAT:-paper_react_cli}"
-    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/verl_trace2skill/local_bash_tool_config.yaml}"
+    TOOL_CONFIG_PATH="${TOOL_CONFIG_PATH:-${ROOT}/algorithms/verl_trace2skill/local_bash_tool_config.yaml}"
     ;;
   *)
     echo "TASK must be math or docvqa, got ${TASK}" >&2
@@ -86,7 +86,7 @@ if [[ ! -f "${VERL_ROOT}/verl/trainer/main_ppo.py" ]]; then
   echo "VERL source not found at ${VERL_ROOT}. Clone the repository with its bundled verl/ directory or set VERL_ROOT." >&2
   exit 2
 fi
-if [[ ! -f "${ROOT}/verl_trace2skill/reward.py" ]]; then
+if [[ ! -f "${ROOT}/algorithms/verl_trace2skill/reward.py" ]]; then
   echo "verl_trace2skill integration not found under ${ROOT}." >&2
   exit 2
 fi
@@ -260,7 +260,7 @@ fi
 
 # Adding the package root imports verl_trace2skill; adding the package directory
 # itself exposes sitecustomize.py so every Ray worker registers the tool parser.
-export PYTHONPATH="${ROOT}/verl_trace2skill:${ROOT}:${VERL_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH="${ROOT}/algorithms/verl_trace2skill:${ROOT}:${VERL_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 if [[ "${TASK}" == "docvqa" ]]; then
   export TRACE2SKILL_PATCH_DENSE_QWEN3NEXT=1
 fi
@@ -289,7 +289,7 @@ cd "${VERL_ROOT}"
   data.return_multi_modal_inputs=False \
   data.trust_remote_code=True \
   +data.apply_chat_template_kwargs.enable_thinking=False \
-  custom_reward_function.path="${ROOT}/verl_trace2skill/reward.py" \
+  custom_reward_function.path="${ROOT}/algorithms/verl_trace2skill/reward.py" \
   custom_reward_function.name=compute_score \
   actor_rollout_ref.model.path="${MODEL_PATH}" \
   actor_rollout_ref.model.trust_remote_code=True \

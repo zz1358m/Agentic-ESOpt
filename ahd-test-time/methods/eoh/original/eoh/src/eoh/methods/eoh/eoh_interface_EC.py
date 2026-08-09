@@ -12,8 +12,8 @@ import random
 import threading
 from pathlib import Path
 
-from es import ModelESClient
-from es.run_state import (
+from algorithms.es import ModelESClient
+from algorithms.es.run_state import (
     atomic_write_history,
     normalize_sigma_schedule,
     read_history,

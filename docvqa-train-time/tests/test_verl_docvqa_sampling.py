@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RUNTIME_COMPAT = ROOT / "verl" / "verl" / "workers" / "rollout" / "sglang_rollout" / "runtime_compat.py"
+RUNTIME_COMPAT = ROOT / "algorithms" / "verl" / "verl" / "workers" / "rollout" / "sglang_rollout" / "runtime_compat.py"
 SPEC = importlib.util.spec_from_file_location("sglang_runtime_compat", RUNTIME_COMPAT)
 assert SPEC is not None and SPEC.loader is not None
 RUNTIME_MODULE = importlib.util.module_from_spec(SPEC)
@@ -45,7 +45,7 @@ class VerlDocVQASamplingTests(unittest.TestCase):
     def test_rollout_config_accepts_required_penalties(self) -> None:
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = ""
-        env["PYTHONPATH"] = str(ROOT / "verl")
+        env["PYTHONPATH"] = str(ROOT / "algorithms" / "verl")
         process = subprocess.run(
             [
                 sys.executable,

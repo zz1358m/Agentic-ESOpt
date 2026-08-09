@@ -17,23 +17,24 @@ curated experiment logs for five agentic settings.
 | WebArena | Agentic-ESOpt, Trace2Skill, and Trace2Skill + Agentic-ESOpt |
 | AHD | EoH, independent sampling, and their Agentic-ESOpt variants |
 
-The shared implementation is under [`es/`](es/). Every maintained
+The shared implementation is under [`algorithms/es/`](algorithms/es/). Every maintained
 Agentic-ESOpt runner records seeded perturbations, rewards, schedules, and
 updates in `history.json`, which can be replayed on a fresh model server.
 
 ## Repository map 📦
 
 ```text
-es/                         shared Agentic-ESOpt implementation
+algorithms/                 optimization and training implementations
+  es/                       shared Agentic-ESOpt implementation
+  trace2skill-settings/     prompts, configs, scripts, and skills
+  verl/                     bundled VERL source used by GRPO
+  verl_trace2skill/         multi-turn tools, parsers, rewards, and tests
 scripts/                    user-facing launchers and data checks
 sudoku-train-time/          Sudoku environment, runners, and logs
 math-train-time/            Math environment, runners, and logs
 docvqa-train-time/          DocVQA environment, runners, and logs
 webarena-train-time/        WebArena environment, integrations, and logs
 ahd-test-time/              EoH/AHD runtime, evaluators, and programs
-trace2skill-settings/       prompts, configs, scripts, and skills
-verl/                       bundled VERL source used by GRPO
-verl_trace2skill/           multi-turn tools, parsers, rewards, and tests
 data/                       stable data contracts and small source data
 ```
 
@@ -72,11 +73,12 @@ python -m pip install -e 'ahd-test-time/methods/eoh/original/eoh[all]'
 
 # GRPO environment (create and activate a separate Python 3.11 environment)
 python -m pip install torch==2.6.0 transformers==4.51.1
-python -m pip install -e ./verl
+python -m pip install -e ./algorithms/verl
 ```
 
 For CUDA-specific VERL images and optional backends, see
-[`verl/docker/`](verl/docker/) and [`verl/README.md`](verl/README.md).
+[`algorithms/verl/docker/`](algorithms/verl/docker/) and
+[`algorithms/verl/README.md`](algorithms/verl/README.md).
 
 ## Quick start ⚡
 
@@ -226,7 +228,7 @@ python -m unittest es.test_run_state -v
 python -m unittest es.test_seeded_model_es -v
 python -m unittest discover math-train-time/tests -v
 python -m unittest discover docvqa-train-time/tests -v
-python -m unittest verl_trace2skill.test_reward -v
+python -m unittest algorithms.verl_trace2skill.test_reward -v
 python scripts/check_data.py
 ```
 

@@ -26,7 +26,7 @@ Trace2Skill + Dynamic-Agent composition.
 Prepare or validate data:
 
 ```bash
-python trace2skill-settings/scripts/prepare_data.py --setting math_reasoning
+python algorithms/trace2skill-settings/scripts/prepare_data.py --setting math_reasoning
 python scripts/check_data.py --task math --strict
 ```
 
@@ -43,13 +43,13 @@ Both runners write Trace2Skill-compatible `*_SUCCEED.md` and `*_FAILED.md`
 logs and a replayable history. The HTTP history is under `runs/math_es/`; the
 vLLM history is under `runs/math_es_vllm/`.
 
-Run multi-turn GRPO with the local `verl_trace2skill` package:
+Run multi-turn GRPO with the local `algorithms/verl_trace2skill` package:
 
 ```bash
 scripts/math/run_grpo.sh
 ```
 
-This uses the bundled `verl/` by default. `VERL_ROOT` remains available as an
+This uses the bundled `algorithms/verl/` by default. `VERL_ROOT` remains available as an
 explicit override.
 
 Run Trace2Skill alone or feed its evolved skill into Dynamic-Agent:

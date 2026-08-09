@@ -12,7 +12,7 @@ fi
 TRACE_LOGS="${TRACE_LOGS:?Set TRACE_LOGS to a directory of *_FAILED.md and *_SUCCEED.md traces.}"
 RUN_ID="${RUN_ID:-docvqa_trace2skill}"
 
-exec "$PY" "$ROOT/trace2skill-settings/scripts/evolve_from_trace_logs.py" \
+exec "$PY" "$ROOT/algorithms/trace2skill-settings/scripts/evolve_from_trace_logs.py" \
   --setting docvqa \
   --trace-logs "$TRACE_LOGS" \
   --run-id "$RUN_ID" \

@@ -328,7 +328,7 @@ def main() -> None:
             env["TRACE2SKILL_REGISTER_TOOL_PARSER"] = "1"
             env["TRITON_CACHE_DIR"] = str((logs_dir / "triton_cache" / f"gpu{gpu}").resolve())
             Path(env["TRITON_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
-            python_paths = [str(ROOT / "verl_trace2skill"), str(ROOT), str(ROOT / "verl")]
+            python_paths = [str(ROOT / "algorithms" / "verl_trace2skill"), str(ROOT), str(ROOT / "algorithms" / "verl")]
             if env.get("PYTHONPATH"):
                 python_paths.append(env["PYTHONPATH"])
             env["PYTHONPATH"] = os.pathsep.join(python_paths)

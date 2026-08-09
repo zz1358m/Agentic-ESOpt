@@ -8,7 +8,7 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "verl"))
+sys.path.insert(0, str(ROOT / "algorithms" / "verl"))
 from verl.utils.checkpoint import fsdp_checkpoint_manager as MODULE  # noqa: E402
 
 

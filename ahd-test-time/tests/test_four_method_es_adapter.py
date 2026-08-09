@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from eoh.methods.eoh.eoh_interface_EC import InterfaceEC
-from es.seeded_model_es import SeedReplayModelES
+from algorithms.es.seeded_model_es import SeedReplayModelES
 
 
 class InProcessModelESClient:

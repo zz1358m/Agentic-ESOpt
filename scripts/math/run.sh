@@ -23,7 +23,7 @@ Expected:
   $AIME_DATA
 
 Prepare it with:
-  $PY $ROOT/trace2skill-settings/scripts/prepare_data.py --setting math_reasoning \\
+  $PY $ROOT/algorithms/trace2skill-settings/scripts/prepare_data.py --setting math_reasoning \\
     --train-source /path/to/dapo_evolve.jsonl \\
     --eval-source /path/to/dapo_test.jsonl \\
     --aime-source /path/to/aime_2026.jsonl

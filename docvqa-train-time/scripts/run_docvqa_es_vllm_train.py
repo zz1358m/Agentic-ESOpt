@@ -25,12 +25,12 @@ sys.path.insert(0, str(MATH_RUNNER.parent))
 import run_math_es_vllm_train as core  # noqa: E402
 sys.path.insert(0, str(DOCVQA_PATH / "envs"))
 from docvqa import DocVQAEnv, DocVQATask, anls  # noqa: E402
-from verl_trace2skill.docvqa_protocol import (  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_protocol import (  # noqa: E402
     DOCVQA_IMAGE_PATH,
     build_docvqa_messages,
     incremental_message_token_count,
 )
-from verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
 
 
 DEFAULT_TRAIN = ROOT / "data" / "trace2skill" / "docvqa" / "evolve.jsonl"

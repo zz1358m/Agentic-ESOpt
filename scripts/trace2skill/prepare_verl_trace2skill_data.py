@@ -10,8 +10,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from verl_trace2skill.docvqa_protocol import build_docvqa_messages
-from verl_trace2skill.math_protocol import build_math_messages
+from algorithms.verl_trace2skill.docvqa_protocol import build_docvqa_messages
+from algorithms.verl_trace2skill.math_protocol import build_math_messages
 
 def _read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     # CLI limits use zero to mean "all records". Normalize it here so zero

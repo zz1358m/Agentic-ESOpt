@@ -1,0 +1,21 @@
+tools:
+  - class_name: "algorithms.verl_trace2skill.local_bash_tool.LocalBashTool"
+    config:
+      type: native
+      timeout: 20
+      max_output_chars: 6000
+      default_cwd: "."
+      default_cwd_env: "TRACE2SKILL_MATH_TOOL_CWD"
+      sandbox: false
+    tool_schema:
+      type: "function"
+      function:
+        name: "bash"
+        description: "Run a bash command in the task workspace and return stdout, stderr, and return code."
+        parameters:
+          type: "object"
+          properties:
+            command:
+              type: "string"
+              description: "The bash command to execute."
+          required: ["command"]

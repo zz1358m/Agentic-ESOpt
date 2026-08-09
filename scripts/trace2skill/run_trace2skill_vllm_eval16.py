@@ -28,7 +28,7 @@ import httpx
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from verl_trace2skill.docvqa_protocol import (  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_protocol import (  # noqa: E402
     bash_action_command,
     build_docvqa_messages,
     choose_endpoint,
@@ -38,13 +38,13 @@ from verl_trace2skill.docvqa_protocol import (  # noqa: E402
     react_step,
     response_budget_exceeded,
 )
-from verl_trace2skill.docvqa_results import summarize_results  # noqa: E402
-from verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
-from verl_trace2skill.math_protocol import (  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_results import summarize_results  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
+from algorithms.verl_trace2skill.math_protocol import (  # noqa: E402
     build_math_messages,
     is_first_bash_action_only,
 )
-from verl_trace2skill.reward import compute_score as rl_compute_score  # noqa: E402
+from algorithms.verl_trace2skill.reward import compute_score as rl_compute_score  # noqa: E402
 
 try:
     from math_verify import parse as math_verify_parse

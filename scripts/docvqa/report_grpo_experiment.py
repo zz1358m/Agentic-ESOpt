@@ -11,7 +11,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from verl_trace2skill.docvqa_results import compare_results, summarize_results  # noqa: E402
+from algorithms.verl_trace2skill.docvqa_results import compare_results, summarize_results  # noqa: E402
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:

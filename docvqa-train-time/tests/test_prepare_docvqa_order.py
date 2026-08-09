@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[2] / "trace2skill-settings/scripts/prepare_data.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "algorithms/trace2skill-settings/scripts/prepare_data.py"
 SPEC = importlib.util.spec_from_file_location("prepare_data", SCRIPT)
 assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)

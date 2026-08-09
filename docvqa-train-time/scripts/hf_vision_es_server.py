@@ -145,7 +145,7 @@ def create_runtime(args: argparse.Namespace):
     from PIL import Image
     from transformers import AutoProcessor
 
-    from es.seeded_model_es import SeedReplayModelES
+    from algorithms.es.seeded_model_es import SeedReplayModelES
 
     processor = AutoProcessor.from_pretrained(
         args.path,

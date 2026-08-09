@@ -27,7 +27,7 @@ from envs.sudoku import (  # noqa: E402
     post_json,
     score_board,
 )
-from es.run_state import (  # noqa: E402
+from algorithms.es.run_state import (  # noqa: E402
     atomic_write_history,
     completed_update_records,
     history_prefix_through_updates,

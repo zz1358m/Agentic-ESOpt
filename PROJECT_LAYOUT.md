@@ -5,7 +5,11 @@ is the complete reproduction guide; this file is the compact directory map.
 
 ```text
 Agentic-ESOpt/
-|-- es/                       shared seeded model ES, schedules, history, replay
+|-- algorithms/               shared optimization and training implementations
+|   |-- es/                   seeded model ES, schedules, history, and replay
+|   |-- trace2skill-settings/ Trace2Skill configs, prompts, scripts, and skills
+|   |-- verl/                 bundled VERL used by Math/DocVQA GRPO
+|   `-- verl_trace2skill/     VERL tools, parsers, rewards, sandbox, and tests
 |-- sudoku-train-time/        Sudoku env, ES/GRPO runners, profiles, curated results
 |-- math-train-time/          Math env and HTTP/vLLM ES runners
 |-- docvqa-train-time/        DocVQA env, vision server, runners, and tests
@@ -13,9 +17,6 @@ Agentic-ESOpt/
 |-- ahd-test-time/            four AHD methods, six tasks, evaluators, curated programs
 |-- scripts/                  portable task launchers and data validation
 |-- data/                     stable task data/settings contract
-|-- trace2skill-settings/     Math/DocVQA trace-to-skill configs, prompts, and skills
-|-- verl/                     bundled VERL used by Math/DocVQA GRPO
-|-- verl_trace2skill/         VERL tool, parser, rewards, sandbox, and tests
 |-- vllm_math_es_worker.py    in-process Math vLLM ES worker
 |-- README.md                 full structure and experiment commands
 |-- PROJECT_LAYOUT.md         this compact map

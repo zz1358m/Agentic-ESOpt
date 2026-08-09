@@ -91,7 +91,7 @@ def main() -> None:
     run(
         [
             args.python,
-            str(root / "trace2skill-settings/scripts/prepare_data.py"),
+            str(root / "algorithms/trace2skill-settings/scripts/prepare_data.py"),
             "--setting",
             "docvqa",
             "--output-dir",

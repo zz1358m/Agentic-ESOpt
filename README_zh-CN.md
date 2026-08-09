@@ -16,22 +16,23 @@ Trace2Skill 流程，以及五类智能体任务中保留的实验日志。
 | WebArena | Agentic-ESOpt、Trace2Skill、Trace2Skill + Agentic-ESOpt |
 | AHD | EoH、独立采样及其 Agentic-ESOpt 版本 |
 
-共享实现位于 [`es/`](es/)。每个维护中的 Agentic-ESOpt 运行都会把带种子的
+共享实现位于 [`algorithms/es/`](algorithms/es/)。每个维护中的 Agentic-ESOpt 运行都会把带种子的
 扰动、奖励、调度和更新记录到 `history.json`，可以在新启动的模型服务上重放。
 
 ## 仓库结构 📦
 
 ```text
-es/                         Agentic-ESOpt 共享实现
+algorithms/                 优化算法与训练集成
+  es/                       Agentic-ESOpt 共享实现
+  trace2skill-settings/     prompt、配置、脚本和 skill
+  verl/                     GRPO 使用的内置 VERL 源码
+  verl_trace2skill/         多轮工具、解析器、奖励和测试
 scripts/                    用户入口脚本和数据检查
 sudoku-train-time/          Sudoku 环境、运行脚本和日志
 math-train-time/            Math 环境、运行脚本和日志
 docvqa-train-time/          DocVQA 环境、运行脚本和日志
 webarena-train-time/        WebArena 环境、集成和日志
 ahd-test-time/              EoH/AHD 运行时、评测器和程序
-trace2skill-settings/       prompt、配置、脚本和 skill
-verl/                       GRPO 使用的内置 VERL 源码
-verl_trace2skill/           多轮工具、解析器、奖励和测试
 data/                       稳定的数据约定和小型源数据
 ```
 
@@ -68,11 +69,12 @@ python -m pip install -e 'ahd-test-time/methods/eoh/original/eoh[all]'
 
 # GRPO 环境（另建并激活一个 Python 3.11 环境）
 python -m pip install torch==2.6.0 transformers==4.51.1
-python -m pip install -e ./verl
+python -m pip install -e ./algorithms/verl
 ```
 
-CUDA 对应的 VERL 镜像及可选后端见 [`verl/docker/`](verl/docker/) 和
-[`verl/README.md`](verl/README.md)。
+CUDA 对应的 VERL 镜像及可选后端见
+[`algorithms/verl/docker/`](algorithms/verl/docker/) 和
+[`algorithms/verl/README.md`](algorithms/verl/README.md)。
 
 ## 快速开始 ⚡
 
@@ -216,7 +218,7 @@ python -m unittest es.test_run_state -v
 python -m unittest es.test_seeded_model_es -v
 python -m unittest discover math-train-time/tests -v
 python -m unittest discover docvqa-train-time/tests -v
-python -m unittest verl_trace2skill.test_reward -v
+python -m unittest algorithms.verl_trace2skill.test_reward -v
 python scripts/check_data.py
 ```
 

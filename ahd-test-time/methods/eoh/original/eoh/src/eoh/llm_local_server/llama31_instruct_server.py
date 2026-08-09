@@ -58,7 +58,7 @@ elif _repo_root is not None:
     sys.path.remove(str(_repo_root))
     sys.path.insert(0, str(_repo_root))
 
-from es import SeedReplayModelES
+from algorithms.es import SeedReplayModelES
 
 if args.enable_lora:
     from peft import LoraConfig, TaskType, get_peft_model

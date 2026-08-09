@@ -57,7 +57,7 @@ case "$TASK" in
     VLLM_DEFAULT_MAX_TOKENS="${VLLM_DEFAULT_MAX_TOKENS:-${MATH_VLLM_DEFAULT_MAX_TOKENS:-4096}}"
     EVAL_LIMIT="${EVAL_LIMIT:-${MATH_EVAL_LIMIT:-100}}"
     AIME_LIMIT="${AIME_LIMIT:-${MATH_AIME_LIMIT:-30}}"
-    INITIAL_SKILL="${INITIAL_SKILL:-$ROOT/trace2skill-settings/skills/math_reasoning/SKILL.md}"
+    INITIAL_SKILL="${INITIAL_SKILL:-$ROOT/algorithms/trace2skill-settings/skills/math_reasoning/SKILL.md}"
     ;;
   docvqa)
     SETTING="docvqa"
@@ -75,7 +75,7 @@ case "$TASK" in
     VLLM_DEFAULT_MAX_TOKENS="${VLLM_DEFAULT_MAX_TOKENS:-${DOCVQA_VLLM_DEFAULT_MAX_TOKENS:-512}}"
     EVAL_LIMIT="${EVAL_LIMIT:-${DOCVQA_EVAL_LIMIT:-100}}"
     AIME_LIMIT="$EVAL_LIMIT"
-    INITIAL_SKILL="${INITIAL_SKILL:-$ROOT/trace2skill-settings/skills/docvqa/SKILL.md}"
+    INITIAL_SKILL="${INITIAL_SKILL:-$ROOT/algorithms/trace2skill-settings/skills/docvqa/SKILL.md}"
     ;;
   *)
     usage >&2
@@ -119,7 +119,7 @@ EVAL_SEED="${EVAL_SEED:-$SEED}"
 ENFORCE_EAGER="${ENFORCE_EAGER:-1}"
 
 export MATH_ES_RESULT_SUBDIR="$RESULT_SUBDIR"
-export PYTHONPATH="$ROOT/math-train-time/scripts:$ROOT/math-train-time/envs:$ROOT/docvqa-train-time/scripts:$ROOT/docvqa-train-time/envs:$ROOT/verl_trace2skill:$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT/math-train-time/scripts:$ROOT/math-train-time/envs:$ROOT/docvqa-train-time/scripts:$ROOT/docvqa-train-time/envs:$ROOT/algorithms/verl_trace2skill:$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
 runner_args() {
   local samples="$1"
@@ -214,7 +214,7 @@ case "$ACTION" in
     mkdir -p "$DISTILL_ROOT"
     if [[ ! -d "$ANALYSIS_LOGS" ]]; then
       if [[ "$TASK" == "math" ]]; then
-        "$PY" "$ROOT/trace2skill-settings/scripts/prepare_es_trajectory_logs.py" \
+        "$PY" "$ROOT/algorithms/trace2skill-settings/scripts/prepare_es_trajectory_logs.py" \
           math_reasoning \
           --trace-roots "$TRACE_ROOT" \
           --history "$ES_HISTORY" \
@@ -225,7 +225,7 @@ case "$ACTION" in
           --one-per-outcome-per-task \
           --output-dir "$ANALYSIS_LOGS"
       else
-        "$PY" "$ROOT/trace2skill-settings/scripts/prepare_es_trajectory_logs.py" \
+        "$PY" "$ROOT/algorithms/trace2skill-settings/scripts/prepare_es_trajectory_logs.py" \
           docvqa \
           --history "$ES_HISTORY" \
           --trace-root "$TRACE_ROOT" \
@@ -236,7 +236,7 @@ case "$ACTION" in
           --output-dir "$ANALYSIS_LOGS"
       fi
     fi
-    exec "$PY" "$ROOT/trace2skill-settings/scripts/evolve_from_trace_logs.py" \
+    exec "$PY" "$ROOT/algorithms/trace2skill-settings/scripts/evolve_from_trace_logs.py" \
       --setting "$SETTING" \
       --trace-logs "$ANALYSIS_LOGS" \
       --trajectory-manifest "$TRAJECTORY_MANIFEST" \

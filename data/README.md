@@ -22,8 +22,8 @@ python sudoku-train-time/scripts/generate_sudoku_data.py --output-dir data/sudok
 Prepare Math and DocVQA with:
 
 ```bash
-python trace2skill-settings/scripts/prepare_data.py --setting math_reasoning
-python trace2skill-settings/scripts/prepare_data.py --setting docvqa
+python algorithms/trace2skill-settings/scripts/prepare_data.py --setting math_reasoning
+python algorithms/trace2skill-settings/scripts/prepare_data.py --setting docvqa
 ```
 
 Do not substitute a tiny DocVQA smoke subset for the full setting. A missing or
