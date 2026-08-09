@@ -22,5 +22,5 @@ or `--no-trace2skill-official-prompts` in the distributed ES runner. The
 provided WebArena Trace2Skill+ES launcher enables these templates.
 
 `scripts/webarena/run.sh trace2skill_es train` uses that learned skill for
-Dynamic-Agent. `WEBARENA_TRACE2SKILL_EVERY_GENERATION=1` enables joint
+Agentic-ESOpt. `WEBARENA_TRACE2SKILL_EVERY_GENERATION=1` enables joint
 generation-by-generation skill and model-weight updates.

@@ -6,7 +6,7 @@ is the complete reproduction guide; this file is the compact directory map.
 ```text
 Agentic-ESOpt/
 |-- es/                       shared seeded model ES, schedules, history, replay
-|-- sudoku-train-time/        Sudoku env, data preparation, ES runner, GRPO adapter
+|-- sudoku-train-time/        Sudoku env, ES/GRPO runners, profiles, curated results
 |-- math-train-time/          Math env and HTTP/vLLM ES runners
 |-- docvqa-train-time/        DocVQA env, vision server, runners, and tests
 |-- webarena-train-time/      WebArena env, data tools, ES/Trace2Skill/SkillOpt/JITRL
@@ -39,6 +39,6 @@ curated result folders are documented in the root README.
 
 Task-independent machine settings belong in `scripts/settings.local.env`.
 Ordinary run outputs belong in `runs/` or `cache/active_runs/` and remain
-ignored. Every Dynamic-Agent run writes a replayable `history.json`. Curated
-AHD `final_best_code.py` programs and their two evaluator scripts are the
-intentional result-archive exception.
+ignored. Every Agentic-ESOpt run writes a replayable `history.json`. Curated
+AHD programs, Math/DocVQA bundles, WebArena ES results, and Sudoku
+heatmaps/training logs are intentional result-archive exceptions.

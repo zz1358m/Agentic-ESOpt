@@ -1,6 +1,6 @@
-# Agentic-ESOpt / Dynamic-Agent
+# Agentic-ESOpt
 
-This repository maintains one model-weight evolution method, **Dynamic-Agent**,
+This repository maintains one model-weight evolution method, **Agentic-ESOpt**,
 across five agentic tasks, together with the baselines needed for comparison.
 The GitHub tree is task-oriented and contains runnable code, small source data,
 data contracts, documentation, and the currently curated AHD programs; paper
@@ -8,7 +8,7 @@ assets and obsolete experiments are not part of the core repository.
 
 ## Maintained matrix
 
-| Task | Dynamic-Agent | Multi-turn GRPO | Trace2Skill | Trace2Skill + Dynamic-Agent | EoH |
+| Task | Agentic-ESOpt | Multi-turn GRPO | Trace2Skill | Trace2Skill + Agentic-ESOpt | EoH |
 | --- | --- | --- | --- | --- | --- |
 | Sudoku | Yes | Yes | — | — | — |
 | Math | Yes | Yes | Yes | Yes | — |
@@ -17,17 +17,17 @@ assets and obsolete experiments are not part of the core repository.
 | AHD (test-time) | Yes | — | — | — | Yes, configurable `k` |
 
 `es` in script and HTTP route names refers to the optimization mechanism. The
-method implemented by these runners is Dynamic-Agent; it is not the paper's
+method implemented by these runners is Agentic-ESOpt; it is not the paper's
 vanilla-ES baseline.
 
 ## Experiment methods
 
 | Method | What changes during the run | Purpose |
 | --- | --- | --- |
-| Dynamic-Agent / Agentic ESOpt | The language-model weights are perturbed with replayable random seeds; evaluated rewards produce a model-weight ES update. | Main method. |
+| Agentic-ESOpt | The language-model weights are perturbed with replayable random seeds; evaluated rewards produce a model-weight ES update. | Main method. |
 | Multi-turn GRPO | The policy is optimized with multi-turn reinforcement learning and task tools/rewards. | RL baseline for Sudoku, Math, and DocVQA. |
 | Trace2Skill | Success/failure traces are converted into an explicit reusable skill file; model weights stay fixed. | Prompt/skill-evolution baseline. |
-| Trace2Skill + Dynamic-Agent | A skill is evolved first or between generations, then model weights are optimized with Dynamic-Agent. | Tests whether skill and model evolution are complementary. |
+| Trace2Skill + Agentic-ESOpt | A skill is evolved first or between generations, then model weights are optimized with Agentic-ESOpt. | Tests whether skill and model evolution are complementary. |
 | EoH | A fixed LLM evolves executable heuristics through `i1/e1/e2/m1/m2`; model weights stay fixed. | AHD evolutionary-search baseline. |
 | Sample | A fixed LLM repeatedly performs independent `i1` generations with no parent population in the prompt. | AHD search-free sampling baseline. |
 | EoH + Agentic ESOpt | EoH evolves heuristics while evaluated offspring also update the LLM through the shared ES layer. | Dynamic AHD method with population feedback. |
@@ -37,10 +37,10 @@ Canonical entry points and default run roots are:
 
 | Task | Methods | Entry point | Default output root |
 | --- | --- | --- | --- |
-| Sudoku | Dynamic-Agent, multi-turn GRPO | `scripts/sudoku/` | `runs/sudoku_es/` or the configured VERL output |
-| Math | Dynamic-Agent vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh math <action>`; compatibility launchers in `scripts/math/` | `runs/math_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
-| DocVQA | Dynamic-Agent vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh docvqa <action>`; compatibility launchers in `scripts/docvqa/` | `runs/docvqa_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
-| WebArena | Dynamic-Agent, Trace2Skill, combined | `scripts/webarena/run.sh` | `runs/webrl_lite_full_es/` or `runs/trace2skill_webarena_sft/` |
+| Sudoku | Agentic-ESOpt, multi-turn GRPO | `scripts/sudoku/` | `runs/sudoku_es/` or `runs/sudoku_grpo_multiturn/` |
+| Math | Agentic-ESOpt vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh math <action>`; compatibility launchers in `scripts/math/` | `runs/math_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
+| DocVQA | Agentic-ESOpt vLLM, raw/skill evaluation, Trace2Skill, GRPO | `scripts/es_skill_workflow.sh docvqa <action>`; compatibility launchers in `scripts/docvqa/` | `runs/docvqa_es_vllm/`, `runs/trace2skill_extra/`, or VERL output |
+| WebArena | Agentic-ESOpt, Trace2Skill, combined | `scripts/webarena/run.sh` | `runs/webrl_lite_full_es/` or `runs/trace2skill_webarena_sft/` |
 | AHD | EoH, Sample, and both Agentic ESOpt variants | `scripts/ahd/run.sh` and `scripts/ahd/run_four_method_ahd.sh` | `cache/active_runs/`; curated code is under `ahd-test-time/results/` |
 
 ## File and directory structure
@@ -50,9 +50,9 @@ following roles:
 
 | Path | Purpose |
 | --- | --- |
-| `es/` | Shared Agentic ESOpt implementation used by every Dynamic-Agent runner. `seeded_model_es.py` applies/reverts seeded weight perturbations and performs updates; `model_es_client.py` calls model-server ES routes; `run_state.py` owns sigma schedules, atomic history, and replay; `registry.py` exposes server-side ES instances; `test_*.py` are CPU state-machine tests. |
-| `sudoku-train-time/` | Sudoku environment, controlled-mask data generator, ES training runner, and adapters for the external `verl-tool` GRPO baseline. |
-| `math-train-time/` | Math reasoning environment plus HTTP-server and in-process vLLM Dynamic-Agent runners; its `tests/` checks rollout accounting and `results/` holds curated training, distillation, skill, and raw/skill evaluation artifacts. |
+| `es/` | Shared Agentic-ESOpt implementation used by every Agentic-ESOpt runner. `seeded_model_es.py` applies/reverts seeded weight perturbations and performs updates; `model_es_client.py` calls model-server ES routes; `run_state.py` owns sigma schedules, atomic history, and replay; `registry.py` exposes server-side ES instances; `test_*.py` are CPU state-machine tests. |
+| `sudoku-train-time/` | Sudoku environment, controlled-mask data generator, ES runner, Qwen3.5/Accelerate multi-turn GRPO runner, and curated results. |
+| `math-train-time/` | Math reasoning environment plus HTTP-server and in-process vLLM Agentic-ESOpt runners; its `tests/` checks rollout accounting and `results/` holds curated training, distillation, skill, and raw/skill evaluation artifacts. |
 | `docvqa-train-time/` | DocVQA environment, Hugging Face vision server, HTTP/vLLM runners, data validator, pipeline tests, and curated artifacts under `results/`. |
 | `webarena-train-time/` | WebArena/WebRL environment; data preparation and ES runners; Trace2Skill, SkillOpt, and JITRL integrations; versioned skills and local-model templates. |
 | `ahd-test-time/` | Test-time heuristic design for six constructive/ACO tasks. It contains the unified EoH runtime, four-method runner, task evaluators, curated result programs, and ES-adapter regression test. |
@@ -194,12 +194,12 @@ python -m pip install -e ./verl
 Math's in-process runner additionally needs `vllm`. DocVQA's bash/OCR protocol
 requires `bubblewrap` and `tesseract-ocr` (or equivalents available through
 `DOCVQA_TOOL_PREFIX`). Multi-turn GRPO uses an
-included, locally adapted `verl` tree for Math and DocVQA. Sudoku GRPO still
-uses a separate `verl-tool` checkout. WebArena and the standalone Trace2Skill
+included, locally adapted `verl` tree for Math and DocVQA. Sudoku uses its
+Qwen3.5/Accelerate comparison implementation. WebArena and the standalone Trace2Skill
 pipeline use the external checkouts listed in `data/README.md`; those
 fast-moving projects are kept out of a single pinned root environment.
 
-Dynamic-Agent policy servers expose an OpenAI-compatible generation route plus:
+Agentic-ESOpt policy servers expose an OpenAI-compatible generation route plus:
 
 ```text
 /es/init  /es/apply  /es/revert  /es/update  /es/reset  /es/status
@@ -219,7 +219,7 @@ DocVQA uses the vision-language server documented in its section.
 
 ## Sigma schedules and replay
 
-Every maintained Dynamic-Agent runner supports an explicit perturbation
+Every maintained Agentic-ESOpt runner supports an explicit perturbation
 schedule from `sigma_start` to `sigma_end`:
 
 ```text
@@ -261,7 +261,7 @@ python sudoku-train-time/scripts/generate_sudoku_data.py \
   --mask-counts 5,10,15,20
 ```
 
-Run Dynamic-Agent with an explicit decay:
+Run Agentic-ESOpt with an explicit decay:
 
 ```bash
 SUDOKU_TARGET_MASK_COUNT=15 \
@@ -276,12 +276,16 @@ SUDOKU_ES_RESUME_HISTORY=runs/sudoku_es/old/history.json \
 RUN_ID=sudoku_resumed scripts/sudoku/run_es.sh
 ```
 
-Run the maintained asynchronous multi-turn GRPO baseline. This baseline uses a
-`verl-tool` checkout and the Sudoku tool/reward adapters in this repository:
+The exact Qwen3.5 Vanilla ES G=32, Agentic-ESOpt G=32, and GRPO comparison
+profiles and archived heatmaps/logs are documented
+in [`sudoku-train-time/`](sudoku-train-time/README.md) and
+archived under [`sudoku-train-time/results/`](sudoku-train-time/results/).
+
+Run the maintained Qwen3.5/Accelerate multi-turn GRPO profile:
 
 ```bash
-VERL_TOOL_ROOT=/path/to/verl-tool \
-SUDOKU_TARGET_MASK_COUNT=15 scripts/sudoku/run_grpo.sh
+SUDOKU_GRPO_MODEL=/path/to/Qwen3.5-4B \
+  SUDOKU_TARGET_MASK_COUNT=15 scripts/sudoku/run_grpo.sh
 ```
 
 ## Math
@@ -364,7 +368,7 @@ scripts/webarena/run.sh trace2skill train
 scripts/webarena/run.sh trace2skill test
 ```
 
-Run Dynamic-Agent without or with a Trace2Skill skill:
+Run Agentic-ESOpt without or with a Trace2Skill skill:
 
 ```bash
 scripts/webarena/run.sh no_skill_es train
@@ -385,7 +389,10 @@ scripts/webarena/run.sh trace2skill_es train
 ```
 
 This mode initializes a missing skill file and evolves it after each
-Dynamic-Agent generation.
+Agentic-ESOpt generation.
+
+The committed training log, evaluation curve, and final 165-task evaluations
+are under [`webarena-train-time/results/`](webarena-train-time/results/README.md).
 
 Additional runner flags can follow the stage, for example
 `scripts/webarena/run.sh trace2skill_es train --generations 10`.
@@ -520,7 +527,7 @@ AHD has two independent continuation states:
 - `AHD_CONTINUE_PATH` and `AHD_CONTINUE_ID` restore the EoH population.
 - `SAMPLE_RESUME_PATH` appends fixed-model sampling to an existing sample run.
 
-Use both when continuing a complete Dynamic-Agent+AHD run:
+Use both when continuing a complete Agentic-ESOpt+AHD run:
 
 ```bash
 ES_RESUME_HISTORY=/old/run/results/es/history.json \

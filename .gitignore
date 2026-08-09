@@ -64,8 +64,21 @@ ahd-test-time/results/*
 # Curated-directory exceptions must not re-include bytecode caches.
 ahd-test-time/results/**/__pycache__/
 ahd-test-time/results/**/*.py[cod]
-sudoku-train-time/results/
-webarena-train-time/results/
+# Keep runtime outputs ignored except for the curated reproducibility bundles.
+sudoku-train-time/results/*
+!sudoku-train-time/results/heatmaps/
+!sudoku-train-time/results/heatmaps/**
+!sudoku-train-time/results/training/
+!sudoku-train-time/results/training/**
+webarena-train-time/results/*
+!webarena-train-time/results/README.md
+!webarena-train-time/results/summary.json
+!webarena-train-time/results/eval/
+!webarena-train-time/results/eval/**
+!webarena-train-time/results/skills/
+!webarena-train-time/results/skills/**
+!webarena-train-time/results/training/
+!webarena-train-time/results/training/**
 webarena-train-time/third_party/skillopt/
 webarena-train-time/methods/trace2skill/source/
 

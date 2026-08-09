@@ -7,7 +7,7 @@ job preflight.
 
 | Task | Maintained data |
 | --- | --- |
-| Sudoku | `data/sudoku/train.jsonl`, `eval.jsonl`, and generated VERL parquet under `data/sudoku/verl/` |
+| Sudoku | `data/sudoku/train.jsonl` and `eval.jsonl` |
 | Math | `data/trace2skill/math_reasoning/{dapo_evolve,dapo_test,aime_2026}.jsonl` |
 | DocVQA | `data/trace2skill/docvqa/{evolve,test}.jsonl` plus `images/` |
 | WebArena | VAB at `data/webarena/vab-lite`, non-Lite train/val metadata in `vab_nonlite_split/`, and the 165-task test metadata in `vab_lite_split/` |

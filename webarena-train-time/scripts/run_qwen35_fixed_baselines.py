@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 
-ROOT = Path("/home/zhi/Dynamic-Agent")
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "webarena-train-time/scripts"))
 
 from run_webrl_lite_full_es_train import run_episode  # noqa: E402

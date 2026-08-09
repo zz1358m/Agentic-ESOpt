@@ -1,0 +1,133 @@
+The following values were not passed to `accelerate launch` and had defaults used instead:
+		More than one GPU was found, enabling multi-GPU training.
+		If this was unintended please pass in `--num_processes=1`.
+	`--num_machines` was set to a value of `1`
+	`--mixed_precision` was set to a value of `'no'`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[setup] flash_attention_2 unavailable, falling back to default attention: FlashAttention2 has been toggled on, but it cannot be used due to the following error: the package for FlashAttention2 doesn't seem to be installed.
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 4389.88it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 4523.90it/s]
+Loading weights:  91%|█████████ | 386/426 [00:00<00:00, 3803.92it/s]Loading weights:  82%|████████▏ | 349/426 [00:00<00:00, 3440.59it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 3849.73it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 3613.32it/s]
+[setup] flash_attention_2 unavailable, falling back to default attention: FlashAttention2 has been toggled on, but it cannot be used due to the following error: the package for FlashAttention2 doesn't seem to be installed.
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 4583.90it/s]
+Loading weights:  83%|████████▎ | 354/426 [00:00<00:00, 3538.69it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 3601.49it/s]
+Loading weights:  90%|████████▉ | 382/426 [00:00<00:00, 3816.65it/s]Loading weights:  71%|███████   | 302/426 [00:00<00:00, 3016.51it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 3821.44it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 3105.48it/s]
+[setup] model=/data0/zhi/meta-llama/Qwen3.5-4B mask=15 train=32 eval=32 world=4 global_batch=32 generations=8 beta=0.001 clip=0.2
+[eval] step=0 repeats=3 solved_avg=3.33/32 average=0.104167 std=0.014731
+[train] step=1 reward=0.0469 solved=12/256 avg_turns=15.4 examples=3941 used=3584 drop=357 mb=7 mixed=7/32 zero_std=25 all0=25 all1=0 std=0.0824 kl=0.2731 clip=0.051 sec=661.8
+[train] step=2 reward=0.0781 solved=20/256 avg_turns=15.4 examples=3931 used=3584 drop=347 mb=7 mixed=7/32 zero_std=25 all0=25 all1=0 std=0.1021 kl=0.0257 clip=0.007 sec=661.9
+[train] step=3 reward=0.0938 solved=24/256 avg_turns=15.2 examples=3901 used=3584 drop=317 mb=7 mixed=9/32 zero_std=23 all0=23 all1=0 std=0.1154 kl=0.0189 clip=0.006 sec=668.5
+[train] step=4 reward=0.1172 solved=30/256 avg_turns=15.3 examples=3926 used=3584 drop=342 mb=7 mixed=12/32 zero_std=20 all0=20 all1=0 std=0.1533 kl=0.0173 clip=0.007 sec=658.4
+[train] step=5 reward=0.1289 solved=33/256 avg_turns=15.3 examples=3905 used=3584 drop=321 mb=7 mixed=12/32 zero_std=20 all0=19 all1=1 std=0.1432 kl=0.0206 clip=0.008 sec=659.0
+[train] step=6 reward=0.2266 solved=58/256 avg_turns=15.2 examples=3895 used=3584 drop=311 mb=7 mixed=15/32 zero_std=17 all0=15 all1=2 std=0.1827 kl=0.0218 clip=0.007 sec=661.1
+[train] step=7 reward=0.2578 solved=66/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=11/32 zero_std=21 all0=17 all1=4 std=0.1461 kl=0.0207 clip=0.005 sec=663.8
+[train] step=8 reward=0.2539 solved=65/256 avg_turns=15.1 examples=3870 used=3584 drop=286 mb=7 mixed=16/32 zero_std=16 all0=14 all1=2 std=0.2090 kl=0.0228 clip=0.003 sec=657.4
+[train] step=9 reward=0.2852 solved=73/256 avg_turns=15.1 examples=3868 used=3584 drop=284 mb=7 mixed=12/32 zero_std=20 all0=16 all1=4 std=0.1618 kl=0.0255 clip=0.005 sec=661.5
+[train] step=10 reward=0.3516 solved=90/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=14/32 zero_std=18 all0=13 all1=5 std=0.1845 kl=0.0246 clip=0.005 sec=674.3
+[train] step=11 reward=0.3359 solved=86/256 avg_turns=15.1 examples=3871 used=3584 drop=287 mb=7 mixed=13/32 zero_std=19 all0=14 all1=5 std=0.1838 kl=0.0260 clip=0.005 sec=702.2
+[train] step=12 reward=0.3906 solved=100/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=11/32 zero_std=21 all0=14 all1=7 std=0.1503 kl=0.0317 clip=0.004 sec=678.0
+[train] step=13 reward=0.4062 solved=104/256 avg_turns=15.1 examples=3875 used=3584 drop=291 mb=7 mixed=10/32 zero_std=22 all0=14 all1=8 std=0.1353 kl=0.0345 clip=0.005 sec=662.7
+[train] step=14 reward=0.4688 solved=120/256 avg_turns=15.1 examples=3874 used=3584 drop=290 mb=7 mixed=8/32 zero_std=24 all0=14 all1=10 std=0.1071 kl=0.0367 clip=0.005 sec=668.1
+[train] step=15 reward=0.4531 solved=116/256 avg_turns=15.2 examples=3893 used=3584 drop=309 mb=7 mixed=8/32 zero_std=24 all0=14 all1=10 std=0.1161 kl=0.0391 clip=0.005 sec=660.2
+[train] step=16 reward=0.5078 solved=130/256 avg_turns=15.1 examples=3876 used=3584 drop=292 mb=7 mixed=8/32 zero_std=24 all0=13 all1=11 std=0.1019 kl=0.0385 clip=0.006 sec=668.4
+[train] step=17 reward=0.4883 solved=125/256 avg_turns=15.1 examples=3878 used=3584 drop=294 mb=7 mixed=6/32 zero_std=26 all0=13 all1=13 std=0.0764 kl=0.0412 clip=0.002 sec=664.4
+[train] step=18 reward=0.5391 solved=138/256 avg_turns=15.2 examples=3882 used=3584 drop=298 mb=7 mixed=4/32 zero_std=28 all0=13 all1=15 std=0.0562 kl=0.0401 clip=0.004 sec=661.5
+[train] step=19 reward=0.5391 solved=138/256 avg_turns=15.2 examples=3886 used=3584 drop=302 mb=7 mixed=5/32 zero_std=27 all0=13 all1=14 std=0.0645 kl=0.0423 clip=0.004 sec=662.3
+[eval] step=20 repeats=3 solved_avg=7.33/32 average=0.229167 std=0.038976
+[train] step=20 reward=0.5742 solved=147/256 avg_turns=15.2 examples=3880 used=3584 drop=296 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0287 kl=0.0403 clip=0.003 sec=664.7
+[train] step=21 reward=0.5586 solved=143/256 avg_turns=15.1 examples=3863 used=3584 drop=279 mb=7 mixed=4/32 zero_std=28 all0=13 all1=15 std=0.0514 kl=0.0421 clip=0.004 sec=670.2
+[train] step=22 reward=0.5742 solved=147/256 avg_turns=15.1 examples=3872 used=3584 drop=288 mb=7 mixed=4/32 zero_std=28 all0=13 all1=15 std=0.0445 kl=0.0404 clip=0.003 sec=670.8
+[train] step=23 reward=0.5820 solved=149/256 avg_turns=15.1 examples=3861 used=3584 drop=277 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0239 kl=0.0425 clip=0.003 sec=670.4
+[train] step=24 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3866 used=3584 drop=282 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0135 kl=0.0411 clip=0.003 sec=664.6
+[train] step=25 reward=0.5703 solved=146/256 avg_turns=15.0 examples=3848 used=3584 drop=264 mb=7 mixed=3/32 zero_std=29 all0=13 all1=16 std=0.0363 kl=0.0425 clip=0.003 sec=686.2
+[train] step=26 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0413 clip=0.003 sec=668.0
+[train] step=27 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3863 used=3584 drop=279 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0207 kl=0.0399 clip=0.002 sec=670.7
+[train] step=28 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3861 used=3584 drop=277 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0401 clip=0.003 sec=702.8
+[train] step=29 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3871 used=3584 drop=287 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0135 kl=0.0392 clip=0.002 sec=698.1
+[train] step=30 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3860 used=3584 drop=276 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0135 kl=0.0396 clip=0.003 sec=685.3
+[train] step=31 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3859 used=3584 drop=275 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0395 clip=0.003 sec=692.5
+[train] step=32 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0103 kl=0.0391 clip=0.002 sec=682.5
+[train] step=33 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3867 used=3584 drop=283 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0398 clip=0.004 sec=692.4
+[train] step=34 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3858 used=3584 drop=274 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0207 kl=0.0387 clip=0.003 sec=688.7
+[train] step=35 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0103 kl=0.0395 clip=0.002 sec=683.9
+[train] step=36 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0360 clip=0.003 sec=682.9
+[train] step=37 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0135 kl=0.0379 clip=0.002 sec=683.7
+[train] step=38 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0207 kl=0.0369 clip=0.002 sec=682.8
+[train] step=39 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3854 used=3584 drop=270 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0360 clip=0.004 sec=681.1
+[eval] step=40 repeats=3 solved_avg=6.67/32 average=0.208333 std=0.038976
+[train] step=40 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3859 used=3584 drop=275 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0380 clip=0.004 sec=687.4
+[train] step=41 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0356 clip=0.002 sec=688.9
+[train] step=42 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3871 used=3584 drop=287 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0343 clip=0.003 sec=684.0
+[train] step=43 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3874 used=3584 drop=290 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0362 clip=0.003 sec=687.8
+[train] step=44 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3855 used=3584 drop=271 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0385 clip=0.003 sec=687.0
+[train] step=45 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3859 used=3584 drop=275 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0377 clip=0.003 sec=689.4
+[train] step=46 reward=0.5977 solved=153/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0360 clip=0.003 sec=688.3
+[train] step=47 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0351 clip=0.004 sec=688.2
+[train] step=48 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0340 clip=0.004 sec=684.4
+[train] step=49 reward=0.5859 solved=150/256 avg_turns=15.1 examples=3866 used=3584 drop=282 mb=7 mixed=2/32 zero_std=30 all0=13 all1=17 std=0.0207 kl=0.0328 clip=0.003 sec=679.4
+[train] step=50 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3861 used=3584 drop=277 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0103 kl=0.0323 clip=0.005 sec=692.6
+[train] step=51 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0416 clip=0.003 sec=678.8
+[train] step=52 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0440 clip=0.004 sec=687.2
+[train] step=53 reward=0.5938 solved=152/256 avg_turns=15.2 examples=3879 used=3584 drop=295 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0429 clip=0.004 sec=688.0
+[train] step=54 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0420 clip=0.004 sec=684.6
+[train] step=55 reward=0.5820 solved=149/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0151 kl=0.0432 clip=0.003 sec=689.3
+[train] step=56 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3856 used=3584 drop=272 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0428 clip=0.003 sec=685.1
+[train] step=57 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3875 used=3584 drop=291 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0103 kl=0.0420 clip=0.004 sec=678.1
+[train] step=58 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3863 used=3584 drop=279 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0412 clip=0.004 sec=688.3
+[train] step=59 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3870 used=3584 drop=286 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0393 clip=0.003 sec=683.6
+[eval] step=60 repeats=3 solved_avg=9.67/32 average=0.302083 std=0.038976
+[train] step=60 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3858 used=3584 drop=274 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0396 clip=0.003 sec=683.1
+[train] step=61 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3867 used=3584 drop=283 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0405 clip=0.004 sec=681.0
+[train] step=62 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3870 used=3584 drop=286 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0391 clip=0.003 sec=687.4
+[train] step=63 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0361 clip=0.003 sec=684.5
+[train] step=64 reward=0.5977 solved=153/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0382 clip=0.005 sec=689.5
+[train] step=65 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3863 used=3584 drop=279 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0369 clip=0.002 sec=690.1
+[train] step=66 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3857 used=3584 drop=273 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0391 clip=0.003 sec=679.8
+[train] step=67 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0365 clip=0.004 sec=688.0
+[train] step=68 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0370 clip=0.003 sec=686.4
+[train] step=69 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3870 used=3584 drop=286 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0103 kl=0.0371 clip=0.003 sec=689.2
+[train] step=70 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3872 used=3584 drop=288 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0391 clip=0.006 sec=684.0
+[train] step=71 reward=0.5977 solved=153/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0419 clip=0.004 sec=676.5
+[train] step=72 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3868 used=3584 drop=284 mb=7 mixed=0/32 zero_std=32 all0=13 all1=19 std=0.0000 kl=0.0405 clip=0.003 sec=688.7
+[train] step=73 reward=0.5781 solved=148/256 avg_turns=15.1 examples=3871 used=3584 drop=287 mb=7 mixed=1/32 zero_std=31 all0=13 all1=18 std=0.0156 kl=0.0409 clip=0.004 sec=691.2
+[train] step=74 reward=0.5977 solved=153/256 avg_turns=15.1 examples=3861 used=3584 drop=277 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0394 clip=0.003 sec=683.4
+[train] step=75 reward=0.6055 solved=155/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0260 kl=0.0385 clip=0.005 sec=678.1
+[train] step=76 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3860 used=3584 drop=276 mb=7 mixed=3/32 zero_std=29 all0=12 all1=17 std=0.0427 kl=0.0399 clip=0.007 sec=681.1
+[train] step=77 reward=0.6094 solved=156/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0271 kl=0.0396 clip=0.009 sec=690.9
+[train] step=78 reward=0.6172 solved=158/256 avg_turns=15.1 examples=3868 used=3584 drop=284 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0207 kl=0.0426 clip=0.014 sec=692.0
+[train] step=79 reward=0.6133 solved=157/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0239 kl=0.0553 clip=0.003 sec=686.0
+[eval] step=80 repeats=3 solved_avg=8.67/32 average=0.270833 std=0.053115
+[train] step=80 reward=0.6172 solved=158/256 avg_turns=15.1 examples=3869 used=3584 drop=285 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0207 kl=0.0555 clip=0.003 sec=683.5
+[train] step=81 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3859 used=3584 drop=275 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0579 clip=0.003 sec=685.3
+[train] step=82 reward=0.5898 solved=151/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=4/32 zero_std=28 all0=12 all1=16 std=0.0514 kl=0.0581 clip=0.002 sec=694.7
+[train] step=83 reward=0.6172 solved=158/256 avg_turns=15.1 examples=3871 used=3584 drop=287 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0135 kl=0.0542 clip=0.003 sec=680.1
+[train] step=84 reward=0.5938 solved=152/256 avg_turns=15.1 examples=3870 used=3584 drop=286 mb=7 mixed=3/32 zero_std=29 all0=12 all1=17 std=0.0438 kl=0.0522 clip=0.003 sec=689.1
+[train] step=85 reward=0.6094 solved=156/256 avg_turns=15.1 examples=3858 used=3584 drop=274 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0156 kl=0.0491 clip=0.002 sec=682.7
+[train] step=86 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3856 used=3584 drop=272 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0502 clip=0.002 sec=684.7
+[train] step=87 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0514 clip=0.002 sec=688.7
+[train] step=88 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0506 clip=0.002 sec=694.2
+[train] step=89 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3862 used=3584 drop=278 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0482 clip=0.003 sec=683.8
+[train] step=90 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3861 used=3584 drop=277 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0486 clip=0.003 sec=688.3
+[train] step=91 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3857 used=3584 drop=273 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0503 clip=0.002 sec=680.8
+[train] step=92 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3859 used=3584 drop=275 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0494 clip=0.002 sec=686.4
+[train] step=93 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3856 used=3584 drop=272 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0483 clip=0.002 sec=681.7
+[train] step=94 reward=0.6250 solved=160/256 avg_turns=15.0 examples=3852 used=3584 drop=268 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0494 clip=0.002 sec=690.2
+[train] step=95 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3864 used=3584 drop=280 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0476 clip=0.002 sec=683.8
+[train] step=96 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3855 used=3584 drop=271 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0485 clip=0.002 sec=688.9
+[train] step=97 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3865 used=3584 drop=281 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0476 clip=0.002 sec=694.3
+[train] step=98 reward=0.6250 solved=160/256 avg_turns=15.1 examples=3860 used=3584 drop=276 mb=7 mixed=0/32 zero_std=32 all0=12 all1=20 std=0.0000 kl=0.0477 clip=0.001 sec=696.4
+[train] step=99 reward=0.6172 solved=158/256 avg_turns=15.0 examples=3851 used=3584 drop=267 mb=7 mixed=2/32 zero_std=30 all0=12 all1=18 std=0.0207 kl=0.0483 clip=0.002 sec=684.3
+[eval] step=100 repeats=3 solved_avg=9.67/32 average=0.302083 std=0.029463
+[train] step=100 reward=0.6211 solved=159/256 avg_turns=15.1 examples=3854 used=3584 drop=270 mb=7 mixed=1/32 zero_std=31 all0=12 all1=19 std=0.0103 kl=0.0470 clip=0.003 sec=679.2
+[rank0]:[W707 20:35:09.691415732 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())

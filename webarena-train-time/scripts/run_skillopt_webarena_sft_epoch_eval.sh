@@ -58,10 +58,10 @@ while [ "$epoch" -le "$EPOCHS" ]; do
     wait "$pid"
   done
 
-  RUN_ID="$RUN_ID" EPOCH="$epoch" "$PY" - <<'PY'
+  ROOT="$ROOT" RUN_ID="$RUN_ID" EPOCH="$epoch" "$PY" - <<'PY'
 import json, os
 from pathlib import Path
-root = Path("/home/zhi/Dynamic-Agent")
+root = Path(os.environ["ROOT"])
 run_id = os.environ["RUN_ID"]
 epoch = os.environ["EPOCH"]
 parts = [(0,42),(42,84),(84,126),(126,165)]

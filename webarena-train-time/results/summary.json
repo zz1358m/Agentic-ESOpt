@@ -1,0 +1,55 @@
+{
+  "dataset": "WebArena Lite",
+  "tasks_per_run": 165,
+  "runs_per_setting": 3,
+  "sampling": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20
+  },
+  "results": [
+    {
+      "setting": "noskill-noft",
+      "initial_run_successes": 46,
+      "initial_run_mean": 0.2787878787878788,
+      "sample_total": 495,
+      "reported_mean_percent": 29.5
+    },
+    {
+      "setting": "noskill-agentic-esopt",
+      "successes": [
+        59,
+        59,
+        61
+      ],
+      "success_total": 179,
+      "sample_total": 495,
+      "mean": 0.3616161616161616,
+      "gain_percent_points_reported": 6.69
+    },
+    {
+      "setting": "trace2skill-noft",
+      "successes": [
+        55,
+        51,
+        62
+      ],
+      "success_total": 168,
+      "sample_total": 495,
+      "mean": 0.3393939393939394,
+      "reported_mean_percent": 33.9
+    },
+    {
+      "setting": "trace2skill-agentic-esopt",
+      "successes": [
+        58,
+        61,
+        61
+      ],
+      "success_total": 180,
+      "sample_total": 495,
+      "mean": 0.36363636363636365,
+      "gain_percent_points_reported": 2.4
+    }
+  ]
+}

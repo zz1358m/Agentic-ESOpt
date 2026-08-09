@@ -1,8 +1,8 @@
 # WebArena
 
-WebArena maintains three paths: Dynamic-Agent without a skill, the standalone
-Trace2Skill baseline, and Trace2Skill + Dynamic-Agent. The distributed
-Dynamic-Agent runner can also evolve the skill after every ES generation.
+WebArena maintains three paths: Agentic-ESOpt without a skill, the standalone
+Trace2Skill baseline, and Trace2Skill + Agentic-ESOpt. The distributed
+Agentic-ESOpt runner can also evolve the skill after every ES generation.
 
 Required external data and source locations are listed in `data/README.md`.
 Validate them with:
@@ -11,7 +11,7 @@ Validate them with:
 python scripts/check_data.py --task webarena --strict
 ```
 
-Both Dynamic-Agent and Trace2Skill train on
+Both Agentic-ESOpt and Trace2Skill train on
 `data/webarena/vab_nonlite_split/train/items.json`, validate on the matching
 non-Lite validation split, and reserve `vab_lite_split/items.json` for the
 165-task test benchmark.
@@ -27,9 +27,13 @@ WEBARENA_TRACE2SKILL_EVERY_GENERATION=1 \
 scripts/webarena/run.sh trace2skill_es train
 ```
 
-Dynamic-Agent histories live under
+Agentic-ESOpt histories live under
 `runs/webrl_lite_full_es/<run-id>/history.json`. Set
 `WEBARENA_ES_RESUME_HISTORY` to replay one on fresh endpoints.
+
+The curated Agentic-ESOpt train/eval log, evaluation curve, four three-run
+evaluation groups, and task-level scores are committed under `results/`; see
+`results/README.md` for exact runs and hyperparameters.
 
 The active implementation is in `scripts/run_webrl_lite_*_es_train.py` and
 `scripts/run_trace2skill_*`. Trace2Skill reuses SkillOpt's WebArena rollout
