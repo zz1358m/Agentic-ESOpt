@@ -53,7 +53,61 @@ def test_math_exact_window_selects_failures_only(tmp_path: Path) -> None:
     assert len(selected) == 2
     assert {row["task_id"] for row in selected} == set(task_ids)
     assert {row["outcome"] for row in selected} == {"FAILED"}
-    assert metadata["selection"] == "one failed trajectory from each exact last task occurrence"
+    assert metadata["selection"] == (
+        "at most one failed trajectory per task across all task occurrences "
+        "before the checkpoint step"
+    )
+
+
+def test_math_all_steps_keep_at_most_one_failure_per_problem(tmp_path: Path) -> None:
+    task_ids = [
+        f"dapo_00000000-0000-0000-0000-{index:012d}"
+        for index in range(1, 5)
+    ]
+    history = tmp_path / "history.json"
+    history.write_text(
+        json.dumps(
+            [
+                {"generation": 0, "case_batch": task_ids[:2]},
+                {"generation": 1, "case_batch": task_ids[2:]},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    for generation, generation_tasks in enumerate((task_ids[:2], task_ids[2:])):
+        for task_id in generation_tasks:
+            touch(
+                tmp_path
+                / f"math_agent_gen{generation:03d}_candidate000_seed1_{task_id}_sample00_SUCCEED.md"
+            )
+            outcome = "SUCCEED" if task_id == task_ids[-1] else "FAILED"
+            touch(
+                tmp_path
+                / f"math_agent_gen{generation:03d}_candidate001_seed2_{task_id}_sample00_{outcome}.md"
+            )
+
+    selected, metadata = MODULE.select_math(
+        SimpleNamespace(
+            trace_roots=[tmp_path],
+            history=history,
+            checkpoint_step=2,
+            task_count=0,
+            population=2,
+            case_batch_size=2,
+            one_error_per_task=True,
+            one_per_outcome_per_task=False,
+            first_generation=0,
+            last_generation=1,
+        )
+    )
+
+    assert len(selected) == 3
+    assert {row["generation"] for row in selected} == {0, 1}
+    assert {row["outcome"] for row in selected} == {"FAILED"}
+    assert len({row["task_id"] for row in selected}) == len(selected)
+    assert metadata["missing_task_outcomes"] == [
+        {"generation": 1, "task_id": task_ids[-1], "outcome": "FAILED"}
+    ]
 
 
 def test_docvqa_exact_window_selects_one_success_and_one_failure(tmp_path: Path) -> None:
@@ -95,5 +149,7 @@ def test_canonical_launcher_uses_task_specific_selection_flags() -> None:
     )
 
     assert "--one-error-per-task" in math_block
+    assert '--task-count "${DISTILL_TASK_COUNT:-$((GENERATIONS * CASE_BATCH_SIZE))}"' in math_block
+    assert '--task-count "${DISTILL_TASK_COUNT:-50}"' not in math_block
     assert "--one-per-outcome-per-task" not in math_block
     assert "--one-per-outcome-per-task" in docvqa_block

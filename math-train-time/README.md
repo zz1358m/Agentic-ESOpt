@@ -14,9 +14,11 @@ scripts/es_skill_workflow.sh math skill-eval
 The ES run is no-skill and writes the trajectories consumed by
 `distill-skill`. Both evaluation actions replay the same ES history; the only
 prompt difference is the distilled skill passed to `skill-eval`. For Math
-distillation, only one failed trajectory from each selected final task
-occurrence is analyzed; successful trajectories are excluded. Trace analysis
-and skill evolution use `gpt-5.4-nano`. Configure
+distillation, every candidate trajectory from all 25 ES generations is scanned,
+but at most one failed trajectory is retained per training problem; successful
+trajectories are excluded. The 25 × 16 schedule covers the 400-problem training
+set exactly, so at most 400 trajectories are analyzed. Trace analysis and skill
+evolution use `gpt-5.4-nano`. Configure
 machine paths through `scripts/settings.local.env`; see
 `scripts/es_skill_workflow.example.env` and
 `scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under

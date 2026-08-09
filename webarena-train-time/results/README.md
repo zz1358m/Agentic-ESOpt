@@ -6,13 +6,13 @@ split. Each reported result is a three-run mean with temperature 0.7, top-p
 
 | Setting | Three-run mean | Reported gain |
 |---|---:|---:|
-| NoSkill-NoFT | 29.5% | — |
+| NoSkill-No-Finetune | 29.5% | — |
 | NoSkill-Agentic-ESOpt | 36.16% | +6.69 points |
-| Trace2Skill-NoFT | 33.9% | — |
+| Trace2Skill-No-Finetune | 33.9% | — |
 | Trace2Skill-Agentic-ESOpt | 36.36% | +2.4 points |
 
-The NoSkill-NoFT mean includes the initial 46/165 (27.88%) evaluation from the
-first no-skill run.
+The NoSkill-No-Finetune mean includes the initial 46/165 (27.88%) evaluation
+from the first no-skill run.
 
 ## Training archive
 
@@ -38,7 +38,13 @@ positions for generations 0–69 match the split fingerprint documented in
 task metadata, hard and soft scores, turn count, final answer, failure reason,
 runner status, and wall time. Each file's `run`, `repeat`, and `run_name`
 fields match its outer `run_0N.json` number. The two evaluated Trace2Skill files
-are under `skills/trace2skill_noft/` and `skills/trace2skill_agentic_esopt/`.
+are under `skills/trace2skill_no-finetune/` and
+`skills/trace2skill_agentic_esopt/`.
+
+They are distinct skills: the No-Finetune skill comes from fixed-base-model
+rollouts, while the Agentic-ESOpt skill is distilled from all trajectories in
+the completed NoSkill ES run. The latter is injected only after replaying that
+ES history for evaluation; no second ES training run is involved.
 
 The WebArena-specific Trace2Skill success and error distillation prompts are
 versioned under `../methods/trace2skill/prompts/`. Browser screenshots and

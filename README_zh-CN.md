@@ -131,12 +131,14 @@ scripts/es_skill_workflow.sh math skill-eval
 # DocVQA 流程把 math 替换为 docvqa。
 ```
 
-两个任务的 trajectory 蒸馏策略不同。Math 只分析失败轨迹：每个选中的最终
-task occurrence 最多保留一条 `FAILED`，所有成功轨迹均排除。DocVQA 对每个选中
-的最终 task occurrence 最多各保留一条 `FAILED` 和一条 `SUCCEED`。若某类轨迹
-不存在，会记录到 selection manifest；`skill-eval` 会重放同一份
-Agentic-ESOpt history 后评测蒸馏得到的 skill。本文所有 Trace2Skill 分析和
-skill evolution 都使用 `gpt-5.4-nano`。
+两个任务的 trajectory 蒸馏策略不同。Math 扫描全部 ES generation 的所有
+candidate trajectory，每道训练题最多保留一条 `FAILED`，所有成功轨迹均排除。
+默认 25 generations × 每代 16 题正好覆盖 400 道训练题，因此最多输入 400 条
+轨迹。DocVQA 只取 checkpoint 前精确的最后 50 个 task occurrence，并对每题
+最多各保留一条 `FAILED` 和一条 `SUCCEED`。若某类轨迹不存在，会记录到
+selection manifest；`skill-eval` 会重放同一份 Agentic-ESOpt history 后评测
+蒸馏得到的 skill。本文所有 Trace2Skill 分析和 skill evolution 都使用
+`gpt-5.4-nano`。
 
 在 `scripts/settings.local.env` 中设置 `MODEL_PATH`、`TRAIN_RUN_ID`、数据路径和
 GPU 参数。完整变量见
@@ -181,22 +183,29 @@ Lite 的 `task_id=0–164` 是新的评测编号，并不是需要从原始数�
 ID。精确哈希和完整划分规则见
 [`webarena-train-time/README.md`](webarena-train-time/README.md)。
 
-标准的 trajectory → skill 流程如下：
+WebArena 有两条独立的 trajectory → skill 路径：No-Finetune 使用基座模型
+rollout，只演化 skill；Agentic-ESOpt 则从已完成的 NoSkill ES run 蒸馏另一份
+skill：
 
 ```bash
+scripts/webarena/run.sh trace2skill_no-finetune distill
+
 RUN_ID=webarena_noskill_es \
 scripts/webarena/run.sh noskill_agentic_esopt train
 
 WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
-TRACE2SKILL_RUN_ID=webarena_trace2skill \
-scripts/webarena/run.sh trace2skill_noft distill
+scripts/webarena/run.sh trace2skill_agentic_esopt distill
 ```
 
-WebArena 蒸馏使用所有已完成 ES generation 中的全部 trajectory，不只取最后
-若干代，也不设置 trajectory 数量上限；分析和 skill evolution 同样使用
-`gpt-5.4-nano`。
+Agentic-ESOpt 路径的蒸馏使用所有已完成 ES generation 中的全部 trajectory，
+不只取最后若干代，也不设置 trajectory 数量上限；两条路径的分析和 skill
+evolution 都使用 `gpt-5.4-nano`。
 
-同一入口可评测 NoSkill/Trace2Skill × NoFT/Agentic-ESOpt 四种设置。完整命令、
+Trace2Skill-Agentic-ESOpt 蒸馏完成后，只重放已经训练好的 NoSkill ES
+history，并在最终评测时注入从 ES trajectories 蒸馏的 skill；不会再启动
+第二轮 ES，也不会在蒸馏后继续更新模型权重。
+
+同一入口可评测 NoSkill/Trace2Skill × No-Finetune/Agentic-ESOpt 四种设置。完整命令、
 默认超参数、外部代码和服务配置见 [`data/README.md`](data/README.md) 与
 [`webarena-train-time/README.md`](webarena-train-time/README.md)。
 

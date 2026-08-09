@@ -9,7 +9,7 @@
   },
   "results": [
     {
-      "setting": "noskill-noft",
+      "setting": "noskill-no-finetune",
       "initial_run_successes": 46,
       "initial_run_mean": 0.2787878787878788,
       "sample_total": 495,
@@ -28,7 +28,7 @@
       "gain_percent_points_reported": 6.69
     },
     {
-      "setting": "trace2skill-noft",
+      "setting": "trace2skill-no-finetune",
       "successes": [
         55,
         51,

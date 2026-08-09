@@ -4,10 +4,10 @@ This directory maintains the four paper settings on Qwen3.5-27B:
 
 | Setting | Model state | Skill |
 | --- | --- | --- |
-| NoSkill-NoFT | base | none |
+| NoSkill-No-Finetune | base | none |
 | NoSkill-Agentic-ESOpt | replayed ES updates | none |
-| Trace2Skill-NoFT | base | distilled from trajectories |
-| Trace2Skill-Agentic-ESOpt | replayed ES updates | the same distilled skill |
+| Trace2Skill-No-Finetune | base | distilled from fixed-base No-Finetune rollout trajectories |
+| Trace2Skill-Agentic-ESOpt | replayed ES updates | distilled from all NoSkill ES trajectories |
 
 The common entry point is `scripts/webarena/run.sh`. Install the external
 Trace2Skill source and the SkillOpt WebArena rollout runtime as described in
@@ -60,7 +60,7 @@ This produces the only maintained partitions:
 | Partition | Path | Used by |
 | --- | --- | --- |
 | train (582) | `data/webarena/vab_nonlite_split/train/items.json` | Agentic-ESOpt rollouts and trajectory collection |
-| validation (65) | `data/webarena/vab_nonlite_split/val/items.json` | standalone Trace2Skill validation |
+| validation (65) | `data/webarena/vab_nonlite_split/val/items.json` | Trace2Skill-No-Finetune validation |
 | held-out test (165) | `data/webarena/vab_lite_split/items.json` | periodic read-only evaluation and all three-run final evaluations |
 
 `vab_nonlite_split/test/items.json` is intentionally empty. The 165 Lite
@@ -90,39 +90,50 @@ by the released experiments, and all 560 case positions consumed by the
 70-update Agentic-ESOpt run (generations 0–69, batch size 8) match the archived
 training log exactly.
 
-## Reproduce the trajectory-to-skill pipeline
+## Reproduce the two trajectory-to-skill pipelines
 
-First run Agentic-ESOpt. Its run directory contains both `history.json` and
-the `gen_*` browser trajectories used for distillation:
+Trace2Skill-No-Finetune keeps the base model fixed. It repeatedly collects
+base-model browser trajectories from the 582-task training split, evolves only
+the skill, and validates on the separate 65-task split:
+
+```bash
+scripts/webarena/run.sh trace2skill_no-finetune distill
+```
+
+For Trace2Skill-Agentic-ESOpt, first run NoSkill Agentic-ESOpt. Its run
+directory contains both `history.json` and the `gen_*` browser trajectories
+used for the second, independent skill:
 
 ```bash
 RUN_ID=webarena_noskill_es \
 scripts/webarena/run.sh noskill_agentic_esopt train
 ```
 
-Distill a skill from every trajectory in all completed ES generations:
+Distill the Agentic-ESOpt skill from every trajectory in all completed ES
+generations:
 
 ```bash
 WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
-TRACE2SKILL_RUN_ID=webarena_trace2skill \
-scripts/webarena/run.sh trace2skill_noft distill
+scripts/webarena/run.sh trace2skill_agentic_esopt distill
 ```
+
+This ends the Agentic-ESOpt optimization path. There is no second,
+skill-conditioned ES run: the evaluation below replays the same NoSkill ES
+history and injects its ES-trajectory skill only while evaluating.
 
 Run the four clean final evaluations. Every `test` resets and initializes the
 model servers first; Agentic-ESOpt tests then replay every update in the given
 history before evaluation.
 
 ```bash
-scripts/webarena/run.sh noskill_noft test
+scripts/webarena/run.sh noskill_no-finetune test
 
 WEBARENA_ES_HISTORY_FILE=runs/webrl_lite_full_es/webarena_noskill_es/history.json \
 scripts/webarena/run.sh noskill_agentic_esopt test
 
-TRACE2SKILL_RUN_ID=webarena_trace2skill \
-scripts/webarena/run.sh trace2skill_noft test
+scripts/webarena/run.sh trace2skill_no-finetune test
 
 WEBARENA_ES_HISTORY_FILE=runs/webrl_lite_full_es/webarena_noskill_es/history.json \
-TRACE2SKILL_RUN_ID=webarena_trace2skill \
 scripts/webarena/run.sh trace2skill_agentic_esopt test
 ```
 
@@ -133,21 +144,25 @@ Agentic-ESOpt uses 70 generations, population 8, case batch 8, alpha
 represented uniformly as a cosine schedule from `1.5e-3` to `1.5e-3` with no
 warmup, so it is numerically constant.
 
-Trajectory distillation uses all completed ES generations and every available
-trajectory, with 12,000-character HTML truncation, `gpt-5.4-nano`, 16 analysis
-workers, medium reasoning effort for analysis/evolution/consolidation, an empty
-initial skill, the committed WebArena success/error prompts, and no skill
-line/token/reference cap. In the CLI, both `--generations 0` and
-`--max-traces 0` mean unlimited.
+Trace2Skill-No-Finetune uses 70 skill-evolution steps, 8 train tasks per step,
+8 rollouts per task, an empty initial skill, representative selection of at
+most one positive and one usable negative trace per task, 32 rollout workers,
+16 analysis workers, and validation/Lite evaluation every 10 steps. It changes
+the skill only; the base-model weights remain fixed.
+
+Trace2Skill-Agentic-ESOpt uses all completed ES generations and every available
+trajectory, with 12,000-character HTML truncation, 16 analysis workers, an
+empty initial skill, and no skill line/token/reference cap. In its CLI, both
+`--generations 0` and `--max-traces 0` mean unlimited. Both distillation paths
+use the committed WebArena success/error prompts, `gpt-5.4-nano`, and medium
+reasoning effort for analysis/evolution/consolidation.
 
 Final evaluation uses three runs over all 165 held-out tasks with temperature
 `0.7`, top-p `0.8`, top-k `20`, min-p `0.0`, presence penalty `1.5`, repetition
 penalty `1.0`, and 30 browser steps.
 
-For standalone rollout-and-distill Trace2Skill, use
-`scripts/webarena/run.sh trace2skill_noft train`. For joint online skill
-evolution during ES, set `WEBARENA_TRACE2SKILL_EVERY_GENERATION=1` when running
-`trace2skill_agentic_esopt train`.
+The ES trainer is intentionally NoSkill-only. Trace2Skill-Agentic-ESOpt exposes
+only `distill` and `test`; neither stage performs an ES update.
 
 Curated logs, detailed three-run evaluations, and evaluated skills are under
 `results/`. The Trace2Skill implementation is under `methods/trace2skill/`;

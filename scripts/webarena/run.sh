@@ -50,10 +50,12 @@ MIN_P="${WEBARENA_MIN_P:-0.0}"
 PRESENCE_PENALTY="${WEBARENA_PRESENCE_PENALTY:-1.5}"
 REPETITION_PENALTY="${WEBARENA_REPETITION_PENALTY:-1.0}"
 
-TRACE_RUN_ID="${TRACE2SKILL_RUN_ID:-webarena_trace2skill_noft}"
-TRACE_SKILL_FILE="${TRACE2SKILL_SKILL_FILE:-$ROOT/runs/trace2skill_webarena_sft/$TRACE_RUN_ID/skill/SKILL.md}"
+NO_FINETUNE_TRACE_RUN_ID="${TRACE2SKILL_NO_FINETUNE_RUN_ID:-webarena_trace2skill_no-finetune}"
+AGENTIC_TRACE_RUN_ID="${TRACE2SKILL_AGENTIC_ESOPT_RUN_ID:-webarena_trace2skill_agentic_esopt}"
+NO_FINETUNE_SKILL_FILE="${TRACE2SKILL_NO_FINETUNE_SKILL_FILE:-$ROOT/runs/trace2skill_webarena_sft/$NO_FINETUNE_TRACE_RUN_ID/skill/SKILL.md}"
+AGENTIC_SKILL_FILE="${TRACE2SKILL_AGENTIC_ESOPT_SKILL_FILE:-$ROOT/runs/trace2skill_webarena_sft/$AGENTIC_TRACE_RUN_ID/skill/SKILL.md}"
 
-TRACE_MODEL_ENDPOINTS="${TRACE2SKILL_MODEL_ENDPOINTS:-}"
+TRACE_MODEL_ENDPOINTS="${WEBARENA_TRACE2SKILL_MODEL_ENDPOINTS:-}"
 if [[ -z "$TRACE_MODEL_ENDPOINTS" ]]; then
   IFS=',' read -r -a endpoint_array <<< "$ES_ENDPOINTS"
   for endpoint in "${endpoint_array[@]}"; do
@@ -164,29 +166,30 @@ if [[ -z "$ES_HISTORY_FILE" && -n "${WEBARENA_ES_TRAIN_RUN_ID:-}" ]]; then
 fi
 
 case "$METHOD:$STAGE" in
-  noskill_noft:test)
+  noskill_no-finetune:test)
     run_final_eval "" "" 0 "$@"
     ;;
   noskill_agentic_esopt:train)
     exec "$PY" "$ROOT/webarena-train-time/scripts/run_webrl_lite_distributed_es_train.py" \
       "${ES_TRAIN_ARGS[@]}" \
-      --skill-file "" \
       "$@"
     ;;
   noskill_agentic_esopt:test)
     run_final_eval "" "$ES_HISTORY_FILE" 1 "$@"
     ;;
-  trace2skill_noft:train|trace2skill_noft:train_test)
+  trace2skill_no-finetune:distill)
     trace_args=(
-      --run-id "$TRACE_RUN_ID"
-      --split-dir "${TRACE2SKILL_SPLIT_DIR:-$ROOT/data/webarena/vab_nonlite_split}"
-      --steps "${TRACE2SKILL_STEPS:-70}"
-      --train-instances-per-epoch "${TRACE2SKILL_TRAIN_INSTANCES:-8}"
-      --samples-per-instance "${TRACE2SKILL_SAMPLES_PER_INSTANCE:-8}"
-      --eval-interval "${TRACE2SKILL_EVAL_INTERVAL:-10}"
-      --train-workers "${TRACE2SKILL_TRAIN_WORKERS:-32}"
-      --test-workers "${TRACE2SKILL_TEST_WORKERS:-32}"
-      --analysis-workers "${TRACE2SKILL_WORKERS:-16}"
+      --run-id "$NO_FINETUNE_TRACE_RUN_ID"
+      --split-dir "${WEBARENA_TRACE2SKILL_SPLIT_DIR:-$ROOT/data/webarena/vab_nonlite_split}"
+      --steps "${WEBARENA_TRACE2SKILL_STEPS:-70}"
+      --train-instances-per-epoch "${WEBARENA_TRACE2SKILL_TRAIN_INSTANCES:-8}"
+      --samples-per-instance "${WEBARENA_TRACE2SKILL_SAMPLES_PER_INSTANCE:-8}"
+      --updates-per-eval-step "${WEBARENA_TRACE2SKILL_UPDATES_PER_STEP:-1}"
+      --skill-update-interval "${WEBARENA_TRACE2SKILL_UPDATE_INTERVAL:-1}"
+      --eval-interval "${WEBARENA_TRACE2SKILL_EVAL_INTERVAL:-10}"
+      --train-workers "${WEBARENA_TRACE2SKILL_TRAIN_WORKERS:-32}"
+      --test-workers "${WEBARENA_TRACE2SKILL_TEST_WORKERS:-32}"
+      --analysis-workers "${WEBARENA_TRACE2SKILL_WORKERS:-16}"
       --optimizer-model "${TRACE2SKILL_OPTIMIZER_MODEL:-gpt-5.4-nano}"
       --analysis-reasoning-effort "${TRACE2SKILL_ANALYSIS_REASONING_EFFORT:-medium}"
       --skill-reasoning-effort "${TRACE2SKILL_SKILL_REASONING_EFFORT:-medium}"
@@ -196,76 +199,68 @@ case "$METHOD:$STAGE" in
       --model-endpoints "$TRACE_MODEL_ENDPOINTS"
       --mode "$MODE"
       --stop-token "$STOP_TOKEN"
-      --train-temperature "${TRACE2SKILL_TRAIN_TEMPERATURE:-$TEMPERATURE}"
-      --test-temperature "${TRACE2SKILL_TEST_TEMPERATURE:-$TEMPERATURE}"
+      --train-temperature "${WEBARENA_TRACE2SKILL_TRAIN_TEMPERATURE:-$TEMPERATURE}"
+      --test-temperature "${WEBARENA_TRACE2SKILL_TEST_TEMPERATURE:-$TEMPERATURE}"
       --top-p "$TOP_P"
       --top-k "$TOP_K"
       --min-p "$MIN_P"
       --presence-penalty "$PRESENCE_PENALTY"
       --repetition-penalty "$REPETITION_PENALTY"
       --max-steps "${WEBARENA_MAX_STEPS:-30}"
+      --seed "${WEBARENA_TRACE2SKILL_SEED:-20260605}"
     )
-    case "${TRACE2SKILL_EMPTY_SKILL:-1}" in
-      1|true|yes|on) trace_args+=(--empty-skill) ;;
-    esac
+    if [[ -n "${TRACE2SKILL_NO_FINETUNE_INITIAL_SKILL:-}" ]]; then
+      trace_args+=(--initial-skill "$TRACE2SKILL_NO_FINETUNE_INITIAL_SKILL")
+    else
+      trace_args+=(--empty-skill)
+    fi
     exec "$PY" "$ROOT/webarena-train-time/scripts/run_trace2skill_webarena_sft.py" \
       "${trace_args[@]}" \
       "$@"
     ;;
-  trace2skill_noft:distill)
+  trace2skill_agentic_esopt:distill)
     if [[ -z "${WEBARENA_TRAJECTORY_RUN:-}" ]]; then
       echo "Set WEBARENA_TRAJECTORY_RUN to the ES run directory containing gen_* trajectory folders." >&2
       exit 2
     fi
     distill_args=(
       --es-run-dir "$WEBARENA_TRAJECTORY_RUN"
-      --run-id "$TRACE_RUN_ID"
-      --generations "${TRACE2SKILL_SOURCE_GENERATIONS:-0}"
-      --max-traces "${TRACE2SKILL_MAX_TRACES:-0}"
-      --html-limit "${TRACE2SKILL_HTML_LIMIT:-12000}"
+      --run-id "$AGENTIC_TRACE_RUN_ID"
+      --generations "${WEBARENA_AGENTIC_TRACE2SKILL_SOURCE_GENERATIONS:-0}"
+      --max-traces "${WEBARENA_AGENTIC_TRACE2SKILL_MAX_TRACES:-0}"
+      --html-limit "${WEBARENA_AGENTIC_TRACE2SKILL_HTML_LIMIT:-12000}"
       --optimizer-model "${TRACE2SKILL_OPTIMIZER_MODEL:-gpt-5.4-nano}"
-      --analysis-workers "${TRACE2SKILL_WORKERS:-16}"
+      --analysis-workers "${WEBARENA_AGENTIC_TRACE2SKILL_WORKERS:-16}"
       --analysis-reasoning-effort "${TRACE2SKILL_ANALYSIS_REASONING_EFFORT:-medium}"
       --skill-reasoning-effort "${TRACE2SKILL_SKILL_REASONING_EFFORT:-medium}"
       --consolidation-reasoning-effort "${TRACE2SKILL_CONSOLIDATION_REASONING_EFFORT:-medium}"
-      --seed "${TRACE2SKILL_SEED:-20260721}"
+      --seed "${WEBARENA_AGENTIC_TRACE2SKILL_SEED:-20260721}"
     )
-    if [[ -n "${TRACE2SKILL_INITIAL_SKILL:-}" ]]; then
-      distill_args+=(--initial-skill "$TRACE2SKILL_INITIAL_SKILL")
+    if [[ -n "${TRACE2SKILL_AGENTIC_ESOPT_INITIAL_SKILL:-}" ]]; then
+      distill_args+=(--initial-skill "$TRACE2SKILL_AGENTIC_ESOPT_INITIAL_SKILL")
     else
       distill_args+=(--empty-skill)
     fi
     exec env \
-      TRACE2SKILL_MAX_SKILL_LINES="${TRACE2SKILL_MAX_SKILL_LINES:-0}" \
-      TRACE2SKILL_MAX_SKILL_TOKENS="${TRACE2SKILL_MAX_SKILL_TOKENS:-0}" \
-      TRACE2SKILL_MAX_REFERENCES="${TRACE2SKILL_MAX_REFERENCES:-0}" \
+      TRACE2SKILL_MAX_SKILL_LINES="${TRACE2SKILL_AGENTIC_ESOPT_MAX_SKILL_LINES:-0}" \
+      TRACE2SKILL_MAX_SKILL_TOKENS="${TRACE2SKILL_AGENTIC_ESOPT_MAX_SKILL_TOKENS:-0}" \
+      TRACE2SKILL_MAX_REFERENCES="${TRACE2SKILL_AGENTIC_ESOPT_MAX_REFERENCES:-0}" \
       "$PY" "$ROOT/webarena-train-time/scripts/run_trace2skill_from_es_traces.py" \
       "${distill_args[@]}" \
       "$@"
     ;;
-  trace2skill_noft:test)
-    run_final_eval "$TRACE_SKILL_FILE" "" 0 "$@"
-    ;;
-  trace2skill_agentic_esopt:train)
-    online_args=()
-    case "${WEBARENA_TRACE2SKILL_EVERY_GENERATION:-0}" in
-      1|true|yes|on) online_args+=(--trace2skill-every-generation) ;;
-    esac
-    exec "$PY" "$ROOT/webarena-train-time/scripts/run_webrl_lite_distributed_es_train.py" \
-      "${ES_TRAIN_ARGS[@]}" \
-      --skill-file "$TRACE_SKILL_FILE" \
-      "${online_args[@]}" \
-      "$@"
+  trace2skill_no-finetune:test)
+    run_final_eval "$NO_FINETUNE_SKILL_FILE" "" 0 "$@"
     ;;
   trace2skill_agentic_esopt:test)
-    run_final_eval "$TRACE_SKILL_FILE" "$ES_HISTORY_FILE" 1 "$@"
+    run_final_eval "$AGENTIC_SKILL_FILE" "$ES_HISTORY_FILE" 1 "$@"
     ;;
   *)
     echo "usage: $0 METHOD STAGE" >&2
-    echo "  noskill_noft test" >&2
+    echo "  noskill_no-finetune test" >&2
     echo "  noskill_agentic_esopt train|test" >&2
-    echo "  trace2skill_noft train|distill|test|train_test" >&2
-    echo "  trace2skill_agentic_esopt train|test" >&2
+    echo "  trace2skill_no-finetune distill|test" >&2
+    echo "  trace2skill_agentic_esopt distill|test" >&2
     exit 2
     ;;
 esac

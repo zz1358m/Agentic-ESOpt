@@ -139,13 +139,15 @@ scripts/es_skill_workflow.sh math skill-eval
 # Replace math with docvqa for the DocVQA workflow.
 ```
 
-Trajectory distillation is task-specific. Math analyzes only failed
-trajectories: from each selected final task occurrence it keeps at most one
-`FAILED` trace and excludes every successful trace. DocVQA keeps at most one
-`FAILED` and one `SUCCEED` trace from each selected final task occurrence. The
-selection manifest records any unavailable outcome, and `skill-eval` evaluates
-the resulting skill after replaying the same Agentic-ESOpt history. All paper
-Trace2Skill analysis and skill-evolution calls use `gpt-5.4-nano`.
+Trajectory distillation is task-specific. Math scans every candidate trajectory
+from all ES generations, keeps at most one `FAILED` trace per training problem,
+and excludes every successful trace. With 25 generations × 16 problems, its
+400-problem training set therefore contributes at most 400 traces. DocVQA keeps
+at most one `FAILED` and one `SUCCEED` trace from each of the exact final 50
+task occurrences. The selection manifest records any unavailable outcome, and
+`skill-eval` evaluates the resulting skill after replaying the same
+Agentic-ESOpt history. All paper Trace2Skill analysis and skill-evolution calls
+use `gpt-5.4-nano`.
 
 Set `MODEL_PATH`, `TRAIN_RUN_ID`, dataset paths, and GPU settings in
 `scripts/settings.local.env`. Detailed variables are listed in
@@ -191,24 +193,32 @@ and 65 validation tasks. The Lite `task_id` values 0–164 are new evaluation
 indices, not the original IDs to exclude. Exact hashes and the full split
 definition are in [`webarena-train-time/README.md`](webarena-train-time/README.md).
 
-The canonical trajectory-to-skill sequence is:
+WebArena has two distinct trajectory-to-skill paths. No-Finetune rolls out the
+base model and evolves only its skill; Agentic-ESOpt distills a different skill
+from the completed NoSkill ES run:
 
 ```bash
+scripts/webarena/run.sh trace2skill_no-finetune distill
+
 RUN_ID=webarena_noskill_es \
 scripts/webarena/run.sh noskill_agentic_esopt train
 
 WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
-TRACE2SKILL_RUN_ID=webarena_trace2skill \
-scripts/webarena/run.sh trace2skill_noft distill
+scripts/webarena/run.sh trace2skill_agentic_esopt distill
 ```
 
-WebArena distillation consumes every trajectory from every completed ES
-generation; it does not select only the final generations or impose a trace
-cap. Its analysis and skill evolution also use `gpt-5.4-nano`.
+The Agentic-ESOpt distillation consumes every trajectory from every completed
+ES generation; it does not select only the final generations or impose a trace
+cap. Both paths use `gpt-5.4-nano` for analysis and skill evolution.
+
+After its distillation, Trace2Skill-Agentic-ESOpt replays the already trained
+NoSkill ES history and injects the ES-trajectory skill only for final
+evaluation. It never starts a second ES run or updates model weights after
+distillation.
 
 The same entry point evaluates all four NoSkill/Trace2Skill ×
-NoFT/Agentic-ESOpt settings. Exact commands, defaults, external checkouts, and
-service setup are listed in
+No-Finetune/Agentic-ESOpt settings. Exact commands, defaults, external
+checkouts, and service setup are listed in
 [`data/README.md`](data/README.md) and
 [`webarena-train-time/README.md`](webarena-train-time/README.md).
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -45,6 +46,43 @@ def result(
 
 
 class TraceSelectionTest(unittest.TestCase):
+    def test_public_workflow_has_no_second_skill_conditioned_es_run(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        launcher = (root / "scripts/webarena/run.sh").read_text(encoding="utf-8")
+        distributed_es = (
+            root / "webarena-train-time/scripts/run_webrl_lite_distributed_es_train.py"
+        ).read_text(encoding="utf-8")
+        single_es = (
+            root / "webarena-train-time/scripts/run_webrl_lite_full_es_train.py"
+        ).read_text(encoding="utf-8")
+
+        stages = re.findall(r"^\s*trace2skill_agentic_esopt:([^)]+)\)", launcher, re.MULTILINE)
+        self.assertEqual(stages, ["distill", "test"])
+        base_stages = re.findall(
+            r"^\s*noskill_no-finetune:([^)]+)\)", launcher, re.MULTILINE
+        )
+        self.assertEqual(base_stages, ["test"])
+        no_finetune_stages = re.findall(
+            r"^\s*trace2skill_no-finetune:([^)]+)\)", launcher, re.MULTILINE
+        )
+        self.assertEqual(no_finetune_stages, ["distill", "test"])
+        no_finetune_distill = launcher.split(
+            "trace2skill_no-finetune:distill)", 1
+        )[1].split(";;", 1)[0]
+        agentic_distill = launcher.split("trace2skill_agentic_esopt:distill)", 1)[1].split(
+            ";;", 1
+        )[0]
+        self.assertIn("run_trace2skill_webarena_sft.py", no_finetune_distill)
+        self.assertNotIn("run_trace2skill_from_es_traces.py", no_finetune_distill)
+        self.assertIn("run_trace2skill_from_es_traces.py", agentic_distill)
+        self.assertNotIn("run_trace2skill_webarena_sft.py", agentic_distill)
+        self.assertNotIn("run_webrl_lite_distributed_es_train.py", agentic_distill)
+        self.assertIn("NO_FINETUNE_SKILL_FILE", launcher)
+        self.assertIn("AGENTIC_SKILL_FILE", launcher)
+        self.assertNotIn("trace2skill", distributed_es.lower())
+        self.assertNotIn('parser.add_argument("--skill-file"', distributed_es)
+        self.assertNotIn('parser.add_argument("--skill-file"', single_es)
+
     def test_selects_representative_positive_and_negative(self) -> None:
         results = [
             result("1_s00", 1, hard=1, turns=9),

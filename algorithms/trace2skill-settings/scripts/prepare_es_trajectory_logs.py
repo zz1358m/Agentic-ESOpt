@@ -171,14 +171,17 @@ def select_math(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[st
             raise ValueError(
                 "--history is required with --one-per-outcome-per-task or --one-error-per-task"
             )
-        units = math_units(args.history, args.checkpoint_step, args.task_count)
+        task_count = args.task_count or args.checkpoint_step * args.case_batch_size
+        if task_count < 0:
+            raise ValueError("--task-count must be non-negative")
+        units = math_units(args.history, args.checkpoint_step, task_count)
         selected_units = set(units)
         selected = [row for row in rows if (row["generation"], row["task_id"]) in selected_units]
         counts_by_unit = Counter((row["generation"], row["task_id"]) for row in selected)
         invalid = {unit: count for unit, count in counts_by_unit.items() if count != args.population}
-        if invalid or len(counts_by_unit) != args.task_count:
+        if invalid or len(counts_by_unit) != task_count:
             raise ValueError(
-                f"Math expected {args.population} trajectories for each of {args.task_count} units; "
+                f"Math expected {args.population} trajectories for each of {task_count} units; "
                 f"invalid={invalid}, observed_units={len(counts_by_unit)}"
             )
         by_task_outcome: dict[tuple[int, str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -204,11 +207,19 @@ def select_math(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[st
             chosen_rows,
             key=lambda row: (row["generation"], row["task_id"], row["outcome"]),
         )
+        full_pre_checkpoint_window = (
+            task_count == args.checkpoint_step * args.case_batch_size
+        )
+        window = (
+            "all task occurrences before the checkpoint step"
+            if full_pre_checkpoint_window
+            else "the selected final task occurrences before the checkpoint step"
+        )
         metadata = {
             "selection": (
-                "one trajectory per outcome from each exact last task occurrence"
+                f"at most one trajectory per outcome per task across {window}"
                 if args.one_per_outcome_per_task
-                else "one failed trajectory from each exact last task occurrence"
+                else f"at most one failed trajectory per task across {window}"
             ),
             "checkpoint_step": args.checkpoint_step,
             "task_units": [
@@ -285,7 +296,15 @@ def build_parser() -> argparse.ArgumentParser:
     math.add_argument("--trace-roots", type=Path, nargs="+", required=True)
     math.add_argument("--history", type=Path)
     math.add_argument("--checkpoint-step", type=int, default=25)
-    math.add_argument("--task-count", type=int, default=50)
+    math.add_argument(
+        "--task-count",
+        type=int,
+        default=0,
+        help=(
+            "Number of final task occurrences to scan. The default 0 scans every "
+            "occurrence across all pre-checkpoint generations."
+        ),
+    )
     math.add_argument("--first-generation", type=int, default=0)
     math.add_argument("--last-generation", type=int, default=24)
     math.add_argument("--population", type=int, default=16)

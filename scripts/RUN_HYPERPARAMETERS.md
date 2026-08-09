@@ -58,7 +58,7 @@ scripts/sudoku/run_grpo_t1.sh   # T=1.0, top-p=1.0, top-k=-1
 | Rollout | 1 train sample, 50 turns, 4096 tokens/turn, no total-token cap, `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
 | Runtime | 4 vLLM engines, inference batch 16, context 131072, GPU memory utilization 0.85, bfloat16, eager mode |
 | Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; DAPO 100; AIME 30 |
-| Trace2Skill | final 50 task occurrences, only one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
+| Trace2Skill | all 25 ES generations and all candidate trajectories scanned; at most one failure per training problem (400 maximum), 32 workers, 80 skill lines, evolution temperature 1 |
 
 底层 `scripts/math/run_vllm_es_4gpu.sh` 默认是 1 代、population 8、case
 batch 8、sigma `5e-4` constant、alpha `5e-4`、全参数、z-score、1 train
@@ -125,16 +125,17 @@ GPU memory utilization 0.82。
 | Method | Effective launcher defaults |
 | --- | --- |
 | `noskill_agentic_esopt train` | 70 generations, population 8, case batch 8, 8 case workers/sample, cosine sigma `1.5e-3 → 1.5e-3`, zero warmup, alpha `2.5e-4`, full parameters, z-score, seed `20260605`, eval every 10 generations |
-| `trace2skill_noft distill` | all completed generations and all trajectories from the source ES run, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-nano`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
-| `trace2skill_noft train` | 70 steps, 8 instances/step, 8 samples/instance, eval every 10 steps, 32 train/test workers, 16 analysis workers, the same optimizer and reasoning settings |
-| `trace2skill_agentic_esopt train` | 与 NoSkill Agentic-ESOpt 相同的 ES 参数，并向每个 rollout 注入指定的 `SKILL.md` |
+| `trace2skill_no-finetune distill` | fixed base weights; 70 skill steps, 8 tasks/step, 8 rollouts/task, at most one positive + one usable negative per task, skill update every step, eval every 10 steps, 32 rollout workers, 16 analysis workers, empty initial skill, seed `20260605` |
+| `trace2skill_agentic_esopt distill` | all completed generations and all trajectories from the NoSkill ES run, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-nano`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
+| `trace2skill_agentic_esopt test` | 重放同一份 NoSkill Agentic-ESOpt history，只在最终评测时注入蒸馏后的 `SKILL.md`；蒸馏后不再执行 ES update |
 | all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn |
 
 训练和最终评测统一使用 `T=0.7`、top-p `0.8`、top-k `20`、min-p
 `0.0`、presence penalty `1.5`、repetition penalty `1.0`。训练使用从原始
 812 题中按 Lite `old_task_id` 排除 165 题后生成的 582 题 non-Lite split；
-另外 65 题只作 Trace2Skill validation，最终评测使用完整 165 题
-WebArena-Lite。`reddit,gitlab,wikipedia,map,shopping,shopping_admin` 六个 site
+另外 65 题用于 Trace2Skill-No-Finetune validation；最终评测使用完整 165 题
+WebArena-Lite。
+`reddit,gitlab,wikipedia,map,shopping,shopping_admin` 六个 site
 都启用。最终噪声虽然用统一的 cosine 起点/终点接口表达，但起点与终点都为
 `1.5e-3`，所以整个训练过程数值恒定。
 

@@ -172,7 +172,10 @@ def eval_tasks(
     config_dir: Path,
     result_root: Path,
     run_name: str,
-    skill_file: Path | None,
+    instruction_path: str,
+    model_name: str,
+    mode: str,
+    stop_token: str,
 ) -> dict:
     scores = []
     for task_id in task_ids:
@@ -182,7 +185,10 @@ def eval_tasks(
             config_dir=config_dir,
             result_root=result_root,
             run_name=run_name,
-            skill_file=skill_file,
+            instruction_path=instruction_path,
+            model_name=model_name,
+            mode=mode,
+            stop_token=stop_token,
         )
         scores.append({"task_id": task_id, "score": score})
         print(f"[eval] {run_name} task={task_id} score={score}", flush=True)
@@ -369,10 +375,6 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=20260604)
     parser.add_argument("--reward-normalization", default="zscore")
-    parser.add_argument(
-        "--skill-file",
-        default=str(ROOT / "webarena-train-time/skills/webarena_default_skill_v2.md"),
-    )
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--eval-limit", type=int, default=0)
     parser.add_argument("--skip-initial-eval", action="store_true")
@@ -411,9 +413,6 @@ def main() -> None:
         raise ValueError("--train-config-dir is required when --split is set.")
     if train_config_dir is not None and not train_config_dir.exists():
         raise FileNotFoundError(train_config_dir)
-    skill_file = Path(args.skill_file) if args.skill_file else None
-    if skill_file is not None and not skill_file.exists():
-        raise FileNotFoundError(skill_file)
 
     init = post_json(f"{args.endpoint}/es/init", {"parameter_scope": args.parameter_scope, "verbose": True})
     print(f"[es_init] {init}", flush=True)
@@ -422,7 +421,7 @@ def main() -> None:
         f"sigma_start={args.sigma_start} sigma_end={sigma_end} sigma_schedule={args.sigma_schedule} "
         f"sigma_warmup_steps={sigma_warmup_steps} "
         f"alpha={args.alpha} parameter_scope={args.parameter_scope} "
-        f"skill_file={skill_file or ''} train_config_dir={train_config_dir or ''} eval_config_dir={config_dir}",
+        f"train_config_dir={train_config_dir or ''} eval_config_dir={config_dir}",
         flush=True,
     )
 
@@ -435,7 +434,6 @@ def main() -> None:
             config_dir=config_dir,
             result_root=result_root,
             run_name="initial_base_eval",
-            skill_file=skill_file,
             instruction_path=args.instruction_path,
             model_name=args.model_name,
             mode=args.mode,
@@ -479,7 +477,6 @@ def main() -> None:
                         config_dir=train_config_dir,
                         result_root=result_root,
                         run_name=f"gen_{generation:03d}_sample_{i:02d}_seed_{seed}",
-                        skill_file=skill_file,
                         instruction_path=args.instruction_path,
                         model_name=args.model_name,
                         mode=args.mode,
@@ -512,7 +509,6 @@ def main() -> None:
             config_dir=config_dir,
             result_root=result_root,
             run_name=f"eval_after_epoch_{generation + 1:03d}",
-            skill_file=skill_file,
             instruction_path=args.instruction_path,
             model_name=args.model_name,
             mode=args.mode,

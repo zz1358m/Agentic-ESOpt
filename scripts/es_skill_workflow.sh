@@ -219,7 +219,7 @@ case "$ACTION" in
           --trace-roots "$TRACE_ROOT" \
           --history "$ES_HISTORY" \
           --checkpoint-step "${DISTILL_CHECKPOINT_STEP:-$GENERATIONS}" \
-          --task-count "${DISTILL_TASK_COUNT:-50}" \
+          --task-count "${DISTILL_TASK_COUNT:-$((GENERATIONS * CASE_BATCH_SIZE))}" \
           --population "$POPULATION" \
           --case-batch-size "$CASE_BATCH_SIZE" \
           --one-error-per-task \

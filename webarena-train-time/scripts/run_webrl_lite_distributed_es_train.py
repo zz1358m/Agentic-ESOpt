@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.util
 import json
 import os
 import random
-import shutil
 import statistics
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -21,20 +18,6 @@ except Exception:  # pragma: no cover - optional runtime dependency
 
 ROOT = Path(os.environ.get("ROOT", Path(__file__).resolve().parents[2])).resolve()
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-TRACE_WRAPPER_PATH = ROOT / "webarena-train-time" / "scripts" / "run_trace2skill_webarena_sft.py"
-TRACE_SPEC = importlib.util.spec_from_file_location("trace2skill_webarena_sft", TRACE_WRAPPER_PATH)
-if TRACE_SPEC is None or TRACE_SPEC.loader is None:
-    raise RuntimeError(f"Cannot import {TRACE_WRAPPER_PATH}")
-trace2skill = importlib.util.module_from_spec(TRACE_SPEC)
-TRACE_SPEC.loader.exec_module(trace2skill)
-EMPTY_WEB_ARENA_SKILL = """---
-name: webarena-sft-trace-skill
-description: Skill instructions for WebArena agents using WebRL id actions.
----
-
-# WebArena Skill
-
-"""
 
 from run_webrl_lite_full_es_train import (
     DEFAULT_CONFIG_DIR,
@@ -47,171 +30,6 @@ from run_webrl_lite_full_es_train import (
     sigma_for_generation,
     validate_config_alignment,
 )  # noqa: E402
-
-
-def read_jsonl(path: Path) -> list[dict]:
-    rows = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            rows.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
-    return rows
-
-
-def task_score(task_dir: Path) -> float:
-    for path in sorted((task_dir / "actions").glob("*.json")):
-        try:
-            return float(json.loads(path.read_text(encoding="utf-8")).get("score", 0.0))
-        except Exception:
-            pass
-    return -1.0
-
-
-def truncate_text(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    return text[:limit] + f"\n...[truncated {len(text) - limit} chars]"
-
-
-def write_trace2skill_log(task_dir: Path, output_path: Path, html_limit: int) -> dict | None:
-    trace_paths = sorted((task_dir / "traces").glob("*.jsonl"))
-    if not trace_paths:
-        return None
-    rows = read_jsonl(trace_paths[0])
-    if not rows:
-        return None
-    score = task_score(task_dir)
-    if score < 0:
-        return None
-    outcome = "SUCCEED" if score >= 1.0 else "FAILED"
-    task_id = str(rows[0].get("trace_id") or task_dir.name.removeprefix("task_"))
-    target = str(rows[0].get("target") or rows[0].get("prompt") or "")
-    lines = [
-        f"# Chat History {task_dir.parent.name}_{task_id}",
-        "",
-        f"Task ID: {task_id}",
-        "Site: unknown",
-        f"Task: {target}",
-        f"Score: {score}",
-        f"Outcome: {outcome}",
-        "Failure reason: WebArena evaluator score was 0." if score < 1.0 else "Failure reason: ",
-        "",
-        "## WebArena Execution Trace",
-        "",
-    ]
-    for row in rows:
-        idx = row.get("index", 0)
-        html = truncate_text(str(row.get("html", "")), html_limit)
-        prompt = str(row.get("prompt", ""))
-        response = str(row.get("response", ""))
-        lines.extend(
-            [
-                f"## Round {idx}",
-                "",
-                "### User",
-                "",
-                f"Task Instruction: {target}" if idx == 0 else (prompt or "** Simplified html **"),
-                "",
-                "Simplified HTML:",
-                "",
-                "```html",
-                html,
-                "```",
-                "",
-                "### Assistant",
-                "",
-                response,
-                "",
-            ]
-        )
-    lines.extend(["", "---", "", "## RESULT", outcome, ""])
-    output_path.write_text("\n".join(lines), encoding="utf-8")
-    return {"task_id": task_id, "score": score, "outcome": outcome, "source": str(task_dir)}
-
-
-def evolve_skill_from_es_generation(
-    *,
-    result_root: Path,
-    generation_start: int,
-    generation_end: int,
-    skill_file: Path,
-    optimizer_model: str,
-    analysis_workers: int,
-    seed: int,
-    html_limit: int,
-    official_prompts: bool,
-    optimizer_generation_config: str,
-    analysis_reasoning_effort: str | None,
-    skill_reasoning_effort: str | None,
-    consolidation_reasoning_effort: str | None,
-    replay_source_root: Path | None = None,
-    replay_generations: int = 0,
-) -> dict:
-    before_hash = hashlib.sha256(skill_file.read_bytes()).hexdigest()
-    skill_dir = skill_file.parent
-    update_dir = result_root / "trace2skill_updates" / f"generation_{generation_end + 1:03d}"
-    logs_dir = update_dir / "trace_logs"
-    if logs_dir.exists():
-        shutil.rmtree(logs_dir)
-    logs_dir.mkdir(parents=True, exist_ok=True)
-
-    records = []
-    for generation in range(generation_start, generation_end + 1):
-        source_root = (
-            replay_source_root
-            if replay_source_root is not None and generation < replay_generations
-            else result_root
-        )
-        sample_dirs = sorted(source_root.glob(f"gen_{generation:03d}_sample_*"))
-        for sample_dir in sample_dirs:
-            for task_dir in sorted(sample_dir.glob("task_*")):
-                record = write_trace2skill_log(
-                    task_dir,
-                    logs_dir
-                    / (
-                        f"webarena_agent_{sample_dir.name}_{task_dir.name}_"
-                        f"{'SUCCEED' if task_score(task_dir) >= 1.0 else 'FAILED'}.md"
-                    ),
-                    html_limit,
-                )
-                if record:
-                    records.append(record)
-    trace2skill.write_json(update_dir / "source_traces.json", records)
-    if not records:
-        return {
-            "generation_start": generation_start,
-            "generation_end": generation_end,
-            "trace_count": 0,
-            "updated": False,
-        }
-    trace2skill.run_analysis_and_evolve(
-        update_dir,
-        skill_dir,
-        optimizer_model,
-        analysis_workers,
-        seed,
-        official_prompts=official_prompts,
-        optimizer_generation_config=optimizer_generation_config,
-        analysis_reasoning_effort=analysis_reasoning_effort,
-        skill_reasoning_effort=skill_reasoning_effort,
-        consolidation_reasoning_effort=consolidation_reasoning_effort,
-    )
-    after_hash = hashlib.sha256(skill_file.read_bytes()).hexdigest()
-    snapshot = result_root / f"skill_generation_{generation_end + 1:03d}.md"
-    shutil.copy2(skill_file, snapshot)
-    return {
-        "generation_start": generation_start,
-        "generation_end": generation_end,
-        "trace_count": len(records),
-        "updated": before_hash != after_hash,
-        "skill": str(snapshot),
-        "skill_hash_before": before_hash,
-        "skill_hash_after": after_hash,
-    }
 
 
 def write_eval_scalars(writer: object | None, prefix: str, eval_rec: dict, step: int) -> None:
@@ -329,7 +147,6 @@ def eval_population_sample(
     config_dir: Path,
     result_root: Path,
     run_name: str,
-    skill_file: Path | None,
     case_workers: int,
     instruction_path: str,
     model_name: str,
@@ -355,7 +172,6 @@ def eval_population_sample(
                     config_dir=config_dir,
                     result_root=result_root,
                     run_name=run_name,
-                    skill_file=skill_file,
                     instruction_path=instruction_path,
                     model_name=model_name,
                     mode=mode,
@@ -424,10 +240,6 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=20260605)
     parser.add_argument("--reward-normalization", default="zscore")
-    parser.add_argument(
-        "--skill-file",
-        default=str(ROOT / "webarena-train-time/skills/webarena_default_skill_v2.md"),
-    )
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--eval-limit", type=int, default=0)
     parser.add_argument(
@@ -449,17 +261,6 @@ def main() -> None:
     parser.add_argument("--presence-penalty", type=float, default=0.0)
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument(
-        "--trace2skill-every-generation",
-        action="store_true",
-        help="After each ES generation, summarize that generation's traces into the run skill file.",
-    )
-    parser.add_argument(
-        "--trace2skill-interval",
-        type=int,
-        default=0,
-        help="Aggregate traces and evolve the skill every N generations. Use 0 to disable.",
-    )
-    parser.add_argument(
         "--replay-history",
         default="",
         help="Historical ES run directory or history.json used to replay recorded seed/reward updates.",
@@ -473,32 +274,6 @@ def main() -> None:
             "Use -1 to replay every recorded ES generation."
         ),
     )
-    parser.add_argument("--init-empty-skill", action="store_true", help="Create an empty SKILL.md when --skill-file is missing.")
-    parser.add_argument("--trace2skill-optimizer-model", default="gpt-5.4-nano")
-    parser.add_argument("--trace2skill-analysis-workers", type=int, default=16)
-    parser.add_argument("--trace2skill-html-limit", type=int, default=12000)
-    parser.add_argument(
-        "--trace2skill-official-prompts",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Use upstream Trace2Skill prompts instead of the committed WebArena prompts.",
-    )
-    parser.add_argument("--trace2skill-optimizer-generation-config", default="")
-    parser.add_argument(
-        "--trace2skill-analysis-reasoning-effort",
-        choices=["none", "low", "medium", "high", "xhigh"],
-        default=None,
-    )
-    parser.add_argument(
-        "--trace2skill-skill-reasoning-effort",
-        choices=["none", "low", "medium", "high", "xhigh"],
-        default=None,
-    )
-    parser.add_argument(
-        "--trace2skill-consolidation-reasoning-effort",
-        choices=["none", "low", "medium", "high", "xhigh"],
-        default=None,
-    )
     parser.add_argument(
         "--tensorboard-dir",
         default="",
@@ -508,9 +283,6 @@ def main() -> None:
     sigma_end = args.sigma_start if args.sigma_end is None else args.sigma_end
     if args.sigma_start < 0 or sigma_end < 0:
         raise ValueError("Sigma values must be non-negative.")
-    trace2skill_interval = 1 if args.trace2skill_every_generation else args.trace2skill_interval
-    if trace2skill_interval < 0:
-        raise ValueError("--trace2skill-interval must be non-negative.")
     if args.replay_generations < -1:
         raise ValueError("--replay-generations must be -1 or non-negative.")
     if args.replay_generations != 0 and not args.replay_history:
@@ -543,15 +315,6 @@ def main() -> None:
         raise FileNotFoundError(train_config_dir)
     if train_task_ids and train_config_dir is not None:
         validate_config_alignment(Path(args.split), train_task_ids, train_config_dir)
-    skill_file = Path(args.skill_file) if args.skill_file else None
-    if skill_file is not None and not skill_file.exists():
-        if args.init_empty_skill:
-            skill_file.parent.mkdir(parents=True, exist_ok=True)
-            skill_file.write_text(EMPTY_WEB_ARENA_SKILL, encoding="utf-8")
-        else:
-            raise FileNotFoundError(skill_file)
-    if trace2skill_interval and skill_file is None:
-        raise ValueError("Trace2Skill updates require --skill-file.")
 
     replay_source_root = None
     replay_by_generation: dict[int, dict] = {}
@@ -589,8 +352,7 @@ def main() -> None:
         f"sigma_start={args.sigma_start} sigma_end={sigma_end} sigma_schedule={args.sigma_schedule} "
         f"sigma_warmup_steps={sigma_warmup_steps} "
         f"alpha={args.alpha} "
-        f"parameter_scope={args.parameter_scope} skill_file={skill_file or ''} "
-        f"trace2skill_interval={trace2skill_interval} "
+        f"parameter_scope={args.parameter_scope} "
         f"replay_generations={args.replay_generations} "
         f"replay_source={replay_source_root or ''} "
         f"train_config_dir={train_config_dir or ''} eval_config_dir={config_dir} "
@@ -611,14 +373,6 @@ def main() -> None:
         "alpha": args.alpha,
         "reward_normalization": args.reward_normalization,
         "seed": args.seed,
-        "trace2skill_interval": trace2skill_interval,
-        "trace2skill_optimizer_model": args.trace2skill_optimizer_model,
-        "trace2skill_analysis_reasoning_effort": args.trace2skill_analysis_reasoning_effort,
-        "trace2skill_skill_reasoning_effort": args.trace2skill_skill_reasoning_effort,
-        "trace2skill_consolidation_reasoning_effort": args.trace2skill_consolidation_reasoning_effort,
-        "max_skill_lines": int(os.environ.get("TRACE2SKILL_MAX_SKILL_LINES", "100")),
-        "max_skill_tokens": int(os.environ.get("TRACE2SKILL_MAX_SKILL_TOKENS", "0")),
-        "max_references": int(os.environ.get("TRACE2SKILL_MAX_REFERENCES", "5")),
         "replay_generations": args.replay_generations,
         "replay_source": str(replay_source_root) if replay_source_root else "",
     }
@@ -630,7 +384,7 @@ def main() -> None:
             config_dir=config_dir,
             result_root=result_root,
             run_name="eval_only",
-            skill_file=skill_file,
+            skill_file=None,
             workers_per_endpoint=args.eval_workers_per_endpoint,
             instruction_path=args.instruction_path,
             model_name=args.model_name,
@@ -664,7 +418,7 @@ def main() -> None:
             config_dir=config_dir,
             result_root=result_root,
             run_name="initial_base_eval",
-            skill_file=skill_file,
+            skill_file=None,
             workers_per_endpoint=args.eval_workers_per_endpoint,
             instruction_path=args.instruction_path,
             model_name=args.model_name,
@@ -683,7 +437,6 @@ def main() -> None:
         print(f"[initial_eval] {initial_eval}", flush=True)
 
     rng = random.Random(args.seed)
-    last_skill_update_generation = -1
     for generation in range(args.generations):
         sigma_t = sigma_for_generation(
             sigma_start=args.sigma_start,
@@ -751,7 +504,6 @@ def main() -> None:
                         config_dir=train_config_dir,
                         result_root=result_root,
                         run_name=f"gen_{generation:03d}_sample_{i:02d}_seed_{seeds[i]}",
-                        skill_file=skill_file,
                         case_workers=args.case_workers_per_sample,
                         instruction_path=args.instruction_path,
                         model_name=args.model_name,
@@ -804,34 +556,6 @@ def main() -> None:
             ]
         print(f"[update] gen={generation} {update_records}", flush=True)
 
-        skill_update_rec = None
-        should_update_skill = trace2skill_interval > 0 and (
-            (generation + 1) % trace2skill_interval == 0
-            or (generation + 1) == args.generations
-        )
-        if should_update_skill and skill_file is not None:
-            skill_update_rec = evolve_skill_from_es_generation(
-                result_root=result_root,
-                generation_start=last_skill_update_generation + 1,
-                generation_end=generation,
-                skill_file=skill_file,
-                optimizer_model=args.trace2skill_optimizer_model,
-                analysis_workers=args.trace2skill_analysis_workers,
-                seed=args.seed + generation + 1,
-                html_limit=args.trace2skill_html_limit,
-                official_prompts=args.trace2skill_official_prompts,
-                optimizer_generation_config=args.trace2skill_optimizer_generation_config,
-                analysis_reasoning_effort=args.trace2skill_analysis_reasoning_effort,
-                skill_reasoning_effort=args.trace2skill_skill_reasoning_effort,
-                consolidation_reasoning_effort=(
-                    args.trace2skill_consolidation_reasoning_effort
-                ),
-                replay_source_root=replay_source_root,
-                replay_generations=args.replay_generations,
-            )
-            last_skill_update_generation = generation
-            print(f"[trace2skill] gen={generation} {skill_update_rec}", flush=True)
-
         eval_rec = None
         should_eval = args.eval_interval > 0 and (
             (generation + 1) % args.eval_interval == 0
@@ -844,7 +568,7 @@ def main() -> None:
                 config_dir=config_dir,
                 result_root=result_root,
                 run_name=f"eval_after_epoch_{generation + 1:03d}",
-                skill_file=skill_file,
+                skill_file=None,
                 workers_per_endpoint=args.eval_workers_per_endpoint,
                 instruction_path=args.instruction_path,
                 model_name=args.model_name,
@@ -869,8 +593,6 @@ def main() -> None:
         }
         if replayed:
             record["replay_source"] = str(replay_source_root)
-        if skill_update_rec is not None:
-            record["trace2skill"] = skill_update_rec
         if eval_rec is not None:
             record["eval"] = eval_rec
         history.append(record)
