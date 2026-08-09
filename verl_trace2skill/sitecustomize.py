@@ -71,7 +71,8 @@ def _register_trace2skill_tool_parser() -> None:
                 return None
             name = payload.get("name")
             arguments = payload.get("arguments", {})
-            if not isinstance(name, str) or not isinstance(arguments, dict):
+            command = arguments.get("command") if isinstance(arguments, dict) else None
+            if name != "bash" or not isinstance(command, str) or not command.strip():
                 return None
             return FunctionCall(name=name, arguments=json.dumps(arguments, ensure_ascii=False))
 

@@ -24,6 +24,7 @@ import uuid
 from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pathlib import Path
 from pprint import pprint
 from typing import Optional
 
@@ -59,6 +60,7 @@ from verl.utils.rollout_skip import RolloutSkip
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
+from verl_trace2skill.trajectory import build_trajectory_records, write_trajectory_records
 
 
 @dataclass
@@ -414,32 +416,47 @@ class RayPPOTrainer:
         except Exception as e:
             print(f"Warning: Could not set total_training_steps in config. Structure missing? Error: {e}")
 
-    def _dump_generations(self, inputs, outputs, gts, scores, reward_extra_infos_dict, dump_path):
+    def _dump_generations(
+        self,
+        inputs,
+        outputs,
+        gts,
+        scores,
+        reward_extra_infos_dict,
+        dump_path,
+        *,
+        phase="validation",
+        metadata_fields=None,
+    ):
         """Dump rollout/validation samples as JSONL."""
-        os.makedirs(dump_path, exist_ok=True)
-        filename = os.path.join(dump_path, f"{self.global_steps}.jsonl")
-
         n = len(inputs)
-        base_data = {
-            "input": inputs,
-            "output": outputs,
-            "gts": gts,
-            "score": scores,
-            "step": [self.global_steps] * n,
-        }
-
-        for k, v in reward_extra_infos_dict.items():
-            if len(v) == n:
-                base_data[k] = v
-
-        lines = []
+        metadata_fields = metadata_fields or {}
+        generations = []
         for i in range(n):
-            entry = {k: v[i] for k, v in base_data.items()}
-            lines.append(json.dumps(entry, ensure_ascii=False))
+            generation = {
+                "input": inputs[i],
+                "output": outputs[i],
+                "gts": gts[i],
+                "score": scores[i],
+                "step": self.global_steps,
+            }
+            for fields in (reward_extra_infos_dict, metadata_fields):
+                for key, values in fields.items():
+                    if len(values) == n:
+                        generation[key] = values[i]
+            generations.append(generation)
 
-        with open(filename, "w") as f:
-            f.write("\n".join(lines) + "\n")
-
+        records = build_trajectory_records(
+            generations,
+            phase=phase,
+            step=self.global_steps,
+            steps_per_epoch=len(self.train_dataloader),
+        )
+        filename = write_trajectory_records(
+            records,
+            dump_dir=Path(dump_path),
+            step=self.global_steps,
+        )
         print(f"Dumped generations to {filename}")
 
     def _log_rollout_data(
@@ -459,11 +476,17 @@ class RayPPOTrainer:
             sample_gts = [item.non_tensor_batch.get("reward_model", {}).get("ground_truth", None) for item in batch]
 
             reward_extra_infos_to_dump = reward_extra_infos_dict.copy()
-            if "request_id" in batch.non_tensor_batch:
-                reward_extra_infos_dict.setdefault(
-                    "request_id",
-                    batch.non_tensor_batch["request_id"].tolist(),
-                )
+            metadata_fields = {
+                key: batch.non_tensor_batch[key].tolist()
+                for key in ("extra_info", "uid", "request_id", "__num_turns__")
+                if key in batch.non_tensor_batch
+            }
+            if "__num_turns__" in metadata_fields:
+                metadata_fields["num_turns"] = metadata_fields.pop("__num_turns__")
+            prompt_width = batch.batch["prompts"].shape[1]
+            attention_mask = batch.batch["attention_mask"]
+            metadata_fields["prompt_tokens"] = attention_mask[:, :prompt_width].sum(-1).cpu().tolist()
+            metadata_fields["response_tokens"] = attention_mask[:, prompt_width:].sum(-1).cpu().tolist()
 
             self._dump_generations(
                 inputs=inputs,
@@ -472,6 +495,8 @@ class RayPPOTrainer:
                 scores=scores,
                 reward_extra_infos_dict=reward_extra_infos_to_dump,
                 dump_path=rollout_data_dir,
+                phase="train",
+                metadata_fields=metadata_fields,
             )
 
     def _maybe_log_val_generations(self, inputs, outputs, scores):
@@ -526,6 +551,7 @@ class RayPPOTrainer:
         sample_scores = []
         sample_turns = []
         sample_uids = []
+        sample_metadata: dict[str, list] = defaultdict(list)
 
         for test_data in self.val_dataloader:
             test_batch = DataProto.from_single_dict(test_data)
@@ -592,6 +618,19 @@ class RayPPOTrainer:
             test_batch = test_batch.union(test_output_gen_batch)
             test_batch.meta_info["validate"] = True
 
+            for key in ("extra_info", "uid", "request_id", "__num_turns__"):
+                if key in test_batch.non_tensor_batch:
+                    output_key = "num_turns" if key == "__num_turns__" else key
+                    sample_metadata[output_key].extend(test_batch.non_tensor_batch[key].tolist())
+            prompt_width = test_batch.batch["prompts"].shape[1]
+            attention_mask = test_batch.batch["attention_mask"]
+            sample_metadata["prompt_tokens"].extend(
+                attention_mask[:, :prompt_width].sum(-1).cpu().tolist()
+            )
+            sample_metadata["response_tokens"].extend(
+                attention_mask[:, prompt_width:].sum(-1).cpu().tolist()
+            )
+
             # evaluate using reward_function
             if self.val_reward_fn is None:
                 raise ValueError("val_reward_fn must be provided for validation.")
@@ -625,6 +664,8 @@ class RayPPOTrainer:
                 scores=sample_scores,
                 reward_extra_infos_dict=reward_extra_infos_dict,
                 dump_path=val_data_dir,
+                phase="validation",
+                metadata_fields=sample_metadata,
             )
 
         for key_info, lst in reward_extra_infos_dict.items():

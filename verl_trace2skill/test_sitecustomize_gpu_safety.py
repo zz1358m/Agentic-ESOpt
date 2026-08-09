@@ -51,6 +51,56 @@ class SitecustomizeGpuSafetyTests(unittest.TestCase):
         self.assertEqual(process.returncode, 0, process.stderr)
         self.assertEqual(process.stdout.strip(), "0 0")
 
+    def test_math_parser_flag_still_does_not_import_cuda_stack_at_startup(self) -> None:
+        env = os.environ.copy()
+        env["TRACE2SKILL_PATCH_DENSE_QWEN3NEXT"] = "1"
+        env["TRACE2SKILL_REGISTER_TOOL_PARSER"] = "1"
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(ROOT / "verl_trace2skill"), str(ROOT), str(ROOT / "verl")]
+        )
+
+        process = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; "
+                    "print(int('torch' in sys.modules), int('sglang' in sys.modules))"
+                ),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "0 0")
+
+    def test_math_parser_is_registered_when_agent_loop_loads(self) -> None:
+        env = os.environ.copy()
+        env["TRACE2SKILL_PATCH_DENSE_QWEN3NEXT"] = "1"
+        env["TRACE2SKILL_REGISTER_TOOL_PARSER"] = "1"
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(ROOT / "verl_trace2skill"), str(ROOT), str(ROOT / "verl")]
+        )
+        process = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from verl.experimental.agent_loop.tool_parser import ToolParser; "
+                    "print(int('trace2skill' in ToolParser._registry))"
+                ),
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "1")
+
 
 if __name__ == "__main__":
     unittest.main()

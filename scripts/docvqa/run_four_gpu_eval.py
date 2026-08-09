@@ -52,6 +52,7 @@ def server_command(
     *,
     context_length: int = 131072,
     memory_fraction: float = 0.82,
+    served_model: str = SERVED_MODEL,
 ) -> list[str]:
     return [
         python,
@@ -60,7 +61,7 @@ def server_command(
         "--model-path",
         str(model_path),
         "--served-model-name",
-        SERVED_MODEL,
+        served_model,
         "--host",
         "127.0.0.1",
         "--port",
@@ -123,9 +124,14 @@ def wait_for_servers(
         raise TimeoutError(f"SGLang replicas did not become ready: {sorted(pending)}\n{details}")
 
 
-def preflight(endpoints: list[str], concurrency: int) -> tuple[bool, list[str]]:
+def preflight(
+    endpoints: list[str],
+    concurrency: int,
+    *,
+    served_model: str = SERVED_MODEL,
+) -> tuple[bool, list[str]]:
     payload = {
-        "model": SERVED_MODEL,
+        "model": served_model,
         "messages": [{"role": "user", "content": "Reply with OK."}],
         "temperature": 0.0,
         "max_tokens": 8,

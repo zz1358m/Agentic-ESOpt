@@ -11,28 +11,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from verl_trace2skill.docvqa_protocol import build_docvqa_messages
-
-MATH_SYSTEM = """You are a math reasoning agent. Solve the problem using the provided bash tool.
-
-You are not allowed to answer from the problem alone. Your very first assistant turn must consist only of one bash tool call. Do not reason, solve, or write any text before that first tool call. After receiving its observation, continue solving and call bash again when useful.
-
-Call bash by emitting exactly this XML shape, with no text after the closing tool_call tag:
-
-<tool_call>
-<function=bash>
-<parameter=command>
-python -c "print(1 + 1)"
-</parameter>
-</function>
-</tool_call>
-
-The command inside <parameter=command> may be replaced with any shell command needed for the problem. After the tool observation is returned, continue reasoning with the complete conversation history. You must make at least one such bash call before answering.
-
-Use command-line Python deliberately, for example python -c "...", for arithmetic, algebraic verification, brute force checks, or symbolic computation. When finished, output exactly:
-
-Final answer: \\boxed{<answer>}
-
-Do not include tool outputs in the final answer."""
+from verl_trace2skill.math_protocol import build_math_messages
 
 def _read_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     # CLI limits use zero to mean "all records". Normalize it here so zero
@@ -71,11 +50,6 @@ def _math_rows(records: list[dict[str, Any]], split: str, cwd: Path) -> list[dic
     for idx, item in enumerate(records):
         question = str(item["question"])
         answer = str(item["answer"])
-        user = (
-            "Task: Solve the following math problem.\n\n"
-            f"{question}\n\n"
-            "You must call the bash action at least once before giving the final answer."
-        )
         rows.append(
             {
                 "data_source": "trace2skill_math_dapo",
@@ -83,10 +57,7 @@ def _math_rows(records: list[dict[str, Any]], split: str, cwd: Path) -> list[dic
                 # field VERL silently uses single_turn_agent even when
                 # rollout.multi_turn.enable=True.
                 "agent_name": "tool_agent",
-                "prompt": [
-                    {"role": "system", "content": MATH_SYSTEM},
-                    {"role": "user", "content": user},
-                ],
+                "prompt": build_math_messages(question),
                 "ability": "math",
                 "reward_model": {"style": "rule", "ground_truth": answer},
                 "extra_info": {

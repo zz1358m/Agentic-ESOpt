@@ -14,6 +14,7 @@ import json
 import math
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -39,6 +40,10 @@ from verl_trace2skill.docvqa_protocol import (  # noqa: E402
 )
 from verl_trace2skill.docvqa_results import summarize_results  # noqa: E402
 from verl_trace2skill.docvqa_sandbox import run_sandboxed_bash  # noqa: E402
+from verl_trace2skill.math_protocol import (  # noqa: E402
+    build_math_messages,
+    is_first_bash_action_only,
+)
 from verl_trace2skill.reward import compute_score as rl_compute_score  # noqa: E402
 
 try:
@@ -303,21 +308,127 @@ def extract_doc_answer(text: str) -> str:
     return lines[-1] if lines else text.strip()
 
 
-def math_messages(row: dict[str, Any]) -> list[dict[str, str]]:
+def math_messages(
+    row: dict[str, Any],
+    prompt_profile: str = "qwen-benchmark",
+) -> list[dict[str, str]]:
+    if prompt_profile == "legacy-no-skill":
+        return [
+            {
+                "role": "system",
+                "content": (
+                    "Solve the math problem carefully. You may reason step by step. "
+                    "Put the final result in \\boxed{} at the end."
+                ),
+            },
+            {"role": "user", "content": str(row.get("question", ""))},
+        ]
+    if prompt_profile != "qwen-benchmark":
+        raise ValueError(f"unknown Math direct prompt profile: {prompt_profile}")
     return [
         {
-            "role": "system",
+            "role": "user",
             "content": (
-                "Solve the math problem carefully. You may reason step by step. "
-                "Put the final result in \\boxed{} at the end."
+                f"{row.get('question', '')}\n\n"
+                "Please reason step by step, and put your final answer within \\boxed{}."
             ),
-        },
-        {"role": "user", "content": str(row.get("question", ""))},
+        }
     ]
 
 
-def math_react_messages(row: dict[str, Any]) -> list[dict[str, Any]]:
-    system = """You are a math reasoning agent. Solve the problem using a command-line Python ReAct loop.
+TRACE2SKILL_UPSTREAM_MATH_SYSTEM = r'''You are an expert assistant who can solve any task using tool calls. You will be given a task to solve as best you can.
+To do so, you have been given access to some tools.
+
+The tool call you write is an action: after you output an Action, the tool will be executed and the user will provide the result as an "Observation:" message. You must wait for this observation before continuing - do NOT generate observations yourself.
+This Action/Observation can repeat N times, you should take several steps when needed.
+
+You can think step-by-step before taking an action.
+
+## CRITICAL: Action Format Requirements
+
+You MUST use this EXACT format for tool calls:
+
+Action:
+{
+    "name": "<tool_name>",
+    "arguments": {<arguments_as_json>}
+}
+
+IMPORTANT:
+- The word "Action:" must appear on its own line, followed by a JSON object
+- The JSON must have "name" (string) and "arguments" (object) fields
+- Do NOT use markdown code blocks (```json or ```bash) around actions
+- Do NOT write raw commands or code outside of the Action JSON format
+- Any other format will NOT be parsed and the tool will NOT execute
+
+## Completing the Task
+
+When you have finished the task, signal completion by outputting exactly:
+
+ACTION: TASK_COMPLETE
+
+This tells the system you are done. Do NOT use any other method to end the task.
+
+## Examples
+
+Here are a few examples using notional tools:
+---
+Task: "What is the weather in Paris and what should I wear?"
+
+Thought: I need to first get the weather in Paris, then provide clothing recommendations.
+
+Action:
+{
+    "name": "get_weather",
+    "arguments": {"city": "Paris"}
+}
+
+Observation: "Paris: 15C, partly cloudy, 60% humidity"
+
+Thought: The weather is mild at 15C and partly cloudy. I can now give clothing advice.
+
+Since it's 15C and partly cloudy in Paris, I recommend wearing layers - a light jacket or sweater over a t-shirt. Bring an umbrella just in case as it's partly cloudy.
+
+ACTION: TASK_COMPLETE
+
+---
+Task: "Calculate 25 * 17 + 300"
+
+Action:
+{
+    "name": "calculator",
+    "arguments": {"expression": "25 * 17 + 300"}
+}
+
+Observation: "725"
+
+The result of 25 * 17 + 300 is 725.
+
+ACTION: TASK_COMPLETE
+
+---
+Above examples were using notional tools that might not exist for you. You only have access to these tools:
+- bash: Execute a bash command in the working directory. Use this to run Python scripts, install packages, navigate files, or perform any shell operations.
+    Parameters: {
+  "type": "object",
+  "properties": {
+    "command": {
+      "type": "string",
+      "description": "The bash command to execute"
+    }
+  },
+  "required": [
+    "command"
+  ]
+}
+
+Remember:
+- Use "Action:" followed by a JSON object to call a tool - no other format works
+- Wait for "Observation:" to see the result before proceeding
+- When you have finished the task, output "ACTION: TASK_COMPLETE"
+- Think step-by-step when the problem is complex'''
+
+REPO_REACT_V1_MATH_SYSTEM = r'''You are a math reasoning agent. Solve the problem using a command-line Python ReAct loop.
 
 You are not allowed to answer from the problem alone. First use the bash tool to run command-line Python for calculation, checking, symbolic manipulation, or search over cases. Then finish with the final answer.
 
@@ -328,18 +439,35 @@ Action:
 
 Use command-line Python deliberately, for example python -c "...", for arithmetic, algebraic verification, brute force checks, or symbolic computation. When finished, output exactly:
 
-Final answer: \\boxed{<answer>}
+Final answer: \boxed{<answer>}
 
-Do not include tool outputs in the final answer."""
-    user = (
-        "Task: Solve the following math problem.\n\n"
-        f"{row.get('question', '')}\n\n"
-        "You must call the bash action at least once before giving the final answer."
-    )
-    return [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user},
-    ]
+Do not include tool outputs in the final answer.'''
+
+
+def math_react_messages(
+    row: dict[str, Any],
+    prompt_profile: str = "matched-agentic",
+) -> list[dict[str, Any]]:
+    if prompt_profile == "matched-agentic":
+        return build_math_messages(str(row.get("question", "")))
+    if prompt_profile == "repo-react-v1":
+        return [
+            {"role": "system", "content": REPO_REACT_V1_MATH_SYSTEM},
+            {
+                "role": "user",
+                "content": (
+                    "Task: Solve the following math problem.\n\n"
+                    f"{row.get('question', '')}\n\n"
+                    "You must call the bash action at least once before giving the final answer."
+                ),
+            },
+        ]
+    if prompt_profile == "trace2skill-upstream":
+        return [
+            {"role": "system", "content": TRACE2SKILL_UPSTREAM_MATH_SYSTEM},
+            {"role": "user", "content": f"Task: {row.get('question', '')}"},
+        ]
+    raise ValueError(f"unknown Math ReAct prompt profile: {prompt_profile}")
 
 
 def resolve_docvqa_image(row: dict[str, Any], docvqa_root: Path) -> Path:
@@ -411,7 +539,8 @@ def parse_react_action(text: str) -> dict[str, Any] | None:
         return None
     name = action.get("name")
     arguments = action.get("arguments", {})
-    if not isinstance(name, str) or not isinstance(arguments, dict):
+    command = arguments.get("command") if isinstance(arguments, dict) else None
+    if name != "bash" or not isinstance(command, str) or not command.strip():
         return None
     return {"name": name, "arguments": arguments}
 
@@ -424,25 +553,33 @@ def truncate_text(text: str, limit: int) -> str:
 
 
 def run_bash(command: str, cwd: Path, timeout: float, limit: int) -> str:
+    proc: subprocess.Popen[str] | None = None
     try:
-        proc = subprocess.run(
-            command,
-            shell=True,
+        proc = subprocess.Popen(
+            ["bash", "-lc", command],
             cwd=str(cwd),
             text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
         )
+        stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
+        if proc is not None:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            proc.communicate()
         return f"Bash timed out after {timeout:.1f}s."
     except Exception as exc:  # Match the official bash tool: tool failures become observations.
         return f"[ERROR] Failed to execute command: {exc}"
+    assert proc is not None
     output = ""
-    if proc.stdout:
-        output += proc.stdout
-    if proc.stderr:
-        output += ("\n[stderr]\n" if output else "[stderr]\n") + proc.stderr
+    if stdout:
+        output += stdout
+    if stderr:
+        output += ("\n[stderr]\n" if output else "[stderr]\n") + stderr
     if not output:
         output = f"Bash exited with code {proc.returncode} and no output."
     else:
@@ -513,7 +650,8 @@ async def run_math_react(
     sample_index: int,
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], str | None]:
-    messages = math_react_messages(row)
+    react_prompt = getattr(args, "math_react_prompt", "matched-agentic")
+    messages = math_react_messages(row, react_prompt)
     steps: list[dict[str, Any]] = []
     total_usage: dict[str, Any] | None = None
     used_bash = False
@@ -545,6 +683,43 @@ async def run_math_react(
         cleaned = strip_think(completion)
         final_match = final_answer_line(cleaned) is not None
         action = parse_react_action(cleaned)
+        if react_prompt == "trace2skill-upstream":
+            if "ACTION: TASK_COMPLETE" in cleaned or "Action:" not in cleaned:
+                return completion, total_usage, steps, None
+            if action:
+                name = action["name"]
+                arguments = action["arguments"]
+                command = str(arguments["command"])
+                used_bash = True
+                observation = await asyncio.to_thread(
+                    run_bash,
+                    command,
+                    args.math_tool_cwd,
+                    timeout=args.math_python_timeout,
+                    limit=args.tool_observation_limit,
+                )
+                messages.append({"role": "user", "content": f"Observation: {observation}"})
+                steps.append(
+                    {
+                        "turn": turn + 1,
+                        "assistant": completion,
+                        "action": action,
+                        "observation": observation,
+                    }
+                )
+                continue
+            warning = (
+                "Failed to parse your action. Please use the correct format.\n\n"
+                "To execute a tool, use this EXACT format:\n\n"
+                "Action:\n{\n"
+                '    "name": "<tool_name>",\n'
+                '    "arguments": {<arguments_as_json>}\n}\n\n'
+                "To complete the task, output exactly:\n\nACTION: TASK_COMPLETE\n\n"
+                "Please try again with the correct format."
+            )
+            messages.append({"role": "user", "content": f"Observation: {warning}"})
+            steps.append({"turn": turn + 1, "assistant": completion, "observation": warning})
+            continue
         if final_match and not action:
             if used_bash:
                 return completion, total_usage, steps, None
@@ -552,6 +727,17 @@ async def run_math_react(
                 "You must call the bash Action before answering. "
                 "Use command-line Python to compute or verify the solution, then provide Final answer."
             )
+            messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
+            steps.append({"turn": turn + 1, "assistant": completion, "observation": warning})
+            continue
+
+        if (
+            react_prompt == "matched-agentic"
+            and action
+            and not used_bash
+            and not is_first_bash_action_only(cleaned)
+        ):
+            warning = "The first assistant turn must contain only one bash Action and no reasoning text."
             messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
             steps.append({"turn": turn + 1, "assistant": completion, "observation": warning})
             continue
@@ -568,22 +754,15 @@ async def run_math_react(
 
         name = action["name"]
         arguments = action["arguments"]
-        if name == "bash":
-            command = str(arguments.get("command", ""))
-            if not command.strip():
-                observation = "No shell command was provided."
-            else:
-                used_bash = True
-                sandbox_result = await asyncio.to_thread(
-                    run_sandboxed_bash,
-                    command,
-                    image_path=None,
-                    timeout=args.math_python_timeout,
-                    max_output_chars=args.tool_observation_limit,
-                )
-                observation = sandbox_result.text
-        else:
-            observation = f"Unknown action '{name}'. Available action is bash."
+        command = str(arguments["command"])
+        used_bash = True
+        observation = await asyncio.to_thread(
+            run_bash,
+            command,
+            args.math_tool_cwd,
+            timeout=args.math_python_timeout,
+            limit=args.tool_observation_limit,
+        )
 
         messages.append({"role": "user", "content": react_observation_text(name, observation)})
         steps.append(
@@ -598,6 +777,33 @@ async def run_math_react(
     if not used_bash:
         return "", total_usage, steps, "no_bash_tool_use"
     return "", total_usage, steps, "max_react_turns_exceeded"
+
+
+async def run_math_direct(
+    *,
+    client: httpx.AsyncClient,
+    chat_url: str,
+    model: str,
+    row: dict[str, Any],
+    row_index: int,
+    sample_index: int,
+    args: argparse.Namespace,
+) -> tuple[str, dict[str, Any] | None]:
+    """Generate the report-style No Skill answer without the external tool loop."""
+    return await post_chat(
+        client=client,
+        chat_url=chat_url,
+        model=model,
+        messages=math_messages(row, args.math_direct_prompt),
+        max_tokens=args.math_max_tokens,
+        args=args,
+        seed=sample_seed(
+            base_seed=args.seed,
+            row_index=row_index,
+            sample_index=sample_index,
+        ),
+        enable_thinking=args.math_enable_thinking,
+    )
 
 
 async def run_docvqa_react(
@@ -758,13 +964,18 @@ def completed_keys(path: Path) -> set[str]:
     return keys
 
 
-def prepare_resume_output(path: Path) -> set[str]:
-    """Keep one successful row per key and archive failed request attempts."""
+def prepare_resume_output(
+    path: Path,
+    *,
+    retry_react_errors: bool = False,
+) -> set[str]:
+    """Keep one completed row per key and archive rows selected for retry."""
     if not path.exists():
         return set()
 
     successful: dict[str, dict[str, Any]] = {}
     request_errors: list[dict[str, Any]] = []
+    react_errors: list[dict[str, Any]] = []
     nonempty_lines = 0
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -779,6 +990,8 @@ def prepare_resume_output(path: Path) -> set[str]:
             key = str(row.get("key", ""))
             if row.get("error"):
                 request_errors.append(row)
+            elif retry_react_errors and row.get("react_error"):
+                react_errors.append(row)
             elif key:
                 successful[key] = row
 
@@ -789,7 +1002,13 @@ def prepare_resume_output(path: Path) -> set[str]:
             for row in request_errors:
                 fh.write(json.dumps(row, ensure_ascii=True) + "\n")
 
-    if request_errors or len(successful) != nonempty_lines:
+    if react_errors:
+        archive = path.with_name(f"{path.stem}.turn_limit_retries{path.suffix}")
+        with archive.open("a", encoding="utf-8") as fh:
+            for row in react_errors:
+                fh.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+    if request_errors or react_errors or len(successful) != nonempty_lines:
         temporary = path.with_name(f".{path.name}.resume.tmp")
         with temporary.open("w", encoding="utf-8") as fh:
             for row in successful.values():
@@ -821,15 +1040,27 @@ async def request_one(
     react_steps: list[dict[str, Any]] | None = None
     try:
         if dataset.kind == "math":
-            completion, usage, react_steps, react_error = await run_math_react(
-                client=client,
-                chat_url=chat_url,
-                model=model,
-                row=row,
-                row_index=row_index,
-                sample_index=sample_index,
-                args=args,
-            )
+            if args.math_mode == "direct":
+                completion, usage = await run_math_direct(
+                    client=client,
+                    chat_url=chat_url,
+                    model=model,
+                    row=row,
+                    row_index=row_index,
+                    sample_index=sample_index,
+                    args=args,
+                )
+                react_steps = []
+            else:
+                completion, usage, react_steps, react_error = await run_math_react(
+                    client=client,
+                    chat_url=chat_url,
+                    model=model,
+                    row=row,
+                    row_index=row_index,
+                    sample_index=sample_index,
+                    args=args,
+                )
         else:
             completion, usage, react_steps, react_error = await run_docvqa_react(
                 client=client,
@@ -854,12 +1085,18 @@ async def request_one(
             score_method = "request_error"
         else:
             score, score_method = math_score(completion, target)
+        math_mode = "no_skill_direct" if args.math_mode == "direct" else "paper_react_cli"
         extra = {
             "target": target,
-            "mode": "paper_react_cli",
+            "mode": math_mode,
+            "prompt_messages": (
+                math_messages(row, args.math_direct_prompt)
+                if args.math_mode == "direct"
+                else math_react_messages(row, args.math_react_prompt)
+            ),
             "react_error": react_error,
             "react_steps": react_steps or [],
-            "score_method": f"math_paper_react_cli_{score_method}" if not error else score_method,
+            "score_method": f"math_{math_mode}_{score_method}" if not error else score_method,
         }
     else:
         answers = [str(answer) for answer in row.get("answers", [])]
@@ -976,12 +1213,19 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
     out_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
 
-    done = prepare_resume_output(out_path) if args.resume else set()
+    done = (
+        prepare_resume_output(
+            out_path,
+            retry_react_errors=args.retry_react_errors,
+        )
+        if args.resume
+        else set()
+    )
     print(
         f"[{dataset.name}] start rows={len(rows)} samples={args.samples} "
         f"resume_done={len(done)} thinking={dataset.enable_thinking} "
         f"max_tokens={dataset.max_tokens} "
-        f"mode={'paper_react_cli' if dataset.kind in ('math', 'docvqa') else 'n/a'}",
+        f"mode={('no_skill_direct' if args.math_mode == 'direct' else 'paper_react_cli') if dataset.kind == 'math' else ('paper_react_cli' if dataset.kind == 'docvqa' else 'n/a')}",
         flush=True,
     )
     jobs = []
@@ -1061,7 +1305,11 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
             "samples": args.samples,
             "expected_records": len(rows) * args.samples,
             "enable_thinking": dataset.enable_thinking,
-            "mode": "paper_react_cli" if dataset.kind in ("math", "docvqa") else None,
+            "mode": (
+                "no_skill_direct" if dataset.kind == "math" and args.math_mode == "direct"
+                else "paper_react_cli" if dataset.kind in ("math", "docvqa")
+                else None
+            ),
             "math_max_turns": args.math_max_turns if dataset.kind == "math" else None,
             "docvqa_max_turns": args.docvqa_max_turns if dataset.kind == "docvqa" else None,
             "sampling": {
@@ -1091,16 +1339,17 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             name="dapo100",
             kind="math",
             path=args.math_root / "dapo_test.jsonl",
-            enable_thinking=False,
+            enable_thinking=args.math_enable_thinking,
             max_tokens=args.math_max_tokens,
-            limit=100,
+            limit=min(args.math_limit, 100) if args.math_limit > 0 else 100,
         ),
         "aime2026": DatasetSpec(
             name="aime2026",
             kind="math",
             path=args.math_root / "aime_2026.jsonl",
-            enable_thinking=False,
+            enable_thinking=args.math_enable_thinking,
             max_tokens=args.math_max_tokens,
+            limit=args.math_limit if args.math_limit > 0 else None,
         ),
         "docvqa": DatasetSpec(
             name="docvqa",
@@ -1121,6 +1370,12 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
 
 async def main_async(args: argparse.Namespace) -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    args.math_tool_cwd = (
+        args.math_tool_cwd.expanduser().resolve()
+        if args.math_tool_cwd is not None
+        else (args.out_dir / "tool_workspace").resolve()
+    )
+    args.math_tool_cwd.mkdir(parents=True, exist_ok=True)
     specs = build_datasets(args)
     args.docvqa_tokenizer = None
     if any(spec.kind == "docvqa" for spec in specs) and args.tokenizer_path is not None:
@@ -1139,6 +1394,7 @@ async def main_async(args: argparse.Namespace) -> None:
         "samples": args.samples,
         "limits": {spec.name: spec.limit for spec in specs if spec.limit is not None},
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "math_tool_cwd": str(args.math_tool_cwd),
     }
     write_json(args.out_dir / "manifest.json", manifest)
     summaries = {}
@@ -1175,7 +1431,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--math-max-tokens", type=int, default=4096)
     parser.add_argument("--math-max-turns", type=int, default=50)
+    parser.add_argument("--math-limit", type=int, default=0)
     parser.add_argument("--math-python-timeout", type=float, default=20.0)
+    parser.add_argument("--math-tool-cwd", type=Path)
+    parser.add_argument("--math-mode", choices=("react", "direct"), default="react")
+    parser.add_argument(
+        "--math-react-prompt",
+        choices=("matched-agentic", "repo-react-v1", "trace2skill-upstream"),
+        default="matched-agentic",
+    )
+    parser.add_argument("--math-enable-thinking", action="store_true")
+    parser.add_argument(
+        "--math-direct-prompt",
+        choices=("qwen-benchmark", "legacy-no-skill"),
+        default="qwen-benchmark",
+    )
     parser.add_argument("--docvqa-max-tokens", type=int, default=512)
     parser.add_argument("--docvqa-max-total-tokens", type=int, default=32768)
     parser.add_argument("--docvqa-max-turns", type=int, default=50)
@@ -1184,6 +1454,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tool-observation-limit", type=int, default=6000)
     parser.add_argument("--log-every", type=int, default=25)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--retry-react-errors",
+        action="store_true",
+        help="Archive and rerun completed rows that ended with a ReAct error.",
+    )
     return parser.parse_args()
 
 
