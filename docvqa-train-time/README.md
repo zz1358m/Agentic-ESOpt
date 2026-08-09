@@ -21,6 +21,52 @@ Configure machine paths through `scripts/settings.local.env`; see
 `scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under
 `docvqa-train-time/results/`.
 
+## Published evaluation protocol
+
+The published DocVQA comparisons use one aligned paper-style bash/OCR ReAct
+protocol:
+
+| Setting | Value |
+| --- | --- |
+| Evaluation data | Fixed first 100 held-out documents |
+| Samples per question | 4 |
+| Maximum ReAct turns | 50 |
+| Maximum output per assistant turn | 512 tokens |
+| Total trajectory response cap | 32768 tokens |
+| Sampling | temperature `1`, top-p `1`, top-k `40`, min-p `0` |
+| Penalties | presence `2`, repetition `1` |
+| Thinking mode | Disabled; the explicit bash/OCR ReAct loop owns the reasoning turns |
+
+## Answer extraction and scoring
+
+Each document image is exposed inside the isolated tool workspace as
+`/workspace/document.png`. The model must invoke at least one parsed `bash`
+action to inspect or OCR the image; tool observations are returned as text.
+The expected terminal format is:
+
+```text
+Final answer: <short answer>
+```
+
+Evaluation takes the last `Final answer:` or `Answer:` line (English or Chinese
+colon). A final response issued before any bash observation is rejected, and a
+missing final answer or missing tool use receives zero.
+
+For ANLS, both prediction and reference answers are lowercased, everything
+other than ASCII letters and digits is replaced by a space, and whitespace is
+collapsed. Let `d` be Levenshtein distance divided by the longer normalized
+string length. The score is `1 - d` when `d < 0.5`, otherwise zero. If the
+dataset supplies multiple accepted answers, evaluation uses the maximum ANLS
+over them. Threshold accuracy is strictly `1` only when `ANLS > 0.5`.
+
+`ANLS Mean4` averages the continuous ANLS of all four samples. `ANLS Pass4`
+averages each question's best ANLS among its four samples. `Acc Mean4` averages
+the thresholded sample accuracy, while `Acc Pass4` marks a question correct if
+any of its four samples has `ANLS > 0.5`. The canonical implementation is in
+`algorithms/verl_trace2skill/docvqa_protocol.py`,
+`algorithms/verl_trace2skill/reward.py`, and
+`docvqa-train-time/envs/docvqa.py`.
+
 This branch provides a portable four-GPU Qwen3.5-4B text-backbone GRPO
 experiment for DocVQA. It uses the historical Bash Action protocol and a
 Bubblewrap OCR sandbox. The training reward is continuous ANLS in `[0, 1]` and
