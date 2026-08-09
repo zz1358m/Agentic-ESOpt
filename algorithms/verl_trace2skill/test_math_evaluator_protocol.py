@@ -20,22 +20,6 @@ SPEC.loader.exec_module(MODULE)
 
 
 class MathEvaluatorProtocolTests(unittest.TestCase):
-    def test_no_skill_prompt_matches_qwen_math_benchmark_guidance(self) -> None:
-        messages = MODULE.math_messages({"question": "What is 20+22?"})
-
-        self.assertEqual([message["role"] for message in messages], ["user"])
-        self.assertIn("What is 20+22?", messages[0]["content"])
-        self.assertIn("put your final answer within \\boxed{}", messages[0]["content"])
-
-    def test_legacy_no_skill_prompt_preserves_original_system_message(self) -> None:
-        messages = MODULE.math_messages(
-            {"question": "What is 20+22?"},
-            "legacy-no-skill",
-        )
-
-        self.assertEqual([message["role"] for message in messages], ["system", "user"])
-        self.assertIn("Solve the math problem carefully", messages[0]["content"])
-
     def test_evaluator_accepts_only_bash_with_nonempty_command(self) -> None:
         valid = MODULE.parse_react_action(
             'Action: {"name":"bash","arguments":{"command":"python -c \'print(42)\'"}}'
@@ -66,33 +50,6 @@ class MathEvaluatorProtocolTests(unittest.TestCase):
 
 
 class MathEvaluatorAsyncTests(unittest.IsolatedAsyncioTestCase):
-    async def test_direct_mode_uses_thinking_and_stable_sample_seed(self) -> None:
-        args = SimpleNamespace(
-            seed=7,
-            math_max_tokens=81920,
-            math_enable_thinking=True,
-            math_direct_prompt="qwen-benchmark",
-        )
-        post_chat = AsyncMock(return_value=("Answer: \\boxed{42}", {"completion_tokens": 5}))
-
-        with patch.object(MODULE, "post_chat", post_chat):
-            completion, usage = await MODULE.run_math_direct(
-                client=object(),
-                chat_url="http://localhost/v1/chat/completions",
-                model="model",
-                row={"question": "20+22", "answer": "42"},
-                row_index=3,
-                sample_index=2,
-                args=args,
-            )
-
-        self.assertEqual(completion, "Answer: \\boxed{42}")
-        self.assertEqual(usage, {"completion_tokens": 5})
-        kwargs = post_chat.await_args.kwargs
-        self.assertTrue(kwargs["enable_thinking"])
-        self.assertEqual(kwargs["max_tokens"], 81920)
-        self.assertEqual(kwargs["seed"], 7 + 2 * 1_000_003 + 3)
-
     async def test_real_bash_does_not_block_other_async_requests(self) -> None:
         action = 'Action:\n{"name":"bash","arguments":{"command":"sleep 0.3; echo 42"}}'
         args = SimpleNamespace(

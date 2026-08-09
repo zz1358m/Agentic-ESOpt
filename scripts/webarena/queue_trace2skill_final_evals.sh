@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/home/zhi/Dynamic-Agent"
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PYTHON="/home/zhi/miniconda3/envs/es4llm/bin/python"
 EVAL_SCRIPT="$ROOT/scripts/webarena/eval_skill_lite165.py"
 

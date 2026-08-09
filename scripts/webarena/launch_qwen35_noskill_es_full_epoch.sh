@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 RUN_ID=${RUN_ID:-qwen35_27b_noskill_full_epoch_es_pop16_batch4_sigma1e3_alpha1e3_$(date -u +%Y%m%d_%H%M%S)}
 SIGMA_SCHEDULE=${SIGMA_SCHEDULE:-constant}

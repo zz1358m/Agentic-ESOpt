@@ -1,4 +1,4 @@
-# Shared Dynamic-Agent ES layer
+# Shared Agentic-ESOpt layer
 
 `es/` contains task-independent model-weight evolution code used by Sudoku,
 Math, DocVQA, WebArena, and AHD.

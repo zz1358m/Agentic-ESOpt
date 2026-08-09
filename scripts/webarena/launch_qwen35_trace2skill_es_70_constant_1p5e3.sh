@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 RUN_ID=${RUN_ID:-qwen35_27b_es_trace2skill_strict_vab_empty_pop8_batch8_eval10_g70_lines50_noref_webprompt_41mini_sigma1p5e3_constant_alpha2p5e4_4gpu_$(date -u +%Y%m%d_%H%M%S)}
 SKILL_FILE="runs/webrl_lite_full_es/${RUN_ID}/skill/SKILL.md"

@@ -34,13 +34,6 @@ from envs.math_reasoning import (  # noqa: E402
     trim_oldest_react_exchange,
     trace_markdown,
 )
-from run_math_es_train import (  # noqa: E402
-    DEFAULT_AIME,
-    DEFAULT_EVAL,
-    DEFAULT_TRAIN,
-    choose_batch,
-    mean_valid,
-)
 from algorithms.es.run_state import (  # noqa: E402
     atomic_write_history,
     completed_update_records,
@@ -51,6 +44,22 @@ from algorithms.es.run_state import (  # noqa: E402
     validate_es_run_shape,
     validate_seed_sequence,
 )
+
+
+DEFAULT_TRAIN = ROOT / "data/trace2skill/math_reasoning/dapo_evolve.jsonl"
+DEFAULT_EVAL = ROOT / "data/trace2skill/math_reasoning/dapo_test.jsonl"
+DEFAULT_AIME = ROOT / "data/trace2skill/math_reasoning/aime_2026.jsonl"
+
+
+def mean_valid(scores: list[float]) -> float:
+    """Average every rollout, counting request failures as zero reward."""
+    scored = [max(0.0, float(score)) for score in scores]
+    return sum(scored) / len(scored) if scored else 0.0
+
+
+def choose_batch(tasks: list[MathTask], generation: int, batch_size: int) -> list[MathTask]:
+    start = (generation * batch_size) % len(tasks)
+    return [tasks[(start + offset) % len(tasks)] for offset in range(batch_size)]
 
 
 def normalize_rewards(

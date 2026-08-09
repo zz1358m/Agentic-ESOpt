@@ -35,8 +35,7 @@ tool-using No Skill/Trace2Skill, GRPO, and Agentic-ESOpt comparisons:
 | Penalties | presence `2`, repetition `1` |
 | Thinking mode | Disabled; the explicit bash ReAct loop owns the reasoning turns |
 
-The 50-turn limit applies to tool-using ReAct evaluation. A direct No Skill
-profile has no external ReAct loop, but uses the same final-answer scorer.
+All maintained Math evaluations use the tool-using ReAct protocol.
 
 ## Answer extraction and scoring
 
@@ -80,18 +79,15 @@ python algorithms/trace2skill-settings/scripts/prepare_data.py --setting math_re
 python scripts/check_data.py --task math --strict
 ```
 
-Run Agentic-ESOpt through HTTP endpoints or in-process multi-GPU vLLM:
+Run Agentic-ESOpt through the canonical workflow or its four-GPU vLLM runner:
 
 ```bash
-MATH_ES_SIGMA_START=5e-4 MATH_ES_SIGMA_END=1e-4 \
-MATH_ES_SIGMA_SCHEDULE=cosine scripts/math/run.sh
-
+scripts/es_skill_workflow.sh math es-train
 MODEL_PATH=Qwen/Qwen3.5-4B scripts/math/run_vllm_es_4gpu.sh
 ```
 
-Both runners write Trace2Skill-compatible `*_SUCCEED.md` and `*_FAILED.md`
-logs and a replayable history. The HTTP history is under `runs/math_es/`; the
-vLLM history is under `runs/math_es_vllm/`.
+The runner writes Trace2Skill-compatible `*_SUCCEED.md` and `*_FAILED.md` logs
+and a replayable history under `runs/math_es_vllm/`.
 
 Run multi-turn GRPO with the local `algorithms/verl_trace2skill` package:
 
@@ -102,9 +98,10 @@ scripts/math/run_grpo.sh
 This uses the bundled `algorithms/verl/` by default. `VERL_ROOT` remains available as an
 explicit override.
 
-Run Trace2Skill alone or feed its evolved skill into Agentic-ESOpt:
+Run Trace2Skill alone; use the canonical workflow above for composition:
 
 ```bash
 TRACE_LOGS=/path/to/trace_logs RUN_ID=math_t2s scripts/math/run_trace2skill.sh
-TRACE_LOGS=/path/to/trace_logs RUN_ID=math_combo scripts/math/run_trace2skill_es.sh
+scripts/es_skill_workflow.sh math distill-skill
+scripts/es_skill_workflow.sh math skill-eval
 ```

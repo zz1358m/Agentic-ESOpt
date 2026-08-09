@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 ENDPOINTS=${ENDPOINTS:-http://127.0.0.1:12013,http://127.0.0.1:12014,http://127.0.0.1:12015,http://127.0.0.1:12016}
 TRACE_SOURCE=${TRACE_SOURCE:-$ROOT/runs/trace2skill_webarena_sft/constant_last10_gpt54mini_resampled_webarena_medium_20260722_090304/step_001/update_001/trace_logs}

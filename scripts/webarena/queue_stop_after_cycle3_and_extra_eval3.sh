@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 SUPERVISOR_PID=${SUPERVISOR_PID:-1669095}
 SUPERVISOR_SCREEN=${SUPERVISOR_SCREEN:-t2s_eval_forever_150704}

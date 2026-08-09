@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 WAIT_PID=${WAIT_PID:?WAIT_PID is required}
 WAIT_RUN_ID=${WAIT_RUN_ID:?WAIT_RUN_ID is required}

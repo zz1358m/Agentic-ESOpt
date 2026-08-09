@@ -308,34 +308,6 @@ def extract_doc_answer(text: str) -> str:
     return lines[-1] if lines else text.strip()
 
 
-def math_messages(
-    row: dict[str, Any],
-    prompt_profile: str = "qwen-benchmark",
-) -> list[dict[str, str]]:
-    if prompt_profile == "legacy-no-skill":
-        return [
-            {
-                "role": "system",
-                "content": (
-                    "Solve the math problem carefully. You may reason step by step. "
-                    "Put the final result in \\boxed{} at the end."
-                ),
-            },
-            {"role": "user", "content": str(row.get("question", ""))},
-        ]
-    if prompt_profile != "qwen-benchmark":
-        raise ValueError(f"unknown Math direct prompt profile: {prompt_profile}")
-    return [
-        {
-            "role": "user",
-            "content": (
-                f"{row.get('question', '')}\n\n"
-                "Please reason step by step, and put your final answer within \\boxed{}."
-            ),
-        }
-    ]
-
-
 TRACE2SKILL_UPSTREAM_MATH_SYSTEM = r'''You are an expert assistant who can solve any task using tool calls. You will be given a task to solve as best you can.
 To do so, you have been given access to some tools.
 
@@ -779,33 +751,6 @@ async def run_math_react(
     return "", total_usage, steps, "max_react_turns_exceeded"
 
 
-async def run_math_direct(
-    *,
-    client: httpx.AsyncClient,
-    chat_url: str,
-    model: str,
-    row: dict[str, Any],
-    row_index: int,
-    sample_index: int,
-    args: argparse.Namespace,
-) -> tuple[str, dict[str, Any] | None]:
-    """Generate the report-style No Skill answer without the external tool loop."""
-    return await post_chat(
-        client=client,
-        chat_url=chat_url,
-        model=model,
-        messages=math_messages(row, args.math_direct_prompt),
-        max_tokens=args.math_max_tokens,
-        args=args,
-        seed=sample_seed(
-            base_seed=args.seed,
-            row_index=row_index,
-            sample_index=sample_index,
-        ),
-        enable_thinking=args.math_enable_thinking,
-    )
-
-
 async def run_docvqa_react(
     *,
     client: httpx.AsyncClient,
@@ -1040,27 +985,15 @@ async def request_one(
     react_steps: list[dict[str, Any]] | None = None
     try:
         if dataset.kind == "math":
-            if args.math_mode == "direct":
-                completion, usage = await run_math_direct(
-                    client=client,
-                    chat_url=chat_url,
-                    model=model,
-                    row=row,
-                    row_index=row_index,
-                    sample_index=sample_index,
-                    args=args,
-                )
-                react_steps = []
-            else:
-                completion, usage, react_steps, react_error = await run_math_react(
-                    client=client,
-                    chat_url=chat_url,
-                    model=model,
-                    row=row,
-                    row_index=row_index,
-                    sample_index=sample_index,
-                    args=args,
-                )
+            completion, usage, react_steps, react_error = await run_math_react(
+                client=client,
+                chat_url=chat_url,
+                model=model,
+                row=row,
+                row_index=row_index,
+                sample_index=sample_index,
+                args=args,
+            )
         else:
             completion, usage, react_steps, react_error = await run_docvqa_react(
                 client=client,
@@ -1085,18 +1018,13 @@ async def request_one(
             score_method = "request_error"
         else:
             score, score_method = math_score(completion, target)
-        math_mode = "no_skill_direct" if args.math_mode == "direct" else "paper_react_cli"
         extra = {
             "target": target,
-            "mode": math_mode,
-            "prompt_messages": (
-                math_messages(row, args.math_direct_prompt)
-                if args.math_mode == "direct"
-                else math_react_messages(row, args.math_react_prompt)
-            ),
+            "mode": "paper_react_cli",
+            "prompt_messages": math_react_messages(row, args.math_react_prompt),
             "react_error": react_error,
             "react_steps": react_steps or [],
-            "score_method": f"math_{math_mode}_{score_method}" if not error else score_method,
+            "score_method": f"math_paper_react_cli_{score_method}" if not error else score_method,
         }
     else:
         answers = [str(answer) for answer in row.get("answers", [])]
@@ -1225,7 +1153,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
         f"[{dataset.name}] start rows={len(rows)} samples={args.samples} "
         f"resume_done={len(done)} thinking={dataset.enable_thinking} "
         f"max_tokens={dataset.max_tokens} "
-        f"mode={('no_skill_direct' if args.math_mode == 'direct' else 'paper_react_cli') if dataset.kind == 'math' else ('paper_react_cli' if dataset.kind == 'docvqa' else 'n/a')}",
+        f"mode={'paper_react_cli' if dataset.kind in ('math', 'docvqa') else 'n/a'}",
         flush=True,
     )
     jobs = []
@@ -1305,11 +1233,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
             "samples": args.samples,
             "expected_records": len(rows) * args.samples,
             "enable_thinking": dataset.enable_thinking,
-            "mode": (
-                "no_skill_direct" if dataset.kind == "math" and args.math_mode == "direct"
-                else "paper_react_cli" if dataset.kind in ("math", "docvqa")
-                else None
-            ),
+            "mode": "paper_react_cli" if dataset.kind in ("math", "docvqa") else None,
             "math_max_turns": args.math_max_turns if dataset.kind == "math" else None,
             "docvqa_max_turns": args.docvqa_max_turns if dataset.kind == "docvqa" else None,
             "sampling": {
@@ -1339,7 +1263,7 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             name="dapo100",
             kind="math",
             path=args.math_root / "dapo_test.jsonl",
-            enable_thinking=args.math_enable_thinking,
+            enable_thinking=False,
             max_tokens=args.math_max_tokens,
             limit=min(args.math_limit, 100) if args.math_limit > 0 else 100,
         ),
@@ -1347,7 +1271,7 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             name="aime2026",
             kind="math",
             path=args.math_root / "aime_2026.jsonl",
-            enable_thinking=args.math_enable_thinking,
+            enable_thinking=False,
             max_tokens=args.math_max_tokens,
             limit=args.math_limit if args.math_limit > 0 else None,
         ),
@@ -1434,17 +1358,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--math-limit", type=int, default=0)
     parser.add_argument("--math-python-timeout", type=float, default=20.0)
     parser.add_argument("--math-tool-cwd", type=Path)
-    parser.add_argument("--math-mode", choices=("react", "direct"), default="react")
     parser.add_argument(
         "--math-react-prompt",
         choices=("matched-agentic", "repo-react-v1", "trace2skill-upstream"),
         default="matched-agentic",
-    )
-    parser.add_argument("--math-enable-thinking", action="store_true")
-    parser.add_argument(
-        "--math-direct-prompt",
-        choices=("qwen-benchmark", "legacy-no-skill"),
-        default="qwen-benchmark",
     )
     parser.add_argument("--docvqa-max-tokens", type=int, default=512)
     parser.add_argument("--docvqa-max-total-tokens", type=int, default=32768)

@@ -80,12 +80,14 @@ TRACE_LOGS=/path/to/logs RUN_ID=math_t2s scripts/math/run_trace2skill.sh
 TRACE_LOGS=/path/to/logs RUN_ID=docvqa_t2s scripts/docvqa/run_trace2skill.sh
 ```
 
-The composition wrappers evolve the skill first, then pass the resulting
-`skill_step_001.md` to Dynamic-Agent:
+The maintained composition workflow evolves the skill and evaluates it on the
+same replayed Agentic-ESOpt checkpoint:
 
 ```bash
-TRACE_LOGS=/path/to/logs RUN_ID=math_combo scripts/math/run_trace2skill_es.sh
-TRACE_LOGS=/path/to/logs RUN_ID=docvqa_combo scripts/docvqa/run_trace2skill_es.sh
+scripts/es_skill_workflow.sh math distill-skill
+scripts/es_skill_workflow.sh math skill-eval
+scripts/es_skill_workflow.sh docvqa distill-skill
+scripts/es_skill_workflow.sh docvqa skill-eval
 ```
 
 Multi-turn GRPO is separate from skill evolution and uses the checked-in

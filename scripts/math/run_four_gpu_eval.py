@@ -47,9 +47,6 @@ SERVED_MODEL = "qwen35-4b-math"
 APPROVED_PHYSICAL_GPUS = ("3", "4", "5", "6")
 DATASETS = ("dapo100", "aime2026")
 MATCHED_PROFILE = "matched-agentic"
-REPORT_PROFILE = "report-no-skill"
-REPORT_NONTHINKING_PROFILE = "report-no-skill-nonthinking"
-LEGACY_NO_SKILL_PROFILE = "legacy-no-skill"
 REPO_REACT_V1_50X4096_PROFILE = "repo-react-v1-50x4096"
 REPO_REACT_V1_TURN100_PROFILE = "repo-react-v1-turn100"
 EVAL_MAX_TURNS = 50
@@ -119,19 +116,10 @@ def evaluator_command(
 ) -> list[str]:
     if profile not in (
         MATCHED_PROFILE,
-        REPORT_PROFILE,
-        REPORT_NONTHINKING_PROFILE,
-        LEGACY_NO_SKILL_PROFILE,
         REPO_REACT_V1_50X4096_PROFILE,
         REPO_REACT_V1_TURN100_PROFILE,
     ):
         raise ValueError(f"unknown evaluation profile: {profile}")
-    report_aligned = profile == REPORT_PROFILE
-    report_direct = profile in (
-        REPORT_PROFILE,
-        REPORT_NONTHINKING_PROFILE,
-        LEGACY_NO_SKILL_PROFILE,
-    )
     repo_react_v1 = profile in (
         REPO_REACT_V1_50X4096_PROFILE,
         REPO_REACT_V1_TURN100_PROFILE,
@@ -160,11 +148,11 @@ def evaluator_command(
         "--temperature",
         "1.0",
         "--top-p",
-        "0.95" if report_aligned else "1.0",
+        "1.0",
         "--top-k",
-        "20" if report_aligned else "40",
+        "40",
         "--presence-penalty",
-        "1.5" if report_aligned else "2.0",
+        "2.0",
         "--repetition-penalty",
         "1.0",
         "--math-max-turns",
@@ -174,17 +162,9 @@ def evaluator_command(
         "--max-errors",
         "1",
     ]
-    if report_direct:
-        command.extend(["--math-mode", "direct"])
-    if report_aligned:
-        command.append("--math-enable-thinking")
-    if profile == LEGACY_NO_SKILL_PROFILE:
-        command.extend(["--math-direct-prompt", "legacy-no-skill"])
     if repo_react_v1:
         command.extend(
             [
-                "--math-mode",
-                "react",
                 "--math-react-prompt",
                 "repo-react-v1",
                 "--retry-react-errors",
@@ -230,9 +210,6 @@ def parse_args() -> argparse.Namespace:
         "--profile",
         choices=(
             MATCHED_PROFILE,
-            REPORT_PROFILE,
-            REPORT_NONTHINKING_PROFILE,
-            LEGACY_NO_SKILL_PROFILE,
             REPO_REACT_V1_50X4096_PROFILE,
             REPO_REACT_V1_TURN100_PROFILE,
         ),
@@ -248,7 +225,7 @@ def main() -> None:
     if args.samples != required_samples:
         raise ValueError(f"{args.profile} evaluation requires --samples {required_samples}")
     if args.profile != MATCHED_PROFILE and args.context_length < 128 * 1024:
-        raise ValueError("report-no-skill requires a context length of at least 128K")
+        raise ValueError("four-sample ReAct evaluation requires a context length of at least 128K")
     if args.concurrency <= 0:
         raise ValueError("--concurrency must be positive")
     if args.fallback_concurrency <= 0 or args.fallback_concurrency > args.concurrency:
@@ -363,12 +340,6 @@ def main() -> None:
         if not ok:
             raise RuntimeError("model-service preflight failed:\n" + "\n".join(preflight_errors))
 
-        report_aligned = args.profile == REPORT_PROFILE
-        report_direct = args.profile in (
-            REPORT_PROFILE,
-            REPORT_NONTHINKING_PROFILE,
-            LEGACY_NO_SKILL_PROFILE,
-        )
         repo_react_v1 = args.profile in (
             REPO_REACT_V1_50X4096_PROFILE,
             REPO_REACT_V1_TURN100_PROFILE,
@@ -385,23 +356,19 @@ def main() -> None:
             "datasets": list(DATASETS),
             "sampling": {
                 "temperature": 1.0,
-                "top_p": 0.95 if report_aligned else 1.0,
-                "top_k": 20 if report_aligned else 40,
-                "presence_penalty": 1.5 if report_aligned else 2.0,
+                "top_p": 1.0,
+                "top_k": 40,
+                "presence_penalty": 2.0,
                 "repetition_penalty": 1.0,
             },
             "protocol": (
-                "No Skill direct thinking + boxed answer"
-                if report_aligned
-                else "No Skill direct non-thinking + boxed answer"
-                if report_direct
-                else "Repository Math ReAct v1 + Action JSON + bash observation"
+                "Repository Math ReAct v1 + Action JSON + bash observation"
                 if repo_react_v1
                 else "Action JSON + bash observation"
             ),
             "evaluation_turn_limit": EVAL_MAX_TURNS,
-            "max_react_turns": None if report_direct else EVAL_MAX_TURNS,
-            "max_turn_tokens": None if report_direct else EVAL_MAX_TOKENS,
+            "max_react_turns": EVAL_MAX_TURNS,
+            "max_turn_tokens": EVAL_MAX_TOKENS,
             "max_output_tokens": EVAL_MAX_TOKENS,
         }
         manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

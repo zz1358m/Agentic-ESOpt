@@ -12,7 +12,7 @@ sys.path.insert(0, str(MATH_ROOT))
 sys.path.insert(0, str(SCRIPTS))
 
 from envs.math_reasoning import trim_oldest_react_exchange  # noqa: E402
-from run_math_es_train import mean_valid  # noqa: E402
+from run_math_es_vllm_train import mean_valid  # noqa: E402
 
 
 def load_vllm_train_module():

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/home/zhi/Dynamic-Agent"
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PYTHON="/home/zhi/miniconda3/envs/es4llm/bin/python"
 REPLAY_SCRIPT="$ROOT/scripts/webarena/replay_es_history_and_eval.py"
 ENDPOINTS="http://127.0.0.1:12013,http://127.0.0.1:12014,http://127.0.0.1:12015,http://127.0.0.1:12016"

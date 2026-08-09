@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=${ROOT:-/home/zhi/Dynamic-Agent}
+ROOT=${ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 PY=${PY:-/home/zhi/miniconda3/envs/es4llm/bin/python}
 RUN_ID=${RUN_ID:-qwen35_27b_true_noskill_strict_vab_pop8_batch8_eval10_g70_sigma1p5e3_to5e4_cosine_warmup0_alpha2p5e4_4gpu_$(date -u +%Y%m%d_%H%M%S)}
 

@@ -1,4 +1,4 @@
-"""Repository-level Dynamic-Agent method implementation.
+"""Repository-level Agentic-ESOpt method implementation.
 
 HTTP and torch integrations are loaded lazily so schedule/history utilities can
 be used by data checks and ``--help`` commands without optional runtime wheels.

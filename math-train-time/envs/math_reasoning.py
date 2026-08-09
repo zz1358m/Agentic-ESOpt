@@ -6,12 +6,10 @@ import re
 import signal
 import subprocess
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
-from urllib import request
 
 try:
     from math_verify import parse as math_verify_parse
@@ -42,9 +40,6 @@ class MathRolloutJob:
     sample_index: int = 0
 
 
-class ContextLengthExceeded(RuntimeError):
-    pass
-
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     rows = []
@@ -71,23 +66,6 @@ def load_tasks(path: Path, limit: int = 0) -> list[MathTask]:
         raise RuntimeError(f"No math tasks loaded from {path}")
     return tasks
 
-
-def post_json(url: str, payload: dict[str, Any], timeout: int | float = 900) -> dict[str, Any]:
-    data = json.dumps(payload).encode()
-    req = request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-    with request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
-
-
-def chat_completion_url(endpoint: str) -> str:
-    endpoint = endpoint.rstrip("/")
-    if endpoint.endswith("/v1/chat/completions"):
-        return endpoint
-    if endpoint.endswith("/chat/completions"):
-        return endpoint
-    if endpoint.endswith("/v1"):
-        return f"{endpoint}/chat/completions"
-    return f"{endpoint}/v1/chat/completions"
 
 
 def strip_think(text: str) -> str:
@@ -263,42 +241,6 @@ def trim_oldest_react_exchange(messages: list[dict[str, Any]]) -> bool:
     return True
 
 
-def response_text(response_json: dict[str, Any]) -> str:
-    choices = response_json.get("choices") or []
-    if not choices:
-        return ""
-    message = choices[0].get("message")
-    if isinstance(message, dict):
-        return str(message.get("content", ""))
-    return str(choices[0].get("text", ""))
-
-
-def is_context_length_error(response_json: dict[str, Any], response_text_value: str) -> bool:
-    text = response_text_value.lower()
-    error = response_json.get("error")
-    if isinstance(error, dict):
-        param = str(error.get("param", "")).lower()
-        message = str(error.get("message", "")).lower()
-        text += "\n" + message
-        if param == "input_tokens" and "context length" in message:
-            return True
-    return "context length" in text and "maximum input length" in text
-
-
-def usage_add(left: dict[str, Any] | None, right: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not left:
-        return right
-    if not right:
-        return left
-    merged = dict(left)
-    for key, value in right.items():
-        if isinstance(value, (int, float)) and isinstance(merged.get(key), (int, float)):
-            merged[key] += value
-        elif key not in merged:
-            merged[key] = value
-    return merged
-
-
 def parse_react_action(text: str) -> dict[str, Any] | None:
     match = re.search(r"Action:\s*(\{.*?\})\s*$", text, flags=re.DOTALL | re.IGNORECASE)
     if not match:
@@ -454,61 +396,6 @@ def react_observation_text(name: str, text: str) -> str:
     return f"Observation from {name}:\n{text}"
 
 
-def post_chat(
-    *,
-    chat_url: str,
-    model: str,
-    messages: list[dict[str, Any]],
-    max_tokens: int,
-    temperature: float,
-    top_p: float,
-    top_k: int,
-    min_p: float,
-    presence_penalty: float,
-    repetition_penalty: float,
-    timeout: int | float,
-    seed: int,
-    request_retries: int,
-    enable_thinking: bool = False,
-) -> tuple[str, dict[str, Any] | None]:
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "top_p": top_p,
-        "top_k": top_k,
-        "min_p": min_p,
-        "presence_penalty": presence_penalty,
-        "repetition_penalty": repetition_penalty,
-        "seed": seed,
-        "stop": ["Observation:"],
-        "chat_template_kwargs": {"enable_thinking": enable_thinking},
-        "enable_thinking": enable_thinking,
-    }
-    if max_tokens > 0:
-        payload["max_tokens"] = max_tokens
-
-    last_error: Exception | None = None
-    for attempt in range(request_retries + 1):
-        try:
-            data = json.dumps(payload).encode()
-            req = request.Request(chat_url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-            with request.urlopen(req, timeout=timeout) as resp:
-                text = resp.read().decode()
-                response_json = json.loads(text)
-            if is_context_length_error(response_json, text):
-                raise ContextLengthExceeded(text)
-            return response_text(response_json), response_json.get("usage") if isinstance(response_json, dict) else None
-        except ContextLengthExceeded:
-            raise
-        except Exception as exc:
-            last_error = exc
-            if attempt >= request_retries:
-                raise
-            time.sleep(min(2.0 * (attempt + 1), 10.0))
-    assert last_error is not None
-    raise last_error
-
 
 def trace_markdown(*, task: MathTask, row: dict[str, Any], transcript: list[dict[str, Any]]) -> str:
     score = float(row.get("score", -1.0))
@@ -585,255 +472,3 @@ class MathReasoningEnv:
             path = Path(skill_file)
             if path.exists():
                 self.skill = path.read_text(encoding="utf-8")
-
-    def rollout_one(
-        self,
-        *,
-        endpoint: str,
-        job: MathRolloutJob,
-        model: str,
-        max_tokens: int,
-        temperature: float,
-        top_p: float,
-        top_k: int,
-        min_p: float,
-        presence_penalty: float,
-        repetition_penalty: float,
-        timeout: int,
-        request_retries: int,
-        max_turns: int,
-        python_timeout: float,
-        tool_observation_limit: int,
-        seed: int,
-    ) -> dict[str, Any]:
-        task = job.task
-        key = f"{task.id}:sample{job.sample_index:02d}"
-        messages = math_react_messages(task, self.skill)
-        steps: list[dict[str, Any]] = []
-        total_usage: dict[str, Any] | None = None
-        used_bash = False
-        completion = ""
-        react_error = None
-        termination_reason = None
-        context_trims = 0
-        started_at = time.time()
-        seed_base = seed + job.sample_index * 1_000_003 + job.row_index
-        workdir = (
-            self.tool_work_root
-            / safe_workdir_name(task.id, fallback=f"row{job.row_index:05d}")
-            / f"row{job.row_index:05d}_sample{job.sample_index:02d}_seed{seed_base}"
-        )
-        workdir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            turn = 0
-            while max_turns <= 0 or turn < max_turns:
-                while True:
-                    try:
-                        completion, usage = post_chat(
-                            chat_url=chat_completion_url(endpoint),
-                            model=model,
-                            messages=messages,
-                            max_tokens=max_tokens,
-                            temperature=temperature,
-                            top_p=top_p,
-                            top_k=top_k,
-                            min_p=min_p,
-                            presence_penalty=presence_penalty,
-                            repetition_penalty=repetition_penalty,
-                            timeout=timeout,
-                            seed=seed_base + turn * 97,
-                            request_retries=request_retries,
-                            enable_thinking=False,
-                        )
-                        break
-                    except ContextLengthExceeded:
-                        if not trim_oldest_react_exchange(messages):
-                            react_error = "context_length_exceeded"
-                            termination_reason = "context_length_exceeded"
-                            break
-                        context_trims += 1
-                if termination_reason == "context_length_exceeded":
-                    break
-                turn += 1
-                total_usage = usage_add(total_usage, usage)
-                messages.append({"role": "assistant", "content": completion})
-
-                cleaned = strip_think(completion)
-                final_match = final_answer_line(cleaned) is not None
-                action = parse_react_action(cleaned)
-                if final_match and not action:
-                    if used_bash:
-                        termination_reason = "final_answer"
-                        break
-                    warning = (
-                        "You must call the bash Action before answering. "
-                        "Use command-line Python to compute or verify the solution, then provide Final answer."
-                    )
-                    messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
-                    steps.append({"turn": turn, "assistant": completion, "observation": warning})
-                    continue
-
-                if not action:
-                    warning = (
-                        'No valid action was parsed. Use exactly:\n'
-                        'Action:\n{"name": "bash", "arguments": {"command": "<shell command>"}}\n'
-                        'or finish after bash use with: Final answer: \\boxed{<answer>}'
-                    )
-                    messages.append({"role": "user", "content": react_observation_text("format_check", warning)})
-                    steps.append({"turn": turn, "assistant": completion, "observation": warning})
-                    continue
-
-                name = action["name"]
-                arguments = action["arguments"]
-                if name == "bash":
-                    command = str(arguments.get("command", ""))
-                    if not command.strip():
-                        observation = "No shell command was provided."
-                    else:
-                        used_bash = True
-                        observation = run_bash(
-                            command,
-                            workdir,
-                            timeout=python_timeout,
-                            limit=tool_observation_limit,
-                        )
-                else:
-                    observation = f"Unknown action '{name}'. Available action is bash."
-
-                messages.append({"role": "user", "content": react_observation_text(name, observation)})
-                steps.append(
-                    {
-                        "turn": turn,
-                        "assistant": completion,
-                        "action": action,
-                        "observation": observation,
-                    }
-                )
-            if termination_reason is None:
-                react_error = "max_react_turns_exceeded"
-                termination_reason = "max_turns"
-
-            answer_status = "answered" if final_answer_line(strip_think(completion)) is not None else "missing_final_answer"
-            if termination_reason == "context_length_exceeded":
-                score = 0.0
-                score_method = "context_length_exceeded"
-            else:
-                score, score_method = math_score(completion, task.answer)
-            if not used_bash:
-                score = 0.0
-                score_method = "no_bash_tool_use"
-            return {
-                "key": key,
-                "task_id": task.id,
-                "row_index": job.row_index,
-                "sample_index": job.sample_index,
-                "score": score,
-                "answer": task.answer,
-                "prediction": extract_math_answer(completion),
-                "response": completion,
-                "completion": completion,
-                "latency_s": time.time() - started_at,
-                "usage": total_usage,
-                "mode": "paper_react_cli",
-                "tool_workdir": str(workdir),
-                "used_bash": used_bash,
-                "termination_reason": termination_reason or "final_answer",
-                "answer_status": answer_status,
-                "context_trims": context_trims,
-                "react_error": react_error,
-                "react_steps": steps,
-                "trace_rounds": len(steps),
-                "score_method": f"math_paper_react_cli_{score_method}",
-            }
-        except Exception as exc:
-            return {
-                "key": key,
-                "task_id": task.id,
-                "row_index": job.row_index,
-                "sample_index": job.sample_index,
-                "score": 0.0,
-                "answer": task.answer,
-                "prediction": "",
-                "response": "",
-                "completion": "",
-                "latency_s": time.time() - started_at,
-                "mode": "paper_react_cli",
-                "tool_workdir": str(workdir),
-                "used_bash": used_bash,
-                "termination_reason": "request_error",
-                "answer_status": "missing_final_answer",
-                "context_trims": context_trims,
-                "react_error": f"{type(exc).__name__}: {exc}",
-                "error": f"{type(exc).__name__}: {exc}",
-                "score_method": "request_error",
-                "react_steps": steps,
-            }
-
-    def rollout_batch(
-        self,
-        *,
-        endpoint: str,
-        jobs: list[MathRolloutJob],
-        model: str,
-        max_tokens: int,
-        temperature: float,
-        top_p: float,
-        top_k: int,
-        min_p: float,
-        presence_penalty: float,
-        repetition_penalty: float,
-        timeout: int,
-        request_retries: int,
-        max_turns: int,
-        python_timeout: float,
-        tool_observation_limit: int,
-        seed: int,
-        concurrency: int,
-        trace_dir: str | Path | None = None,
-    ) -> list[dict[str, Any]]:
-        if not jobs:
-            return []
-        rows: list[dict[str, Any]] = []
-        max_workers = max(1, min(int(concurrency), len(jobs)))
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = [
-                pool.submit(
-                    self.rollout_one,
-                    endpoint=endpoint,
-                    job=job,
-                    model=model,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p,
-                    top_k=top_k,
-                    min_p=min_p,
-                    presence_penalty=presence_penalty,
-                    repetition_penalty=repetition_penalty,
-                    timeout=timeout,
-                    request_retries=request_retries,
-                    max_turns=max_turns,
-                    python_timeout=python_timeout,
-                    tool_observation_limit=tool_observation_limit,
-                    seed=seed,
-                )
-                for job in jobs
-            ]
-            for future in as_completed(futures):
-                rows.append(future.result())
-
-        trace_root = Path(trace_dir) if trace_dir else None
-        if trace_root is not None:
-            trace_root.mkdir(parents=True, exist_ok=True)
-            task_by_key = {(job.task.id, job.sample_index): job.task for job in jobs}
-            for row in rows:
-                task = task_by_key[(str(row["task_id"]), int(row.get("sample_index", 0)))]
-                outcome = "SUCCEED" if float(row.get("score", -1.0)) >= 1.0 else "FAILED"
-                safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", task.id)
-                sample_index = int(row.get("sample_index", 0))
-                path = trace_root / f"math_agent_{safe_id}_sample{sample_index:02d}_{outcome}.md"
-                path.write_text(trace_markdown(task=task, row=row, transcript=row.get("react_steps", [])), encoding="utf-8")
-                row["trace_log"] = str(path)
-
-        rows.sort(key=lambda row: (int(row.get("row_index", 0)), int(row.get("sample_index", 0))))
-        return rows

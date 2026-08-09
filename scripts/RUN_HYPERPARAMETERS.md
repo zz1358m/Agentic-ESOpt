@@ -60,10 +60,10 @@ scripts/sudoku/run_grpo_t1.sh   # T=1.0, top-p=1.0, top-k=-1
 | Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; DAPO 100; AIME 30 |
 | Trace2Skill | final 50 task occurrences, at most one success + one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
 
-底层 `scripts/math/run.sh` 与 `run_vllm_es_4gpu.sh` 默认都是 1 代、population
-8、case batch 8、sigma `5e-4` constant、alpha `5e-4`、全参数、z-score、
-1 train sample、16 eval samples、`T=1`、`p=1`、`k=40`、presence penalty 2。
-vLLM 版本另使用 4 engines、context 32768、GPU memory utilization 0.85。
+底层 `scripts/math/run_vllm_es_4gpu.sh` 默认是 1 代、population 8、case
+batch 8、sigma `5e-4` constant、alpha `5e-4`、全参数、z-score、1 train
+sample、16 eval samples、`T=1`、`p=1`、`k=40`、presence penalty 2；另使用
+4 engines、context 32768、GPU memory utilization 0.85。
 
 异步 VERL GRPO 训练入口：`scripts/math/run_react_verl_grpo.sh train`
 （等价于 `scripts/math/run_grpo.sh`）。
@@ -82,7 +82,8 @@ samples、`repo-react-v1-50x4096`、50 turns、每次 assistant 请求 4096
 tokens、seed `20260629`、并发 8（失败降到 4）、context 262144。
 
 `scripts/math/run_trace2skill.sh` 默认 seed `20260627`、8 workers、
-`gpt-4.1-mini`、20 行 skill；`run_trace2skill_es.sh` 随后调用底层 Math ES。
+`gpt-4.1-mini`、20 行 skill；与 Agentic-ESOpt 的组合统一使用
+`scripts/es_skill_workflow.sh math <distill-skill|skill-eval>`。
 
 ## DocVQA
 
@@ -96,10 +97,6 @@ tokens、seed `20260629`、并发 8（失败降到 4）、context 262144。
 | Runtime | 4 vLLM engines, inference batch 16, context 131072, GPU memory utilization 0.85, bfloat16, eager mode |
 | Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; 100 held-out documents |
 | Trace2Skill | final 50 task occurrences, at most one success + one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
-
-旧的 direct-image `scripts/docvqa/run.sh` 是 1 代 smoke 入口：population 8、
-case batch 8、sigma `5e-4` constant、alpha `5e-4`、512 tokens、`T=0`、
-`p=0.9`。
 
 异步 VERL GRPO 训练入口：`scripts/docvqa/run_react_verl_grpo.sh train`
 （等价于 `scripts/docvqa/run_grpo.sh`）。
@@ -118,8 +115,8 @@ samples、4 个 TP=1 replicas、seed 42、context 131072、并发 8（失败降�
 GPU memory utilization 0.82。
 
 `scripts/docvqa/run_trace2skill.sh` 与 Math 的 standalone Trace2Skill 默认值
-相同；`run_trace2skill_es.sh` 随后调用 direct-image ES。维护中的 text-backbone
-流程使用 `es_skill_workflow.sh`。
+相同；与 Agentic-ESOpt 的组合统一使用
+`scripts/es_skill_workflow.sh docvqa <distill-skill|skill-eval>`。
 
 ## WebArena
 

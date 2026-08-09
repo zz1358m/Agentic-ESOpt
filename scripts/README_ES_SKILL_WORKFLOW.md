@@ -24,8 +24,7 @@ task-level Trace2Skill aggregation, and writes one `skill_step_001.md`.
 The launcher uses the in-process four-GPU vLLM runner for both tasks. This keeps
 the raw and skill evaluations on the same model checkpoint, seed family,
 sampling configuration, context budget, ReAct protocol, and scorer. DocVQA uses
-the text backbone plus the isolated bash/OCR tool; it does not switch to the
-legacy direct-image HTTP prompt.
+the text backbone plus the isolated bash/OCR tool.
 
 Copy the variables you need from `scripts/es_skill_workflow.example.env` into
 `scripts/settings.local.env`. The most important values are `PY`, the task model

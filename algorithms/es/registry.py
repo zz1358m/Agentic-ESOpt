@@ -12,8 +12,8 @@ class ESMethodSpec:
 
 
 ES_METHOD_REGISTRY = {
-    "dynamic_agent": ESMethodSpec(
-        name="dynamic_agent",
+    "agentic_esopt": ESMethodSpec(
+        name="agentic_esopt",
         status="maintained",
         module="es.model_es_client",
         target_env_families=(
@@ -24,12 +24,12 @@ ES_METHOD_REGISTRY = {
             "ahd_test_time",
         ),
         built_on=("seed_replay_model_updates", "eoh"),
-        notes="Dynamic-Agent model-weight optimization with explicit sigma schedules and deterministic history replay.",
+        notes="Agentic-ESOpt model-weight optimization with explicit sigma schedules and deterministic history replay.",
     ),
 }
 
 ES_METHOD_ALIASES = {
-    "model_weight_es": "dynamic_agent",
+    "model_weight_es": "agentic_esopt",
 }
 
 
@@ -42,5 +42,5 @@ def get_es_method_spec(name: str) -> ESMethodSpec:
     key = ES_METHOD_ALIASES.get(key, key)
     if key not in ES_METHOD_REGISTRY:
         supported = ", ".join(sorted((*ES_METHOD_REGISTRY.keys(), *ES_METHOD_ALIASES.keys())))
-        raise KeyError(f"Unknown Dynamic-Agent method {name!r}. Supported methods: {supported}")
+        raise KeyError(f"Unknown Agentic-ESOpt method {name!r}. Supported methods: {supported}")
     return ES_METHOD_REGISTRY[key]

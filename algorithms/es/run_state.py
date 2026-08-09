@@ -1,4 +1,4 @@
-"""Shared scheduling and replay helpers for Dynamic-Agent ES runners.
+"""Shared scheduling and replay helpers for Agentic-ESOpt runners.
 
 The task runners intentionally keep task-specific rollout code, but use this
 module for the pieces that must have identical semantics across settings:

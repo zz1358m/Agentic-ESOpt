@@ -21,8 +21,6 @@ cache/
 tmp/
 .runtime/
 results*.xlsx
-Dynamic-Agent.pptx
-Dynamic_Agent__Evolution_Strategy_Breaks_the_Boundary_of_LLM_Agentic_Reasoning/
 figures/
 *.log
 *.pid

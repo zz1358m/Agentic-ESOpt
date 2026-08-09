@@ -12,10 +12,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from run_four_gpu_eval import (  # noqa: E402
-    LEGACY_NO_SKILL_PROFILE,
     REPO_REACT_V1_50X4096_PROFILE,
-    REPORT_NONTHINKING_PROFILE,
-    REPORT_PROFILE,
     SERVED_MODEL,
     evaluator_command,
     expected_result_keys,
@@ -86,73 +83,6 @@ def test_evaluator_command_fixes_sampling_and_protocol(tmp_path: Path) -> None:
     assert command[-1] == "--resume"
 
 
-def test_report_profile_uses_four_4096_token_thinking_samples(tmp_path: Path) -> None:
-    command = evaluator_command(
-        python=sys.executable,
-        evaluator=tmp_path / "eval.py",
-        endpoints=["http://127.0.0.1:18180/v1"],
-        model_path=tmp_path / "model",
-        math_root=tmp_path / "math",
-        out_dir=tmp_path / "out",
-        samples=4,
-        concurrency=4,
-        seed=20260629,
-        resume=True,
-        profile=REPORT_PROFILE,
-    )
-    joined = " ".join(command)
-    assert "--samples 4" in joined
-    assert "--top-p 0.95" in joined
-    assert "--top-k 20" in joined
-    assert "--presence-penalty 1.5" in joined
-    assert "--math-max-tokens 4096" in joined
-    assert "--math-mode direct" in joined
-    assert "--math-enable-thinking" in command
-
-
-def test_report_nonthinking_candidate_keeps_reasoning_sampling(tmp_path: Path) -> None:
-    command = evaluator_command(
-        python=sys.executable,
-        evaluator=tmp_path / "eval.py",
-        endpoints=["http://127.0.0.1:18180/v1"],
-        model_path=tmp_path / "model",
-        math_root=tmp_path / "math",
-        out_dir=tmp_path / "out",
-        samples=4,
-        concurrency=4,
-        seed=20260629,
-        resume=True,
-        profile=REPORT_NONTHINKING_PROFILE,
-    )
-    joined = " ".join(command)
-    assert "--top-p 1.0" in joined
-    assert "--top-k 40" in joined
-    assert "--presence-penalty 2.0" in joined
-    assert "--math-max-tokens 4096" in joined
-    assert "--math-mode direct" in joined
-    assert "--math-enable-thinking" not in command
-
-
-def test_legacy_candidate_selects_original_no_skill_prompt(tmp_path: Path) -> None:
-    command = evaluator_command(
-        python=sys.executable,
-        evaluator=tmp_path / "eval.py",
-        endpoints=["http://127.0.0.1:18180/v1"],
-        model_path=tmp_path / "model",
-        math_root=tmp_path / "math",
-        out_dir=tmp_path / "out",
-        samples=4,
-        concurrency=4,
-        seed=20260629,
-        resume=True,
-        profile=LEGACY_NO_SKILL_PROFILE,
-    )
-    joined = " ".join(command)
-    assert "--math-mode direct" in joined
-    assert "--math-direct-prompt legacy-no-skill" in joined
-    assert "--math-enable-thinking" not in command
-
-
 def test_repo_react_alignment_profile_is_fixed_to_50_turns_and_4096_tokens(
     tmp_path: Path,
 ) -> None:
@@ -173,7 +103,6 @@ def test_repo_react_alignment_profile_is_fixed_to_50_turns_and_4096_tokens(
     assert "--samples 4" in joined
     assert "--math-max-turns 50" in joined
     assert "--math-max-tokens 4096" in joined
-    assert "--math-mode react" in joined
     assert "--math-react-prompt repo-react-v1" in joined
     assert "--retry-react-errors" in command
     assert "--math-enable-thinking" not in command
