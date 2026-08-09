@@ -131,9 +131,12 @@ GPU memory utilization 0.82。
 | all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn |
 
 训练和最终评测统一使用 `T=0.7`、top-p `0.8`、top-k `20`、min-p
-`0.0`、presence penalty `1.5`、repetition penalty `1.0`。训练使用 non-Lite
-split，评测使用完整 165 题 WebArena-Lite。最终噪声虽然用统一的 cosine
-起点/终点接口表达，但起点与终点都为 `1.5e-3`，所以整个训练过程数值恒定。
+`0.0`、presence penalty `1.5`、repetition penalty `1.0`。训练使用从原始
+812 题中按 Lite `old_task_id` 排除 165 题后生成的 582 题 non-Lite split；
+另外 65 题只作 Trace2Skill validation，最终评测使用完整 165 题
+WebArena-Lite。`reddit,gitlab,wikipedia,map,shopping,shopping_admin` 六个 site
+都启用。最终噪声虽然用统一的 cosine 起点/终点接口表达，但起点与终点都为
+`1.5e-3`，所以整个训练过程数值恒定。
 
 ## AHD
 

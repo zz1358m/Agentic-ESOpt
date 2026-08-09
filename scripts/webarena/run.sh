@@ -24,7 +24,8 @@ TRAIN_SPLIT="${WEBARENA_TRAIN_SPLIT:-$ROOT/data/webarena/vab_nonlite_split/train
 EVAL_SPLIT="${WEBARENA_EVAL_SPLIT:-$ROOT/data/webarena/vab_lite_split/items.json}"
 TRAIN_CONFIG_DIR="${WEBARENA_TRAIN_CONFIG_DIR:-$ROOT/data/webarena/vab-lite/config_files/wa/test_webarena}"
 EVAL_CONFIG_DIR="${WEBARENA_CONFIG_DIR:-$ROOT/data/webarena/vab-lite/config_files/wa/test_webarena_lite}"
-EVAL_SITES="${EVAL_SITES:-reddit,gitlab,map,shopping,shopping_admin}"
+# Wikipedia is required by seven non-Lite train items and four Lite test items.
+EVAL_SITES="${EVAL_SITES:-reddit,gitlab,wikipedia,map,shopping,shopping_admin}"
 
 # Final Agentic-ESOpt setting: cosine(1.5e-3 -> 1.5e-3), hence fixed noise.
 ES_GENERATIONS="${WEBARENA_ES_GENERATIONS:-70}"

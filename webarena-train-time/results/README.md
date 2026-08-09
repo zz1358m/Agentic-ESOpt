@@ -27,7 +27,10 @@ from the 70-update Agentic-ESOpt run:
 The run uses 70 generations, population 8, case batch 8, alpha `2.5e-4`,
 z-score reward normalization, and full-parameter updates. Sigma is expressed
 as a cosine schedule from `1.5e-3` to `1.5e-3` with zero warmup, so the noise
-is constant throughout training.
+is constant throughout training. Each generation takes the next eight ordered
+tasks from the released 582-task non-Lite train split; all 560 logged case
+positions for generations 0–69 match the split fingerprint documented in
+`../README.md`.
 
 ## Final evaluations and skills
 

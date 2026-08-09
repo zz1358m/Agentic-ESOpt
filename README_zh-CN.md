@@ -174,6 +174,12 @@ python webarena-train-time/scripts/prepare_webarena_nonlite_split.py
 python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
 ```
 
+正式划分会从原始 812 个 WebArena 任务中排除 165 个 Lite 配置记录的
+`old_task_id`，再以 seed `20260605` 得到 582 个训练任务和 65 个验证任务。
+Lite 的 `task_id=0–164` 是新的评测编号，并不是需要从原始数据中直接排除的
+ID。精确哈希和完整划分规则见
+[`webarena-train-time/README.md`](webarena-train-time/README.md)。
+
 标准的 trajectory → skill 流程如下：
 
 ```bash

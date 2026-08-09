@@ -184,6 +184,12 @@ python webarena-train-time/scripts/prepare_webarena_nonlite_split.py
 python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
 ```
 
+The released protocol removes the 165 Lite configs' `old_task_id` values from
+the original 812 WebArena tasks, then uses seed `20260605` to create 582 train
+and 65 validation tasks. The Lite `task_id` values 0–164 are new evaluation
+indices, not the original IDs to exclude. Exact hashes and the full split
+definition are in [`webarena-train-time/README.md`](webarena-train-time/README.md).
+
 The canonical trajectory-to-skill sequence is:
 
 ```bash
