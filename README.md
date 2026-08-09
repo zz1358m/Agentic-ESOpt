@@ -21,6 +21,30 @@ The shared implementation is under [`algorithms/es/`](algorithms/es/). Every mai
 Agentic-ESOpt runner records seeded perturbations, rewards, schedules, and
 updates in `history.json`, which can be replayed on a fresh model server.
 
+## Released checkpoints 🤗
+
+The task-specific Agentic-ESOpt model weights are collected in the
+[Agentic-ESOpt Checkpoints Collection](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection):
+
+| Task | Checkpoint |
+| --- | --- |
+| Math | [`zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt) |
+| DocVQA | [`zz1358m/Qwen3.5-4B-DocVQA-ReAct-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-DocVQA-ReAct-Agentic-ESOpt) |
+| WebArena | [`zz1358m/Qwen3.5-27B-WebArena-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-27B-WebArena-Agentic-ESOpt) |
+| Sudoku Mask15 | [`zz1358m/Qwen3.5-4B-Sudoku-Mask15-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-Sudoku-Mask15-Agentic-ESOpt) |
+
+Pass a repository ID directly to a compatible Transformers/vLLM launcher, or
+download it before serving:
+
+```bash
+hf download zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt \
+  --local-dir checkpoints/math-agentic-esopt
+```
+
+Use that repository ID or local directory wherever the task instructions ask
+for `MODEL_PATH` or `MODEL`. The corresponding evaluation logs, skills, and
+exact launcher settings remain in this repository's task directories.
+
 ## Repository map 📦
 
 ```text

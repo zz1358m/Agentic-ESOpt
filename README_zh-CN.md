@@ -19,6 +19,29 @@ Trace2Skill 流程，以及五类智能体任务中保留的实验日志。
 共享实现位于 [`algorithms/es/`](algorithms/es/)。每个维护中的 Agentic-ESOpt 运行都会把带种子的
 扰动、奖励、调度和更新记录到 `history.json`，可以在新启动的模型服务上重放。
 
+## 已发布 Checkpoint 🤗
+
+各任务的 Agentic-ESOpt 模型权重统一收录在
+[Agentic-ESOpt Checkpoints Collection](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)：
+
+| 任务 | Checkpoint |
+| --- | --- |
+| Math | [`zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt) |
+| DocVQA | [`zz1358m/Qwen3.5-4B-DocVQA-ReAct-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-DocVQA-ReAct-Agentic-ESOpt) |
+| WebArena | [`zz1358m/Qwen3.5-27B-WebArena-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-27B-WebArena-Agentic-ESOpt) |
+| Sudoku Mask15 | [`zz1358m/Qwen3.5-4B-Sudoku-Mask15-Agentic-ESOpt`](https://huggingface.co/zz1358m/Qwen3.5-4B-Sudoku-Mask15-Agentic-ESOpt) |
+
+可以把模型仓库 ID 直接传给兼容的 Transformers/vLLM 入口，也可以先下载到
+本地再启动服务：
+
+```bash
+hf download zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt \
+  --local-dir checkpoints/math-agentic-esopt
+```
+
+后续在任务说明要求填写 `MODEL_PATH` 或 `MODEL` 的地方使用该仓库 ID 或本地
+目录即可；对应的评测日志、skill 和精确启动参数仍保留在本仓库各任务目录中。
+
 ## 仓库结构 📦
 
 ```text
