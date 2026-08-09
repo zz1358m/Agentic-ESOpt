@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_bpp_train_sample_t2000_aco_bpp_sample_t2000_from_rep2_20260718_145101/results/pops_best/population_generation_100.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_bpp_train_sample_t2000_aco_bpp_sample_t2000_from_rep2_20260718_145101/results/pops_best/population_generation_100.json
 # method: sample, prefix=2000, batch_size=20
 # task: aco_bpp, rep: 2
 # train_objective: 202.4

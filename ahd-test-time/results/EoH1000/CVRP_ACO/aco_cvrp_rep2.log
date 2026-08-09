@@ -1,7 +1,7 @@
 [ahd] task=aco_cvrp split=train method=eoh
-[ahd] data=/home/zhi/Dynamic-Agent/data/ahd/datasets/cvrp_aco
-[ahd] cfg=/home/zhi/Dynamic-Agent/data/ahd/settings/cfg/problem/cvrp_aco.yaml
-[ahd] prompt=/home/zhi/Dynamic-Agent/data/ahd/settings/prompts/cvrp_aco
+[ahd] data=/home/zhi/Agentic-ESOpt/data/ahd/datasets/cvrp_aco
+[ahd] cfg=/home/zhi/Agentic-ESOpt/data/ahd/settings/cfg/problem/cvrp_aco.yaml
+[ahd] prompt=/home/zhi/Agentic-ESOpt/data/ahd/settings/prompts/cvrp_aco
 ----------------------------------------- 
 ---              Start EoH            ---
 -----------------------------------------

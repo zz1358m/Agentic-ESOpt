@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_bpp_train_eoh_aco_bpp_train_eoh_rep3_rerun_eoh_k1_bpp_3rep_8gpu_20260716_120821/results/pops_best/population_generation_25.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_bpp_train_eoh_aco_bpp_train_eoh_rep3_rerun_eoh_k1_bpp_3rep_8gpu_20260716_120821/results/pops_best/population_generation_25.json
 # run_id: aco_bpp_train_eoh_rep3_rerun_eoh_k1_bpp_3rep_8gpu_20260716_120821
 # train_objective: 202.2
 # m1m2_multiplier: 1

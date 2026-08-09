@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep1_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep1_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
 # objective: 5.80965
 # algorithm: This new algorithm introduces a decay function to the novelty penalty, allowing it to decay exponentially with distance, with a high decay rate for short distances, and then increases it for long distances, giving more importance to the shortest paths.
 

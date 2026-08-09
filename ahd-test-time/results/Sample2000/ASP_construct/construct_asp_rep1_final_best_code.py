@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_asp_train_sample_t2000_construct_asp_sample_t2000_from_rep1_20260718_145101/results/pops_best/population_generation_100.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_asp_train_sample_t2000_construct_asp_sample_t2000_from_rep1_20260718_145101/results/pops_best/population_generation_100.json
 # method: sample, prefix=2000, batch_size=20
 # task: construct_asp, rep: 1
 # train_objective: -2754.0

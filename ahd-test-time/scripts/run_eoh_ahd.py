@@ -279,7 +279,7 @@ def main() -> None:
             llm_es_target_modules=es_target_modules,
             llm_es_reward_floor=-1e30 if sample_es else -1.0,
             llm_es_invalid_reward_strategy=args.es_invalid_reward_strategy,
-            llm_es_dynamic_invalid_reward=sample_es,
+            llm_es_batch_relative_invalid_reward=sample_es,
             llm_es_disable_update=args.es_disable_update,
             llm_es_history_path=args.es_history_file or None,
             llm_es_resume_history=args.resume_history or None,

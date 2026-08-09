@@ -42,13 +42,13 @@ exec "$PY" "$ROOT/ahd-test-time/scripts/run_eoh_ahd.py" \
   --run-id "$RUN_ID" \
   --llm-local-url "${LLM_LOCAL_URL:-http://127.0.0.1:11013/completions}" \
   --es-engine-urls "${ES_ENGINE_URLS:-}" \
-  --es-operators "${ES_OPERATORS:-e1,e2,m1,m2}" \
+  --es-operators "${ES_OPERATORS:-m1,m2}" \
   --eoh-k "${EOH_K:-1}" \
   --ec-pop-size "${AHD_POP_SIZE:-10}" \
   --ec-generations "${AHD_GENERATIONS:-25}" \
   --es-sigma-start "${ES_SIGMA_START:-1e-3}" \
-  --es-sigma-end "${ES_SIGMA_END:-${ES_SIGMA_START:-1e-3}}" \
-  --es-sigma-schedule "${ES_SIGMA_SCHEDULE:-constant}" \
+  --es-sigma-end "${ES_SIGMA_END:-0}" \
+  --es-sigma-schedule "${ES_SIGMA_SCHEDULE:-cosine}" \
   --es-sigma-warmup-steps "${ES_SIGMA_WARMUP_STEPS:-0}" \
   --es-alpha "${ES_ALPHA:-5e-4}" \
   --es-seed "${ES_SEED:-2024}" \

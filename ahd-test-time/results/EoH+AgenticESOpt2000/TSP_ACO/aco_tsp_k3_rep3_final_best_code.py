@@ -1,5 +1,5 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_tsp_train_es_sigma0.001_alpha0.0005_aco_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_dynamic_k3_kp_tspaco_3rep_8gpu_20260716_120821/results/pops_best/population_generation_25.json
-# run_id: aco_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_dynamic_k3_kp_tspaco_3rep_8gpu_20260716_120821
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_tsp_train_es_sigma0.001_alpha0.0005_aco_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_agentic_esopt_k3_kp_tspaco_3rep_8gpu_20260716_120821/results/pops_best/population_generation_25.json
+# run_id: aco_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_agentic_esopt_k3_kp_tspaco_3rep_8gpu_20260716_120821
 # train_objective: 5.82996
 # m1m2_multiplier: 3.0
 
@@ -30,7 +30,7 @@ def heuristics_v2(distance_matrix):
                 dist_norm = dist / (min_dist + max_dist)
                 mean_dist = np.mean(sorted_matrix[i])
                 std_dev = np.std(sorted_matrix[i])
-                dynamic_term = 1 / (1 + np.exp((dist - mean_dist) / std_dev))
+                agentic_esopt_term = 1 / (1 + np.exp((dist - mean_dist) / std_dev))
                 uncertainty_term = 0.5 * (std_dev * (rank / (rank + mirrored_rank)))
-                heuristics[i, j] = (1 / np.sqrt(dist_norm)) * (1 / (rank ** beta)) * (1 / (mirrored_rank ** beta)) * alpha * dynamic_term * (1 - uncertainty_term) ** gamma * (1 + delta * uncertainty_term)
+                heuristics[i, j] = (1 / np.sqrt(dist_norm)) * (1 / (rank ** beta)) * (1 / (mirrored_rank ** beta)) * alpha * agentic_esopt_term * (1 - uncertainty_term) ** gamma * (1 + delta * uncertainty_term)
     return heuristics

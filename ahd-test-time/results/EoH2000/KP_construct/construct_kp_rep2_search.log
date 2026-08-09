@@ -1,7 +1,7 @@
 [ahd] task=construct_kp split=train method=eoh
-[ahd] data=/home/zhi/Dynamic-Agent/data/ahd/datasets/kp_constructive
-[ahd] cfg=/home/zhi/Dynamic-Agent/data/ahd/settings/cfg/problem/kp_constructive.yaml
-[ahd] prompt=/home/zhi/Dynamic-Agent/data/ahd/settings/prompts/kp_constructive
+[ahd] data=/home/zhi/Agentic-ESOpt/data/ahd/datasets/kp_constructive
+[ahd] cfg=/home/zhi/Agentic-ESOpt/data/ahd/settings/cfg/problem/kp_constructive.yaml
+[ahd] prompt=/home/zhi/Agentic-ESOpt/data/ahd/settings/prompts/kp_constructive
 ----------------------------------------- 
 ---              Start EoH            ---
 -----------------------------------------

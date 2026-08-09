@@ -1,17 +1,17 @@
-# Selected 2026-07-29 as a mean-nearby Dynamic-EoH-k1 representative
+# Selected 2026-07-29 as a mean-nearby EoH+Agentic-ESOpt-k1 representative
 # canonical_slot: 2
-# candidate_id: dynamic_construct_tsp_round2_rep1
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_dynamic_k1_construct_tsp_3rep_round2_20260727_015750/results/pops_best/population_generation_25.json
+# candidate_id: agentic_esopt_construct_tsp_round2_rep1
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_agentic_esopt_k1_construct_tsp_3rep_round2_20260727_015750/results/pops_best/population_generation_25.json
 # train_objective: 6.50444
-# standardized_rms_distance_to_dynamic_mean: 0.5329529915986309
+# standardized_rms_distance_to_agentic_esopt_mean: 0.5329529915986309
 # test_N=20: 4.192534291736646
 # test_N=50: 6.456528515982292
-# dynamic_mean_N=20: 4.216999687809493
-# dynamic_mean_N=50: 6.463097960386238
+# agentic_esopt_mean_N=20: 4.216999687809493
+# agentic_esopt_mean_N=50: 6.463097960386238
 
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_dynamic_k1_construct_tsp_3rep_round2_20260727_015750/results/pops_best/population_generation_25.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_tsp_train_es_sigma0.001_alpha0.0005_construct_tsp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_agentic_esopt_k1_construct_tsp_3rep_round2_20260727_015750/results/pops_best/population_generation_25.json
 # train_objective: 6.50444
-# method: Dynamic; round: 2; original_rep: 1
+# method: Agentic-ESOpt; round: 2; original_rep: 1
 
 import numpy as np
 

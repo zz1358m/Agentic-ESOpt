@@ -1,4 +1,4 @@
-# Archived from /home/zhi/Dynamic-Agent/cache/active_runs/construct_kp_train_eoh_construct_kp_train_eoh_rep2_orig_eoh_all6_k3_8gpu_20260713_142341/results/pops_best/population_generation_25.json
+# Archived from /home/zhi/Agentic-ESOpt/cache/active_runs/construct_kp_train_eoh_construct_kp_train_eoh_rep2_orig_eoh_all6_k3_8gpu_20260713_142341/results/pops_best/population_generation_25.json
 # run_id: construct_kp_train_eoh_rep2_orig_eoh_all6_k3_8gpu_20260713_142341
 # train_objective: -40.15901
 # method: original EoH, population=10, generations=25, k=3 replicates

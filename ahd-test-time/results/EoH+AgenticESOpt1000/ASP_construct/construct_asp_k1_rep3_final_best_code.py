@@ -1,5 +1,5 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_asp_train_es_sigma0.001_alpha0.0005_construct_asp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_dynamic_k1_asp_rep3_8gpu_20260717_101800/results/pops_best/population_generation_25.json
-# run_id: construct_asp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_dynamic_k1_asp_rep3_8gpu_20260717_101800
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_asp_train_es_sigma0.001_alpha0.0005_construct_asp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_agentic_esopt_k1_asp_rep3_8gpu_20260717_101800/results/pops_best/population_generation_25.json
+# run_id: construct_asp_train_es_full_reload_sigma1e-3_alpha5e-4_rep3_rerun_agentic_esopt_k1_asp_rep3_8gpu_20260717_101800
 # train_objective: -2760.0
 # m1m2_multiplier: 1.0
 

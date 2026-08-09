@@ -71,7 +71,7 @@ class FourMethodESAdapterTest(unittest.TestCase):
             llm_es_reward_normalization_ddof=0,
             llm_es_reward_normalization_eps=1e-8,
             llm_es_invalid_reward_strategy="current",
-            llm_es_dynamic_invalid_reward=True,
+            llm_es_batch_relative_invalid_reward=True,
             llm_es_invalid_reward_margin=1.0,
             llm_es_invalid_reward_fallback_fraction=0.01,
             llm_es_invalid_reward_min_gap=1.0,

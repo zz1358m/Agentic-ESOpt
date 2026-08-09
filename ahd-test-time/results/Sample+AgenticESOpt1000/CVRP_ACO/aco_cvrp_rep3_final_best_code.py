@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_cvrp_train_sample_es_pop20_gen50_sigma0.001_alpha0.0005_aco_cvrp_sample_es_current_cosine_t1000_rep3_queue_a_gpu0_3_20260720_030717/results/pops_best/population_generation_50.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_cvrp_train_sample_es_pop20_gen50_sigma0.001_alpha0.0005_aco_cvrp_sample_es_current_cosine_t1000_rep3_queue_a_gpu0_3_20260720_030717/results/pops_best/population_generation_50.json
 # method: sample_es, invalid_reward=current, sigma_schedule=cosine
 # population=20, generations=50, samples=1000, sigma=0.001->0, alpha=0.0005
 # task: aco_cvrp, rep: 3

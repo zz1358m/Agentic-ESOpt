@@ -190,11 +190,11 @@ WebArena 所需的外部代码和服务见 [`data/README.md`](data/README.md) �
 MODEL=/path/to/Llama-3.1-8B-Instruct \
   scripts/ahd/start_llama31_8b_servers.sh
 
-EOH_K=1 AHD_POP_SIZE=10 AHD_GENERATIONS=25 \
-  scripts/ahd/run.sh construct_tsp train eoh
+bash scripts/ahd/run_ahd_1000.sh eoh
+bash scripts/ahd/run_ahd_1000.sh agentic-esopt-eoh
 
-EOH_K=1 AHD_POP_SIZE=10 AHD_GENERATIONS=25 \
-  scripts/ahd/run.sh construct_tsp train es
+bash scripts/ahd/run_ahd_2000.sh eoh
+bash scripts/ahd/run_ahd_2000.sh agentic-esopt-eoh
 ```
 
 六个任务、采样流程、预算和续跑参数见

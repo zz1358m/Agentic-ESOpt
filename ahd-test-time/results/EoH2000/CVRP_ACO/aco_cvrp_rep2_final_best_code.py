@@ -1,4 +1,4 @@
-# Archived from /home/zhi/Dynamic-Agent/cache/active_runs/aco_cvrp_train_eoh_aco_cvrp_train_eoh_rep2_unfinished_true8_cvrp_bpp_20260715_053235/results/pops_best/population_generation_25.json
+# Archived from /home/zhi/Agentic-ESOpt/cache/active_runs/aco_cvrp_train_eoh_aco_cvrp_train_eoh_rep2_unfinished_true8_cvrp_bpp_20260715_053235/results/pops_best/population_generation_25.json
 # run_id: aco_cvrp_train_eoh_rep2_unfinished_true8_cvrp_bpp_20260715_053235
 # train_objective: 9.20741
 # method: original EoH, population=10, generations=25, k=3 replicates

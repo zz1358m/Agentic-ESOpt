@@ -566,10 +566,10 @@ class InterfaceEC():
         ).strip().lower()
         # For the explicit zero-reward ablation, _objective_to_reward has already
         # assigned 0.0 to raw-invalid candidates. Do not overwrite those values
-        # with the dynamic batch-relative floor. Valid-only z-score normalization
+        # with the batch-relative floor. Valid-only z-score normalization
         # and restoring invalid coefficients to zero happen before the ES update.
         if (
-            not bool(getattr(self.paras, "llm_es_dynamic_invalid_reward", False))
+            not bool(getattr(self.paras, "llm_es_batch_relative_invalid_reward", False))
             or invalid_reward_strategy == "zero"
         ):
             return rewards
@@ -625,7 +625,7 @@ class InterfaceEC():
                 'model_es_reward_before_invalid_calibration': raw_reward,
                 'model_es_reward': float(adjusted[index]),
                 'model_es_reward_valid': reward_is_valid,
-                'model_es_dynamic_invalid_reward': True,
+                'model_es_batch_relative_invalid_reward': True,
                 'model_es_invalid_reward_floor': invalid_floor,
                 'model_es_valid_reward_std': spread,
                 'model_es_valid_count': len(valid_indices),

@@ -58,7 +58,7 @@ class Paras():
         self.llm_es_max_workers = None
         self.llm_es_reward_floor = -1.0
         self.llm_es_invalid_reward_strategy = 'current'  # ['current', 'zero']
-        self.llm_es_dynamic_invalid_reward = False
+        self.llm_es_batch_relative_invalid_reward = False
         self.llm_es_invalid_reward_margin = 1.0
         self.llm_es_invalid_reward_fallback_fraction = 0.01
         self.llm_es_invalid_reward_min_gap = 1.0

@@ -1,7 +1,7 @@
 [ahd] task=aco_tsp split=train method=es
-[ahd] data=/home/zhi/Dynamic-Agent/data/ahd/datasets/tsp_aco
-[ahd] cfg=/home/zhi/Dynamic-Agent/data/ahd/settings/cfg/problem/tsp_aco.yaml
-[ahd] prompt=/home/zhi/Dynamic-Agent/data/ahd/settings/prompts/tsp_aco
+[ahd] data=/home/zhi/Agentic-ESOpt/data/ahd/datasets/tsp_aco
+[ahd] cfg=/home/zhi/Agentic-ESOpt/data/ahd/settings/cfg/problem/tsp_aco.yaml
+[ahd] prompt=/home/zhi/Agentic-ESOpt/data/ahd/settings/prompts/tsp_aco
 ----------------------------------------- 
 ---              Start EoH            ---
 -----------------------------------------

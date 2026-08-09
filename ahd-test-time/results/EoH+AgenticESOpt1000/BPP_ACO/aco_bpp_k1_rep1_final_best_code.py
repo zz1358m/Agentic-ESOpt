@@ -1,4 +1,4 @@
-# Archived from /home/zhi/Dynamic-Agent/cache/active_runs/aco_bpp_train_es_sigma0.001_alpha0.0005_aco_bpp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_k1_decay_full_all6_3rep_reload8_20260706_153046/results/pops_best/population_generation_25.json
+# Archived from /home/zhi/Agentic-ESOpt/cache/active_runs/aco_bpp_train_es_sigma0.001_alpha0.0005_aco_bpp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_k1_decay_full_all6_3rep_reload8_20260706_153046/results/pops_best/population_generation_25.json
 # run_id: aco_bpp_train_es_full_reload_sigma1e-3_alpha5e-4_rep1_k1_decay_full_all6_3rep_reload8_20260706_153046
 # train_objective: 202.4
 # m1m2_multiplier: 1.0

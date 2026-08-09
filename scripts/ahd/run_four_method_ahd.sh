@@ -13,6 +13,7 @@ GENERATIONS="${AHD_GENERATIONS:-${EC_GENERATIONS:-25}}"
 EOH_K="${EOH_K:-}"
 LLM_LOCAL_URL="${LLM_LOCAL_URL:-http://127.0.0.1:11013/completions}"
 ES_ENGINE_URLS="${ES_ENGINE_URLS:-http://127.0.0.1:11013/completions,http://127.0.0.1:11014/completions,http://127.0.0.1:11015/completions,http://127.0.0.1:11016/completions}"
+ES_OPERATORS="${ES_OPERATORS:-m1,m2}"
 ES_SIGMA_START="${ES_SIGMA_START:-${ES_SIGMA:-0.001}}"
 ES_SIGMA_END="${ES_SIGMA_END:-0}"
 ES_ALPHA="${ES_ALPHA:-0.0005}"
@@ -24,16 +25,16 @@ STAMP="${STAMP:-$(date -u +%Y%m%d_%H%M%S)}"
 RUNNER="$ROOT/ahd-test-time/scripts/run_eoh_ahd.py"
 
 usage() {
-  echo "usage: $0 {eoh|sample|dynamic-eoh|dynamic-sample}" >&2
+  echo "usage: $0 {eoh|sample|agentic-esopt-eoh|agentic-esopt-sample}" >&2
   exit 2
 }
 
 case "$MODE" in
-  eoh|sample|dynamic-eoh|dynamic-sample) ;;
+  eoh|sample|agentic-esopt-eoh|agentic-esopt-sample) ;;
   *) usage ;;
 esac
 
-if [ "$MODE" = "eoh" ] || [ "$MODE" = "dynamic-eoh" ]; then
+if [ "$MODE" = "eoh" ] || [ "$MODE" = "agentic-esopt-eoh" ]; then
   if [ -z "$EOH_K" ]; then
     base_budget=$((2 * POP_SIZE * GENERATIONS))
     if [ "$BUDGET" -le "$base_budget" ] || [ $((BUDGET % base_budget)) -ne 0 ]; then
@@ -49,8 +50,8 @@ if [ ! -f "$RUNNER" ]; then
   echo "runner not found: $RUNNER" >&2
   exit 1
 fi
-if [ "$MODE" = "dynamic-sample" ] && [ $((BUDGET % BATCH_SIZE)) -ne 0 ]; then
-  echo "dynamic-sample requires BUDGET to be divisible by BATCH_SIZE" >&2
+if [ "$MODE" = "agentic-esopt-sample" ] && [ $((BUDGET % BATCH_SIZE)) -ne 0 ]; then
+  echo "agentic-esopt-sample requires BUDGET to be divisible by BATCH_SIZE" >&2
   exit 2
 fi
 
@@ -70,18 +71,20 @@ for task in "${TASKS[@]}"; do
           "$PY" -u "$RUNNER" --task "$task" --split train --method sample \
           --sample-total "$BUDGET" --sample-batch-size "$BATCH_SIZE" --run-id "$run_id"
         ;;
-      dynamic-eoh)
+      agentic-esopt-eoh)
         ES_ENGINE_URLS="$ES_ENGINE_URLS" ES_SIGMA_START="$ES_SIGMA_START" \
         ES_SIGMA_END="$ES_SIGMA_END" ES_ALPHA="$ES_ALPHA" ES_SEED="$ES_SEED" \
+        ES_OPERATORS="$ES_OPERATORS" \
         ES_SIGMA_SCHEDULE="$ES_SIGMA_SCHEDULE" ES_SIGMA_WARMUP_STEPS="$ES_SIGMA_WARMUP_STEPS" \
         ES_INVALID_REWARD_STRATEGY="$ES_INVALID_REWARD_STRATEGY" \
           "$PY" -u "$RUNNER" --task "$task" --split train --method es \
           --ec-pop-size "$POP_SIZE" --ec-generations "$GENERATIONS" \
           --ec-m1m2-multiplier "$EOH_K" --run-id "$run_id"
         ;;
-      dynamic-sample)
+      agentic-esopt-sample)
         ES_ENGINE_URLS="$ES_ENGINE_URLS" ES_SIGMA_START="$ES_SIGMA_START" \
         ES_SIGMA_END="$ES_SIGMA_END" ES_ALPHA="$ES_ALPHA" ES_SEED="$ES_SEED" \
+        ES_OPERATORS="$ES_OPERATORS" \
         ES_SIGMA_SCHEDULE="$ES_SIGMA_SCHEDULE" ES_SIGMA_WARMUP_STEPS="$ES_SIGMA_WARMUP_STEPS" \
         ES_INVALID_REWARD_STRATEGY="$ES_INVALID_REWARD_STRATEGY" \
           "$PY" -u "$RUNNER" --task "$task" --split train --method sample_es \

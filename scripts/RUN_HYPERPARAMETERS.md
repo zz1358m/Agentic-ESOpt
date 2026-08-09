@@ -144,17 +144,11 @@ GPU memory utilization 0.82。
 
 ## AHD
 
-入口：`scripts/ahd/run.sh <task> <split> <method>`。
+正式入口是 `scripts/ahd/run_ahd_1000.sh` 和
+`scripts/ahd/run_ahd_2000.sh`；二者默认都跑 6 tasks × 3 repeats。
 
-| Method | Effective defaults |
-| --- | --- |
-| EoH (`eoh`) | population 10, 25 generations, offspring multiplier `k=1` |
-| Independent sampling (`sample`) | sample total/batch 继续传给底层 runner |
-| EoH + Agentic-ESOpt (`es`) | EoH defaults + operators `e1,e2,m1,m2`, sigma `1e-3` constant, alpha `5e-4`, seed 2024 |
-| Sampling + Agentic-ESOpt (`sample_es`) | sampling settings + 相同 ES defaults |
-
-全任务入口 `scripts/ahd/run_four_method_ahd.sh` 默认 6 tasks × 3 repeats，
-budget 2000、sampling batch 20、EoH population 10、25 generations。
-Agentic-ESOpt profiles 使用 sigma `1e-3 → 0` cosine、alpha `5e-4`、seed
-2024。EoH offspring multiplier 按
-`budget / (2 × population × generations) - 1` 推导。
+- EoH：population 10、25 generations；1000 budget 使用 `k=1`，2000
+  budget 使用 `k=3`，也就是每代的 `m1/m2` 分别各跑一次或三次。
+- Sample：batch 20；1000/2000 budget 分别为 50/100 generations。
+- Agentic-ESOpt：operators `m1,m2`，directions 10，sigma `1e-3 → 0`
+  cosine，alpha `5e-4`，seed 2024。

@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_tsp_train_sample_es_pop20_gen50_sigma0.001_alpha0.0005_construct_tsp_sample_es_reload_cosine_current_pop20_gen50_rep3_20260719_150222/results/pops_best/population_generation_50.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_tsp_train_sample_es_pop20_gen50_sigma0.001_alpha0.0005_construct_tsp_sample_es_reload_cosine_current_pop20_gen50_rep3_20260719_150222/results/pops_best/population_generation_50.json
 # method: sample_es, invalid_reward=current, sigma_schedule=cosine
 # population=20, generations=50, samples=1000, sigma=0.001->0, alpha=0.0005
 # task: construct_tsp, rep: 3

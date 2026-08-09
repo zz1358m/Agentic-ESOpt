@@ -1,7 +1,7 @@
 [ahd] task=aco_bpp split=train method=es
-[ahd] data=/home/zhi/Dynamic-Agent/data/ahd/datasets/bpp_offline_aco
-[ahd] cfg=/home/zhi/Dynamic-Agent/data/ahd/settings/cfg/problem/bpp_offline_aco.yaml
-[ahd] prompt=/home/zhi/Dynamic-Agent/data/ahd/settings/prompts/bpp_offline_aco
+[ahd] data=/home/zhi/Agentic-ESOpt/data/ahd/datasets/bpp_offline_aco
+[ahd] cfg=/home/zhi/Agentic-ESOpt/data/ahd/settings/cfg/problem/bpp_offline_aco.yaml
+[ahd] prompt=/home/zhi/Agentic-ESOpt/data/ahd/settings/prompts/bpp_offline_aco
 ----------------------------------------- 
 ---              Start EoH            ---
 -----------------------------------------

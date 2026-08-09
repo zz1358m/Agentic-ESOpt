@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep2_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep2_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
 # objective: 6.1567
 # algorithm: The new algorithm, two-opt, uses stochastic sampling to generate a population of candidate solutions, and then applies a two-opt swap heuristic to iteratively improve promising solutions, tracking the frequency of each edge across the population and returning a prior probability for each edge based on this frequency.
 

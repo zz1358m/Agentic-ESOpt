@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/construct_kp_train_sample_t1000_construct_kp_sample_t1000_rep1_20260718_060041/results/pops_best/population_generation_50.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/construct_kp_train_sample_t1000_construct_kp_sample_t1000_rep1_20260718_060041/results/pops_best/population_generation_50.json
 # method: sample, prefix=1000, batch_size=20
 # task: construct_kp, rep: 1
 # train_objective: -40.14595

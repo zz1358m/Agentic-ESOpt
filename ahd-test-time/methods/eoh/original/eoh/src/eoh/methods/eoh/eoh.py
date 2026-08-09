@@ -256,7 +256,7 @@ class EOH:
                 'valid_only_zscore_invalid_zero'
                 if invalid_reward_strategy == 'zero'
                 else 'batch_relative_below_worst_valid'
-                if getattr(self.paras, 'llm_es_dynamic_invalid_reward', False)
+                if getattr(self.paras, 'llm_es_batch_relative_invalid_reward', False)
                 else 'fixed_floor'
             )
         with open(os.path.join(self.output_path, "results", "sample_summary.json"), 'w') as handle:

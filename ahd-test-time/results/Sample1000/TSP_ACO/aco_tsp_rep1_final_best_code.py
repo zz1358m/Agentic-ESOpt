@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_tsp_train_sample_t1000_aco_tsp_sample_t1000_rep1_20260718_091608/results/pops_best/population_generation_50.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_tsp_train_sample_t1000_aco_tsp_sample_t1000_rep1_20260718_091608/results/pops_best/population_generation_50.json
 # method: sample, prefix=1000, batch_size=20
 # task: aco_tsp, rep: 1
 # train_objective: 5.90618

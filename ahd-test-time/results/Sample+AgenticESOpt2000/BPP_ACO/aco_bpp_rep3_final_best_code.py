@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_bpp_train_sample_es_pop20_gen100_sigma0.001_alpha0.0005_aco_bpp_sample_es_current_cosine_t2000_rep3_queue_b_gpu4_7_20260720_030717/results/pops_best/population_generation_100.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_bpp_train_sample_es_pop20_gen100_sigma0.001_alpha0.0005_aco_bpp_sample_es_current_cosine_t2000_rep3_queue_b_gpu4_7_20260720_030717/results/pops_best/population_generation_100.json
 # method: sample_es, invalid_reward=current, sigma_schedule=cosine
 # population=20, generations=100, samples=2000, sigma=0.001->0, alpha=0.0005
 # task: aco_bpp, rep: 3

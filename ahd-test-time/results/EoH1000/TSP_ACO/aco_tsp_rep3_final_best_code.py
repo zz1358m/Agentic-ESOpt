@@ -1,4 +1,4 @@
-# source: /home/zhi/Dynamic-Agent/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep3_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
+# source: /home/zhi/Agentic-ESOpt/cache/active_runs/aco_tsp_train_eoh_aco_tsp_train_eoh_rep3_eoh_aco_fastgen_esaligned_20260609_092237/results/pops_best/population_generation_25.json
 # objective: 5.83479
 # algorithm:  This new algorithm, called 'heuristics_v3', assigns probabilities to edges based on a combination of the relative total-degree of the end nodes, the cost of the edges themselves, the mean of degrees of all nodes, and a linear combination of their pairwise distance and degree similarity. 
 
