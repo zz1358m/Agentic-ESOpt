@@ -1,8 +1,9 @@
 # DocVQA artifacts
 
 - `training/`: replayable Agentic-ESOpt history and compact training metadata.
-- `distillation/`: trajectory selection and Trace2Skill distillation artifacts.
-- `skill/`: the selected distilled skill.
+- `skill/qwen35_4b_trace2skill/`: skill used by the Trace2Skill eval run.
+- `skill/qwen35_4b_grpo_trace2skill/`: skill used by the GRPO + Trace2Skill eval run.
+- `skill/qwen35_4b_agentic_esopt_trace2skill/`: skill used by the Agentic-ESOpt + Trace2Skill eval run.
 - `eval/`: method-specific DocVQA eval logs.
 
 Paths embedded in historical records are provenance, not runtime requirements.

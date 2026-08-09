@@ -23,38 +23,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 833,
-      "sha256": "1c36214d131e5de7b2102f9a37437c3316527753ac728a5f39e7a74923388478"
-    },
-    {
-      "path": "distillation/aggregate.txt",
-      "bytes": 162,
-      "sha256": "d83b35667ad38b38f6ab82a4ce5a8dd26a65abc83017364b46225632b10dffdb"
-    },
-    {
-      "path": "distillation/error_analysis.txt",
-      "bytes": 16931,
-      "sha256": "99934da344eea76bfd5db9c68802e9593049c3a2e0612f2e9f9fea8d237a175f"
-    },
-    {
-      "path": "distillation/evolve.txt",
-      "bytes": 29956,
-      "sha256": "5c97e13045c9cc3c4b752b55362a65cce8c25c5573964c695b1929285b12ad58"
-    },
-    {
-      "path": "distillation/hard_compression.txt",
-      "bytes": 385,
-      "sha256": "1f8a17aa98b8338b7ccc74655cfd62345f1e11a913ff449e193a98da3554c54f"
-    },
-    {
-      "path": "distillation/success_analysis.txt",
-      "bytes": 16954,
-      "sha256": "f12f4137af471264cde85db1809af9a4e20840094fe6ad60429a6cade4763f6c"
-    },
-    {
-      "path": "distillation/trajectory_selection_manifest.json",
-      "bytes": 68711,
-      "sha256": "b1980068411e8d45ba76c987153fdaf8685135e2f4c106d6369651933d0dc57e"
+      "bytes": 488,
+      "sha256": "b37d6fdf5017c7498460c07fcadf3f754ff7e5dec4d8c6be47ae710c56675ff3"
     },
     {
       "path": "eval/qwen35_4b_agentic_esopt_noskill/eval.txt",
@@ -77,7 +47,17 @@
       "sha256": "4064773df2498afb2bcf939b185f7ea844899850ccc6bfd755c4c009f037950a"
     },
     {
-      "path": "skill/SKILL.md",
+      "path": "skill/qwen35_4b_trace2skill/SKILL.md",
+      "bytes": 6720,
+      "sha256": "c37f947acbe1e2cef0afc015070b0f4edaa5f1a283f74a609de413af6081eb10"
+    },
+    {
+      "path": "skill/qwen35_4b_grpo_trace2skill/SKILL.md",
+      "bytes": 4509,
+      "sha256": "28d91e62bd694f11352224626e1eb8fac2f9946db1ac07238f48e820443e5556"
+    },
+    {
+      "path": "skill/qwen35_4b_agentic_esopt_trace2skill/SKILL.md",
       "bytes": 5649,
       "sha256": "e1865901d1d06088fb6a1cb26e70db09eab06ac0a9860ddb36143f8fc95d41d6"
     },

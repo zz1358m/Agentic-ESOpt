@@ -1,9 +1,0 @@
-{
-  "analysis_manifest_count": 88,
-  "parsed_trajectory_records": {
-    "error": 44,
-    "success": 40
-  },
-  "map_evidence_units": 50,
-  "evidence_items": 384
-}

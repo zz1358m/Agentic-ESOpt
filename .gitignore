@@ -81,6 +81,7 @@ webarena-train-time/results/*
 !webarena-train-time/results/training/**
 webarena-train-time/third_party/skillopt/
 webarena-train-time/methods/trace2skill/source/
+docvqa-train-time/results/distillation/
 
 # Local notes that are not part of the maintained codebase
 EXPERIMENT_README.md
