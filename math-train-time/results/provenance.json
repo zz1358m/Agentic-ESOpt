@@ -192,28 +192,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 883,
-      "sha256": "e95f5ad49f2355ae35c9f1cbe955f8f3c5b3ff75a868c54f378e1834257cc904"
-    },
-    {
-      "path": "distillation/distill.txt",
-      "bytes": 889,
-      "sha256": "d7d87ce3ac08310ab41852f066f25a35e344a684b1d1d77d074d1871a0b1ceaa"
-    },
-    {
-      "path": "distillation/evolve.txt",
-      "bytes": 85439,
-      "sha256": "aafac4f6b425748e9c2a72c6b9e3a8ee1324a117188ac816ef4679d4231eeb01"
-    },
-    {
-      "path": "distillation/trace2skill_manifest.json",
-      "bytes": 981,
-      "sha256": "bf357577b931f9c41d82117faa5eed0b33aca2545b7025b614ead31c8277e7e0"
-    },
-    {
-      "path": "distillation/trajectory_selection_manifest.json",
-      "bytes": 666858,
-      "sha256": "5b8aac9ecef68c98458c566729ae1c40a505caa861cdb1b412e27a535941e102"
+      "bytes": 484,
+      "sha256": "c0cc71e7041c7c811c7a9f6b2817c3bd197330af48137f4c2d49b6efb02bfbdb"
     },
     {
       "path": "eval/qwen35_4b_agentic_esopt_noskill/eval4.json",
@@ -236,7 +216,17 @@
       "sha256": "2f2489970203999631eb9f229ec1cb19fe1c4d4c5a028d65cf3d085436232abe"
     },
     {
-      "path": "skill/SKILL.md",
+      "path": "skill/qwen35_4b_trace2skill/SKILL.md",
+      "bytes": 3037,
+      "sha256": "b1615288cd15c18a96f65815fb4a37044260f2aadb6d800bfb34c07331f439e7"
+    },
+    {
+      "path": "skill/qwen35_4b_grpo_trace2skill/SKILL.md",
+      "bytes": 374,
+      "sha256": "df7445aff9f5d8f16075571151ca8e9607cf5711168bde5eb8e7aef6170d1137"
+    },
+    {
+      "path": "skill/qwen35_4b_agentic_esopt_trace2skill/SKILL.md",
       "bytes": 4156,
       "sha256": "481e7a67d10bac9575786f166b47f4d64f306fde0107b19c12aa1b2e7b53b275"
     },
