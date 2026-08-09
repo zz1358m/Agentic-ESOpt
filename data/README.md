@@ -47,5 +47,6 @@ python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
 ```
 
 AHD arrays and task settings are versioned under `data/ahd/`. Do not mix runtime
-histories with datasets: model-update histories live under each run directory
-(or the explicit `--history-file` path).
+histories with datasets: model-update histories live under each run directory.
+Training continuation uses `--replay-history`; clean final evaluation uses
+`scripts/webarena/replay_es_history_and_eval.py --source-history`.

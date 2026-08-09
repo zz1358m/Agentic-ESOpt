@@ -83,13 +83,50 @@ def replay_history(
     return replay_records
 
 
+def load_update_history(path: Path) -> list[dict]:
+    """Load only generation records that contain an ES update."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError(f"ES history must be a JSON list: {path}")
+
+    records = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        generation = row.get("generation")
+        if not isinstance(generation, int) or generation < 0:
+            continue
+        if not isinstance(row.get("seeds"), list) or not isinstance(row.get("rewards"), list):
+            continue
+        if len(row["seeds"]) != len(row["rewards"]):
+            raise ValueError(f"Generation {generation} has mismatched seeds and rewards.")
+        records.append(row)
+
+    records.sort(key=lambda row: int(row["generation"]))
+    generations = [int(row["generation"]) for row in records]
+    if len(generations) != len(set(generations)):
+        raise ValueError(f"ES history contains duplicate generations: {path}")
+    if generations and generations != list(range(generations[-1] + 1)):
+        raise ValueError(f"ES history generations are not contiguous from zero: {generations}")
+    return records
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-history", required=True)
+    parser.add_argument(
+        "--source-history",
+        default="",
+        help="ES history.json to replay. Omit only for a clean base-model evaluation.",
+    )
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--endpoints", required=True)
-    parser.add_argument("--generations", type=int, default=21)
-    parser.add_argument("--alpha", type=float, default=1e-3)
+    parser.add_argument(
+        "--generations",
+        type=int,
+        default=None,
+        help="Number of ES updates to replay. Defaults to every update in --source-history.",
+    )
+    parser.add_argument("--alpha", type=float, default=2.5e-4)
     parser.add_argument("--reward-normalization", default="zscore")
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--skip-reset", action="store_true")
@@ -116,9 +153,17 @@ def main() -> None:
     endpoints = [endpoint.strip().rstrip("/") for endpoint in args.endpoints.split(",") if endpoint.strip()]
     if not endpoints:
         raise RuntimeError("No endpoints provided.")
-    source_history = json.loads(Path(args.source_history).read_text())
-    if args.generations > len(source_history):
-        raise ValueError(f"Requested {args.generations} generations, but history has {len(source_history)}.")
+    source_history_path = Path(args.source_history).resolve() if args.source_history else None
+    source_history = load_update_history(source_history_path) if source_history_path else []
+    generations = len(source_history) if args.generations is None else args.generations
+    if generations < 0:
+        raise ValueError("--generations must be non-negative.")
+    if generations and source_history_path is None:
+        raise ValueError("--source-history is required when --generations is greater than zero.")
+    if generations > len(source_history):
+        raise ValueError(
+            f"Requested {generations} generations, but history has {len(source_history)} ES updates."
+        )
 
     result_root = ROOT / "runs/webrl_lite_full_es" / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
@@ -140,7 +185,7 @@ def main() -> None:
     replay_records = replay_history(
         endpoints=endpoints,
         history=source_history,
-        generations=args.generations,
+        generations=generations,
         alpha=args.alpha,
         normalization=args.reward_normalization,
     )
@@ -149,9 +194,11 @@ def main() -> None:
     allowed_sites = {site.strip() for site in args.sites.split(",") if site.strip()}
     eval_task_ids = load_tasks(Path(args.eval_split), allowed_sites, args.eval_limit)
     skill_file = Path(args.skill_file) if args.skill_file else None
+    if skill_file is not None and not skill_file.is_file():
+        raise FileNotFoundError(skill_file)
     eval_records = []
     for repeat in range(1, args.eval_repeats + 1):
-        run_name = f"eval_after_replay_{args.generations:03d}_repeat_{repeat:02d}"
+        run_name = f"eval_after_replay_{generations:03d}_repeat_{repeat:02d}"
         eval_rec = eval_tasks_distributed(
             endpoints=endpoints,
             task_ids=eval_task_ids,
@@ -175,14 +222,16 @@ def main() -> None:
         (result_root / f"eval_summary_repeat_{repeat:02d}.json").write_text(
             json.dumps(eval_rec, indent=2) + "\n"
         )
-        write_eval_scalars(writer, f"eval/repeat_{repeat:02d}", eval_rec, args.generations)
+        write_eval_scalars(writer, f"eval/repeat_{repeat:02d}", eval_rec, generations)
         print(f"[eval_summary] {json.dumps(eval_rec, ensure_ascii=False)}", flush=True)
 
     averages = [float(record["average"]) for record in eval_records]
     mean = sum(averages) / len(averages) if averages else -1.0
     variance = sum((average - mean) ** 2 for average in averages) / len(averages) if averages else 0.0
     summary = {
-        "generations": args.generations,
+        "source_history": str(source_history_path) if source_history_path else "",
+        "available_generations": len(source_history),
+        "generations": generations,
         "eval_repeats": args.eval_repeats,
         "run_averages": averages,
         "mean": mean,
@@ -191,8 +240,8 @@ def main() -> None:
     }
     (result_root / "eval_summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     if writer is not None:
-        writer.add_scalar("eval/mean", mean, args.generations)
-        writer.add_scalar("eval/std", summary["std"], args.generations)
+        writer.add_scalar("eval/mean", mean, generations)
+        writer.add_scalar("eval/std", summary["std"], generations)
         writer.flush()
     if writer is not None:
         writer.close()

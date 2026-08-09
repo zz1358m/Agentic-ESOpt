@@ -24,8 +24,10 @@ from the 70-update Agentic-ESOpt run:
 - `eval_curve.csv`: evaluation success counts and accuracy every 10
   generations.
 
-The run uses population 8, case batch 8, sigma `1.5e-3`, alpha `2.5e-4`,
-z-score reward normalization, and full-parameter updates.
+The run uses 70 generations, population 8, case batch 8, alpha `2.5e-4`,
+z-score reward normalization, and full-parameter updates. Sigma is expressed
+as a cosine schedule from `1.5e-3` to `1.5e-3` with zero warmup, so the noise
+is constant throughout training.
 
 ## Final evaluations and skills
 

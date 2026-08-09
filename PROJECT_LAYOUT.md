@@ -13,7 +13,7 @@ Agentic-ESOpt/
 |-- sudoku-train-time/        Sudoku env, ES/GRPO runners, profiles, curated results
 |-- math-train-time/          Math ReAct env, vLLM ES runner, and tests
 |-- docvqa-train-time/        DocVQA bash/OCR env, vLLM/GRPO runners, and tests
-|-- webarena-train-time/      WebArena env, data tools, ES/Trace2Skill/SkillOpt/JITRL
+|-- webarena-train-time/      WebArena environment, Agentic-ESOpt, and Trace2Skill
 |-- ahd-test-time/            four AHD methods, six tasks, evaluators, curated programs
 |-- scripts/                  portable task launchers and data validation
 |-- data/                     stable task data/settings contract

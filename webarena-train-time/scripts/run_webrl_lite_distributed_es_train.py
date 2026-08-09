@@ -39,7 +39,6 @@ description: Skill instructions for WebArena agents using WebRL id actions.
 from run_webrl_lite_full_es_train import (
     DEFAULT_CONFIG_DIR,
     DEFAULT_SPLIT,
-    DEFAULT_WEBRL_TRAJECTORIES,
     load_tasks,
     post_json,
     post_json_retry,
@@ -397,16 +396,6 @@ def main() -> None:
     parser.add_argument("--eval-split", default=str(DEFAULT_SPLIT))
     parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
     parser.add_argument("--train-config-dir", default="")
-    parser.add_argument(
-        "--train-source",
-        default=os.environ.get("WEBRL_ES_TRAIN_SOURCE", "environment"),
-        choices=["environment", "webrl_sft"],
-        help=(
-            "environment runs perturbed policies in browser tasks. "
-            "webrl_sft is reserved for offline WebRL trajectory objectives and is not implemented here."
-        ),
-    )
-    parser.add_argument("--webrl-trajectories", default=str(DEFAULT_WEBRL_TRAJECTORIES))
     parser.add_argument("--sites", default="shopping,shopping_admin,reddit,gitlab,wikipedia,map")
     parser.add_argument("--episodes", type=int, default=0)
     parser.add_argument("--generations", type=int, default=3)
@@ -414,23 +403,23 @@ def main() -> None:
     parser.add_argument("--case-batch-size", type=int, default=16)
     parser.add_argument("--case-workers-per-sample", type=int, default=4)
     parser.add_argument("--eval-workers-per-endpoint", type=int, default=4)
-    parser.add_argument("--sigma", type=float, default=1e-3)
+    parser.add_argument("--sigma-start", type=float, default=1e-3)
+    parser.add_argument(
+        "--sigma-end",
+        type=float,
+        default=None,
+        help="Final cosine sigma. Defaults to --sigma-start.",
+    )
     parser.add_argument(
         "--sigma-schedule",
-        default=os.environ.get("WEBRL_ES_SIGMA_SCHEDULE", "constant"),
-        choices=["constant", "cosine-after-warmup"],
+        default=os.environ.get("WEBRL_ES_SIGMA_SCHEDULE", "cosine"),
+        choices=["cosine"],
     )
     parser.add_argument(
         "--sigma-warmup-steps",
         type=int,
         default=int(os.environ.get("WEBRL_ES_SIGMA_WARMUP_STEPS", "-1")),
         help="Number of initial generations to keep sigma fixed. Defaults to generations // 4.",
-    )
-    parser.add_argument(
-        "--sigma-min-ratio",
-        type=float,
-        default=0.0,
-        help="Minimum sigma as a fraction of --sigma for cosine scheduling.",
     )
     parser.add_argument("--alpha", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=20260605)
@@ -479,7 +468,10 @@ def main() -> None:
         "--replay-generations",
         type=int,
         default=0,
-        help="Number of initial generations to replay from --replay-history.",
+        help=(
+            "Number of initial generations to replay from --replay-history. "
+            "Use -1 to replay every recorded ES generation."
+        ),
     )
     parser.add_argument("--init-empty-skill", action="store_true", help="Create an empty SKILL.md when --skill-file is missing.")
     parser.add_argument("--trace2skill-optimizer-model", default="gpt-4.1-mini")
@@ -488,7 +480,8 @@ def main() -> None:
     parser.add_argument(
         "--trace2skill-official-prompts",
         action=argparse.BooleanOptionalAction,
-        default=True,
+        default=False,
+        help="Use upstream Trace2Skill prompts instead of the committed WebArena prompts.",
     )
     parser.add_argument("--trace2skill-optimizer-generation-config", default="")
     parser.add_argument(
@@ -512,12 +505,15 @@ def main() -> None:
         help="TensorBoard log directory. Defaults to <result_root>/tensorboard.",
     )
     args = parser.parse_args()
+    sigma_end = args.sigma_start if args.sigma_end is None else args.sigma_end
+    if args.sigma_start < 0 or sigma_end < 0:
+        raise ValueError("Sigma values must be non-negative.")
     trace2skill_interval = 1 if args.trace2skill_every_generation else args.trace2skill_interval
     if trace2skill_interval < 0:
         raise ValueError("--trace2skill-interval must be non-negative.")
-    if args.replay_generations < 0 or args.replay_generations > args.generations:
-        raise ValueError("--replay-generations must be between 0 and --generations.")
-    if args.replay_generations and not args.replay_history:
+    if args.replay_generations < -1:
+        raise ValueError("--replay-generations must be -1 or non-negative.")
+    if args.replay_generations != 0 and not args.replay_history:
         raise ValueError("--replay-generations requires --replay-history.")
     sigma_warmup_steps = resolve_sigma_warmup_steps(args.generations, args.sigma_warmup_steps)
 
@@ -533,21 +529,9 @@ def main() -> None:
     config_dir = Path(args.config_dir)
     if not config_dir.exists():
         raise FileNotFoundError(config_dir)
-    if not args.eval_only and args.train_source == "webrl_sft":
-        trajectory_path = Path(args.webrl_trajectories)
-        if not trajectory_path.exists():
-            raise FileNotFoundError(
-                f"WebRL SFT trajectories not found: {trajectory_path}. "
-                "Run webarena-train-time/scripts/prepare_standard_webarena_data.py after placing WebRL raw data."
-            )
-        raise NotImplementedError(
-            "Offline WebRL-SFT ES training is not implemented in this runner. "
-            "Use --train-source environment with --split and --train-config-dir for browser-interaction ES, "
-            "or add an explicit trajectory-scoring objective before enabling WebRL-SFT ES."
-        )
     if not args.eval_only and not args.split:
         raise ValueError(
-            "--split is required for environment ES training. "
+            "--split is required for ES training. "
             "Use data/webarena/vab_lite_split/items.json only for VAB/WebRL WebArena-Lite evaluation; "
             "training needs a config-backed split plus --train-config-dir."
         )
@@ -583,6 +567,13 @@ def main() -> None:
             for record in replay_records
             if isinstance(record.get("generation"), int) and record["generation"] >= 0
         }
+        if args.replay_generations == -1:
+            args.replay_generations = len(replay_by_generation)
+        if args.replay_generations > args.generations:
+            raise ValueError(
+                "--replay-generations cannot exceed --generations: "
+                f"{args.replay_generations} > {args.generations}."
+            )
         missing = [
             generation
             for generation in range(args.replay_generations)
@@ -595,8 +586,8 @@ def main() -> None:
         f"[setting] endpoints={endpoints} population={args.population} "
         f"case_batch_size={args.case_batch_size} case_workers_per_sample={args.case_workers_per_sample} "
         f"eval_workers_per_endpoint={args.eval_workers_per_endpoint} "
-        f"sigma={args.sigma} sigma_schedule={args.sigma_schedule} "
-        f"sigma_warmup_steps={sigma_warmup_steps} sigma_min_ratio={args.sigma_min_ratio} "
+        f"sigma_start={args.sigma_start} sigma_end={sigma_end} sigma_schedule={args.sigma_schedule} "
+        f"sigma_warmup_steps={sigma_warmup_steps} "
         f"alpha={args.alpha} "
         f"parameter_scope={args.parameter_scope} skill_file={skill_file or ''} "
         f"trace2skill_interval={trace2skill_interval} "
@@ -613,7 +604,9 @@ def main() -> None:
         "generations": args.generations,
         "population": args.population,
         "case_batch_size": args.case_batch_size,
-        "sigma": args.sigma,
+        "sigma": args.sigma_start,
+        "sigma_start": args.sigma_start,
+        "sigma_end": sigma_end,
         "sigma_schedule": args.sigma_schedule,
         "alpha": args.alpha,
         "reward_normalization": args.reward_normalization,
@@ -693,12 +686,12 @@ def main() -> None:
     last_skill_update_generation = -1
     for generation in range(args.generations):
         sigma_t = sigma_for_generation(
-            sigma_max=args.sigma,
+            sigma_start=args.sigma_start,
+            sigma_end=sigma_end,
             generation=generation,
             generations=args.generations,
             schedule=args.sigma_schedule,
             warmup_steps=sigma_warmup_steps,
-            min_ratio=args.sigma_min_ratio,
         )
         batch_start = (generation * args.case_batch_size) % len(train_task_ids)
         selected = [train_task_ids[(batch_start + i) % len(train_task_ids)] for i in range(args.case_batch_size)]

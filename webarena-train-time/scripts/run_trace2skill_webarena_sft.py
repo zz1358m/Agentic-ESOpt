@@ -67,7 +67,7 @@ def ensure_split(split_dir: Path) -> None:
         return
     cmd = [
         sys.executable,
-        str(ROOT / "webarena-train-time" / "scripts" / "prepare_webarena_nonlite_skillopt_split.py"),
+        str(ROOT / "webarena-train-time" / "scripts" / "prepare_webarena_nonlite_split.py"),
         "--output-dir",
         str(split_dir),
     ]
@@ -668,7 +668,7 @@ def main() -> None:
         help="Evaluate a replayed boundary skill before executing --start-step.",
     )
     parser.add_argument("--run-id", default="trace2skill_webarena_sft")
-    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "skillopt_nonlite_sft"))
+    parser.add_argument("--split-dir", default=str(ROOT / "data" / "webarena" / "vab_nonlite_split"))
     parser.add_argument("--train-instances-per-epoch", type=int, default=8)
     parser.add_argument("--instances-per-eval-step", type=int, default=None)
     parser.add_argument(
@@ -735,8 +735,8 @@ def main() -> None:
     parser.add_argument(
         "--official-prompts",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Use Trace2Skill official analysis prompts. Use --no-official-prompts for WebArena-specific prompts.",
+        default=False,
+        help="Use upstream Trace2Skill prompts instead of the committed WebArena prompts.",
     )
     parser.add_argument(
         "--optimizer-generation-config",

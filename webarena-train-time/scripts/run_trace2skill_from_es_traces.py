@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import re
 import shutil
 import sys
@@ -154,11 +155,13 @@ def collect_task_dirs(es_run_dir: Path, generations: int, max_traces: int) -> li
     return task_dirs
 
 
-def prepare_skill_dir(skill_dir: Path, initial_skill: str) -> None:
+def prepare_skill_dir(skill_dir: Path, initial_skill: str, empty_skill: bool) -> None:
     if skill_dir.exists():
         return
     skill_dir.mkdir(parents=True, exist_ok=True)
-    if initial_skill:
+    if empty_skill:
+        (skill_dir / "SKILL.md").write_text(trace2skill.EMPTY_WEB_ARENA_SKILL, encoding="utf-8")
+    elif initial_skill:
         src = Path(initial_skill)
         if src.is_dir():
             shutil.copytree(src, skill_dir, dirs_exist_ok=True)
@@ -177,13 +180,23 @@ def main() -> None:
     parser.add_argument("--es-run-dir", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--initial-skill", default="")
+    parser.add_argument(
+        "--empty-skill",
+        action="store_true",
+        help="Start from the empty WebArena skill instead of the bundled seed skill.",
+    )
     parser.add_argument("--generations", type=int, default=20)
     parser.add_argument("--max-traces", type=int, default=256)
     parser.add_argument("--html-limit", type=int, default=12000)
     parser.add_argument("--optimizer-model", default="gpt-4.1-mini")
     parser.add_argument("--analysis-workers", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20260617)
-    parser.add_argument("--no-official-prompts", action="store_true")
+    parser.add_argument(
+        "--official-prompts",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use upstream Trace2Skill prompts instead of the committed WebArena prompts.",
+    )
     parser.add_argument("--optimizer-generation-config", default="")
     parser.add_argument(
         "--analysis-reasoning-effort",
@@ -201,6 +214,8 @@ def main() -> None:
         default=None,
     )
     args = parser.parse_args()
+    if args.empty_skill and args.initial_skill:
+        raise ValueError("Use either --empty-skill or --initial-skill, not both.")
 
     es_run_dir = Path(args.es_run_dir)
     if not es_run_dir.exists():
@@ -213,7 +228,7 @@ def main() -> None:
         shutil.rmtree(logs_dir)
     logs_dir.mkdir(parents=True, exist_ok=True)
     skill_dir = out_root / "skill"
-    prepare_skill_dir(skill_dir, args.initial_skill)
+    prepare_skill_dir(skill_dir, args.initial_skill, args.empty_skill)
 
     task_dirs = collect_task_dirs(es_run_dir, args.generations, args.max_traces)
     records = []
@@ -221,7 +236,8 @@ def main() -> None:
         score = parse_score(task_dir)
         outcome = "SUCCEED" if score >= 1.0 else "FAILED"
         task_id = task_dir.name.removeprefix("task_")
-        sample_id = f"{task_id}-s{sample_number(task_dir.parent):02d}"
+        generation = generation_number(task_dir.parent)
+        sample_id = f"g{generation:03d}-{task_id}-s{sample_number(task_dir.parent):02d}"
         record = write_one_trace_log(
             task_dir,
             logs_dir / f"webarena_agent_{sample_id}_{outcome}.md",
@@ -229,6 +245,8 @@ def main() -> None:
         )
         if record:
             records.append(record)
+    if not records:
+        raise RuntimeError(f"No usable WebArena trajectories found under {es_run_dir}.")
     trace2skill.write_json(update_dir / "source_traces.json", records)
     trace2skill.write_json(
         out_root / "manifest.json",
@@ -236,11 +254,21 @@ def main() -> None:
             "source": "es_traces",
             "es_run_dir": str(es_run_dir),
             "initial_skill": args.initial_skill,
+            "empty_skill": args.empty_skill,
             "generations": args.generations,
             "max_traces": args.max_traces,
+            "html_limit": args.html_limit,
             "trace_count": len(records),
             "optimizer_model": args.optimizer_model,
             "analysis_workers": args.analysis_workers,
+            "official_prompts": args.official_prompts,
+            "analysis_reasoning_effort": args.analysis_reasoning_effort,
+            "skill_reasoning_effort": args.skill_reasoning_effort,
+            "consolidation_reasoning_effort": args.consolidation_reasoning_effort,
+            "seed": args.seed,
+            "max_skill_lines": int(os.environ.get("TRACE2SKILL_MAX_SKILL_LINES", "50")),
+            "max_skill_tokens": int(os.environ.get("TRACE2SKILL_MAX_SKILL_TOKENS", "0")),
+            "max_references": int(os.environ.get("TRACE2SKILL_MAX_REFERENCES", "5")),
         },
     )
     print(json.dumps({"trace_logs": len(records), "out_root": str(out_root)}, indent=2), flush=True)
@@ -250,7 +278,7 @@ def main() -> None:
         args.optimizer_model,
         args.analysis_workers,
         args.seed,
-        official_prompts=not args.no_official_prompts,
+        official_prompts=args.official_prompts,
         optimizer_generation_config=args.optimizer_generation_config,
         analysis_reasoning_effort=args.analysis_reasoning_effort,
         skill_reasoning_effort=args.skill_reasoning_effort,

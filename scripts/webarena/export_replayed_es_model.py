@@ -21,8 +21,13 @@ def main() -> None:
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--source-history", required=True)
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--generations", type=int, default=21)
-    parser.add_argument("--alpha", type=float, default=1e-3)
+    parser.add_argument(
+        "--generations",
+        type=int,
+        default=None,
+        help="Number of ES updates to replay. Defaults to every update in history.json.",
+    )
+    parser.add_argument("--alpha", type=float, default=2.5e-4)
     parser.add_argument("--reward-normalization", default="zscore")
     parser.add_argument("--parameter-scope", default="full", choices=["full", "all_linear", "lora"])
     parser.add_argument("--dtype", default="bfloat16", choices=["auto", "float16", "bfloat16"])
@@ -38,7 +43,22 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    history = json.loads(Path(args.source_history).read_text())
+    raw_history = json.loads(Path(args.source_history).read_text())
+    history = [
+        row
+        for row in raw_history
+        if isinstance(row, dict)
+        and isinstance(row.get("generation"), int)
+        and row["generation"] >= 0
+        and isinstance(row.get("seeds"), list)
+        and isinstance(row.get("rewards"), list)
+    ]
+    history.sort(key=lambda row: int(row["generation"]))
+    generations = len(history) if args.generations is None else args.generations
+    if generations < 0 or generations > len(history):
+        raise ValueError(
+            f"--generations must be between 0 and {len(history)} for this history."
+        )
     tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=args.trust_remote_code)
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
@@ -51,7 +71,7 @@ def main() -> None:
     es = SeedReplayModelES()
     init = es.init(model, parameter_scope=args.parameter_scope, verbose=True)
     records = [{"kind": "init", "response": init}]
-    for record in history[: args.generations]:
+    for record in history[:generations]:
         generation = int(record["generation"])
         seeds = [int(seed) for seed in record["seeds"]]
         rewards = [float(reward) for reward in record["rewards"]]
@@ -76,7 +96,8 @@ def main() -> None:
             {
                 "model_path": args.model_path,
                 "source_history": args.source_history,
-                "generations": args.generations,
+                "available_generations": len(history),
+                "generations": generations,
                 "alpha": args.alpha,
                 "reward_normalization": args.reward_normalization,
                 "parameter_scope": args.parameter_scope,

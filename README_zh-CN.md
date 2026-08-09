@@ -174,18 +174,19 @@ python webarena-train-time/scripts/prepare_webarena_nonlite_split.py
 python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
 ```
 
-然后选择方法和阶段：
+标准的 trajectory → skill 流程如下：
 
 ```bash
-scripts/webarena/run.sh trace2skill train
-scripts/webarena/run.sh trace2skill test
-scripts/webarena/run.sh no_skill_es train
-scripts/webarena/run.sh no_skill_es test
-scripts/webarena/run.sh trace2skill_es train
-scripts/webarena/run.sh trace2skill_es test
+RUN_ID=webarena_noskill_es \
+scripts/webarena/run.sh noskill_agentic_esopt train
+
+WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/webarena_noskill_es \
+TRACE2SKILL_RUN_ID=webarena_trace2skill \
+scripts/webarena/run.sh trace2skill_noft distill
 ```
 
-WebArena 所需的外部代码和服务见 [`data/README.md`](data/README.md) 与
+同一入口可评测 NoSkill/Trace2Skill × NoFT/Agentic-ESOpt 四种设置。完整命令、
+默认超参数、外部代码和服务配置见 [`data/README.md`](data/README.md) 与
 [`webarena-train-time/README.md`](webarena-train-time/README.md)。
 
 ### AHD

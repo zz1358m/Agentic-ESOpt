@@ -1,26 +1,25 @@
 # Trace2Skill
 
-The maintained wrapper adapts WebArena trajectories to the official
-Trace2Skill Markdown trace/evolution interface. The official source checkout
-is external and lives at `source/`; the WebArena rollout adapter is imported
-from `../../third_party/skillopt`.
+The maintained wrappers turn WebArena browser trajectories into the Markdown
+success/failure records consumed by the official Trace2Skill analysis and
+skill-evolution code. The official source is installed at `source/`; browser
+rollouts use the runtime under `../../third_party/skillopt/`.
 
-Install both ignored checkouts as described in `data/README.md`, then run:
+The paper path distills an existing Agentic-ESOpt trajectory run:
 
 ```bash
-scripts/webarena/run.sh trace2skill train
-scripts/webarena/run.sh trace2skill test
+WEBARENA_TRAJECTORY_RUN=runs/webrl_lite_full_es/<source-run> \
+TRACE2SKILL_RUN_ID=<skill-run> \
+scripts/webarena/run.sh trace2skill_noft distill
 ```
 
-Training uses `data/webarena/vab_nonlite_split/{train,val}/items.json`. Testing
-always uses the official 165 WebArena-Lite tasks. Outputs and the current skill
-are stored under `runs/trace2skill_webarena_sft/<run-id>/`.
+This reads completed `gen_*_sample_*/task_*` trajectories, preserves their
+success/failure labels, runs Trace2Skill error and success analysis, and writes
+the resulting skill to `runs/trace2skill_webarena_sft/<skill-run>/skill/SKILL.md`.
+The exact source trajectory list and distillation parameters are recorded in
+that run's `manifest.json` and `source_traces.json`.
 
-WebArena-specific success/error distillation templates are versioned under
-`prompts/`. Select them with `--no-official-prompts` in the standalone runner,
-or `--no-trace2skill-official-prompts` in the distributed ES runner. The
-provided WebArena Trace2Skill+ES launcher enables these templates.
-
-`scripts/webarena/run.sh trace2skill_es train` uses that learned skill for
-Agentic-ESOpt. `WEBARENA_TRACE2SKILL_EVERY_GENERATION=1` enables joint
-generation-by-generation skill and model-weight updates.
+`run_trace2skill_webarena_sft.py` additionally supports standalone iterative
+rollout-and-distill training. The committed WebArena success/error prompts
+under `prompts/` are the default. Pass `--official-prompts` only to reproduce
+an upstream-prompt variant.

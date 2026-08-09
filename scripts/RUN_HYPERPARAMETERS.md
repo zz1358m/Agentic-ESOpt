@@ -124,20 +124,16 @@ GPU memory utilization 0.82。
 
 | Method | Effective launcher defaults |
 | --- | --- |
-| `no_skill_es` | 1 generation, population 8, case batch 8, sigma `5e-4` constant, alpha `5e-4`, full parameters, all 165 eval tasks |
-| `trace2skill_es` | 相同 ES 默认值并注入 `SKILL.md`；可配置每代更新 skill |
-| `trace2skill` train | 1 skill step, 8 instances, 1 sample/instance, train `T=1`, test `T=0`, `p=0.9`, train/analysis workers 8, test workers 32, seed `20260605` |
-| `trace2skill` test | 32 workers, `T=0`, all 165 eval tasks |
+| `noskill_agentic_esopt train` | 70 generations, population 8, case batch 8, 8 case workers/sample, cosine sigma `1.5e-3 → 1.5e-3`, zero warmup, alpha `2.5e-4`, full parameters, z-score, seed `20260605`, eval every 10 generations |
+| `trace2skill_noft distill` | source ES run's last 10 generations, unlimited traces, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-mini`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
+| `trace2skill_noft train` | 70 steps, 8 instances/step, 8 samples/instance, eval every 10 steps, 32 train/test workers, 16 analysis workers, the same optimizer and reasoning settings |
+| `trace2skill_agentic_esopt train` | 与 NoSkill Agentic-ESOpt 相同的 ES 参数，并向每个 rollout 注入指定的 `SKILL.md` |
+| all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn |
 
-已提交的 70 次更新模型使用固定 launcher，并非上面的单代默认值：
-
-| Launcher | Generations / population / batch | Sigma | Alpha | Sampling | Eval |
-| --- | --- | --- | --- | --- | --- |
-| `launch_qwen35_true_noskill_es_70_cosine.sh` | 70 / 8 / 8 | `1.5e-3 → 5e-4` cosine | `2.5e-4` | `T=0.7`, `p=0.8`, `k=20` | every 10 generations |
-| `launch_qwen35_trace2skill_es_70_constant_1p5e3.sh` | 70 / 8 / 8 | `1.5e-3` constant | `2.5e-4` | `T=0.7`, `p=0.8`, `k=20` | every 10 generations |
-
-两者都使用全参数更新和 z-score normalization；训练使用 non-Lite split，
-评测使用完整 165 题 WebArena-Lite。
+训练和最终评测统一使用 `T=0.7`、top-p `0.8`、top-k `20`、min-p
+`0.0`、presence penalty `1.5`、repetition penalty `1.0`。训练使用 non-Lite
+split，评测使用完整 165 题 WebArena-Lite。最终噪声虽然用统一的 cosine
+起点/终点接口表达，但起点与终点都为 `1.5e-3`，所以整个训练过程数值恒定。
 
 ## AHD
 
