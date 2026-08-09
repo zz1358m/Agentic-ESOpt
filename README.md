@@ -139,6 +139,13 @@ scripts/es_skill_workflow.sh math skill-eval
 # Replace math with docvqa for the DocVQA workflow.
 ```
 
+Trajectory distillation is task-specific. Math analyzes only failed
+trajectories: from each selected final task occurrence it keeps at most one
+`FAILED` trace and excludes every successful trace. DocVQA keeps at most one
+`FAILED` and one `SUCCEED` trace from each selected final task occurrence. The
+selection manifest records any unavailable outcome, and `skill-eval` evaluates
+the resulting skill after replaying the same Agentic-ESOpt history.
+
 Set `MODEL_PATH`, `TRAIN_RUN_ID`, dataset paths, and GPU settings in
 `scripts/settings.local.env`. Detailed variables are listed in
 [`scripts/README_ES_SKILL_WORKFLOW.md`](scripts/README_ES_SKILL_WORKFLOW.md).

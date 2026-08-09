@@ -16,9 +16,10 @@ scripts/es_skill_workflow.sh docvqa skill-eval
 
 `es-train` is a no-skill ES run and writes training trajectories under
 `trace_logs/train/`. `eval` replays the saved ES history without a skill and
-writes raw evaluation trajectories. `distill-skill` selects one successful and
-one failed trajectory from each exact final task occurrence, performs
-task-level Trace2Skill aggregation, and writes one `skill_step_001.md`.
+writes raw evaluation trajectories. For Math, `distill-skill` selects only one
+failed trajectory from each exact final task occurrence. For DocVQA it selects
+one successful and one failed trajectory per task occurrence. It then performs
+task-level Trace2Skill aggregation and writes one `skill_step_001.md`.
 `skill-eval` replays the same ES history and changes only the injected skill.
 
 The launcher uses the in-process four-GPU vLLM runner for both tasks. This keeps

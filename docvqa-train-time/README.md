@@ -15,7 +15,9 @@ The ES run is no-skill and writes the trajectories consumed by
 `distill-skill`. Both evaluations replay the same ES history with the same
 four-GPU vLLM, 131072-token context, bash/OCR ReAct protocol and ANLS scorer;
 `skill-eval` additionally injects the distilled skill into the system prompt.
-Configure machine paths through `scripts/settings.local.env`; see
+DocVQA distillation selects at most one successful and one failed trajectory
+from each selected final task occurrence. Configure machine paths through
+`scripts/settings.local.env`; see
 `scripts/es_skill_workflow.example.env` and
 `scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under
 `docvqa-train-time/results/`.

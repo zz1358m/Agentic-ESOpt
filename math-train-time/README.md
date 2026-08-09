@@ -13,7 +13,9 @@ scripts/es_skill_workflow.sh math skill-eval
 
 The ES run is no-skill and writes the trajectories consumed by
 `distill-skill`. Both evaluation actions replay the same ES history; the only
-prompt difference is the distilled skill passed to `skill-eval`. Configure
+prompt difference is the distilled skill passed to `skill-eval`. For Math
+distillation, only one failed trajectory from each selected final task
+occurrence is analyzed; successful trajectories are excluded. Configure
 machine paths through `scripts/settings.local.env`; see
 `scripts/es_skill_workflow.example.env` and
 `scripts/README_ES_SKILL_WORKFLOW.md`. Completed reference artifacts are under

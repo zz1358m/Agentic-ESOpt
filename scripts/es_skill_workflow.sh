@@ -222,7 +222,7 @@ case "$ACTION" in
           --task-count "${DISTILL_TASK_COUNT:-50}" \
           --population "$POPULATION" \
           --case-batch-size "$CASE_BATCH_SIZE" \
-          --one-per-outcome-per-task \
+          --one-error-per-task \
           --output-dir "$ANALYSIS_LOGS"
       else
         "$PY" "$ROOT/algorithms/trace2skill-settings/scripts/prepare_es_trajectory_logs.py" \

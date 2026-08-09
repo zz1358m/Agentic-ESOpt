@@ -131,6 +131,12 @@ scripts/es_skill_workflow.sh math skill-eval
 # DocVQA 流程把 math 替换为 docvqa。
 ```
 
+两个任务的 trajectory 蒸馏策略不同。Math 只分析失败轨迹：每个选中的最终
+task occurrence 最多保留一条 `FAILED`，所有成功轨迹均排除。DocVQA 对每个选中
+的最终 task occurrence 最多各保留一条 `FAILED` 和一条 `SUCCEED`。若某类轨迹
+不存在，会记录到 selection manifest；`skill-eval` 会重放同一份
+Agentic-ESOpt history 后评测蒸馏得到的 skill。
+
 在 `scripts/settings.local.env` 中设置 `MODEL_PATH`、`TRAIN_RUN_ID`、数据路径和
 GPU 参数。完整变量见
 [`scripts/README_ES_SKILL_WORKFLOW.md`](scripts/README_ES_SKILL_WORKFLOW.md)。

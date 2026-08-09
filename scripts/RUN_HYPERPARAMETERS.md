@@ -58,7 +58,7 @@ scripts/sudoku/run_grpo_t1.sh   # T=1.0, top-p=1.0, top-k=-1
 | Rollout | 1 train sample, 50 turns, 4096 tokens/turn, no total-token cap, `T=1`, `p=1`, `k=40`, presence penalty 2, repetition penalty 1 |
 | Runtime | 4 vLLM engines, inference batch 16, context 131072, GPU memory utilization 0.85, bfloat16, eager mode |
 | Eval | every 10 generations; 1 sample during training; 4 final raw/skill samples; DAPO 100; AIME 30 |
-| Trace2Skill | final 50 task occurrences, at most one success + one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
+| Trace2Skill | final 50 task occurrences, only one failure per task, 32 workers, 80 skill lines, evolution temperature 1 |
 
 底层 `scripts/math/run_vllm_es_4gpu.sh` 默认是 1 代、population 8、case
 batch 8、sigma `5e-4` constant、alpha `5e-4`、全参数、z-score、1 train

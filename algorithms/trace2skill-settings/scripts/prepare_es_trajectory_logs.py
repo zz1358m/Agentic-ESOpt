@@ -166,9 +166,11 @@ def select_docvqa(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[
 
 def select_math(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     rows = scan_logs(args.trace_roots, MATH_PATTERN)
-    if args.one_per_outcome_per_task:
+    if args.one_per_outcome_per_task or args.one_error_per_task:
         if args.history is None:
-            raise ValueError("--history is required with --one-per-outcome-per-task")
+            raise ValueError(
+                "--history is required with --one-per-outcome-per-task or --one-error-per-task"
+            )
         units = math_units(args.history, args.checkpoint_step, args.task_count)
         selected_units = set(units)
         selected = [row for row in rows if (row["generation"], row["task_id"]) in selected_units]
@@ -182,25 +184,32 @@ def select_math(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[st
         by_task_outcome: dict[tuple[int, str, str], list[dict[str, Any]]] = defaultdict(list)
         for row in selected:
             by_task_outcome[(row["generation"], row["task_id"], row["outcome"])].append(row)
-        one_per_outcome: list[dict[str, Any]] = []
+        required_outcomes = (
+            ("FAILED", "SUCCEED") if args.one_per_outcome_per_task else ("FAILED",)
+        )
+        chosen_rows: list[dict[str, Any]] = []
         missing: list[dict[str, Any]] = []
         for generation, task_id in units:
-            for outcome in ("FAILED", "SUCCEED"):
+            for outcome in required_outcomes:
                 candidates = by_task_outcome[(generation, task_id, outcome)]
                 if not candidates:
                     missing.append(
                         {"generation": generation, "task_id": task_id, "outcome": outcome}
                     )
                     continue
-                one_per_outcome.append(
+                chosen_rows.append(
                     sorted(candidates, key=lambda row: (row["candidate"], row["sample"]))[0]
                 )
         selected = sorted(
-            one_per_outcome,
+            chosen_rows,
             key=lambda row: (row["generation"], row["task_id"], row["outcome"]),
         )
         metadata = {
-            "selection": "one trajectory per outcome from each exact last task occurrence",
+            "selection": (
+                "one trajectory per outcome from each exact last task occurrence"
+                if args.one_per_outcome_per_task
+                else "one failed trajectory from each exact last task occurrence"
+            ),
             "checkpoint_step": args.checkpoint_step,
             "task_units": [
                 {"generation": generation, "task_id": task_id} for generation, task_id in units
@@ -227,21 +236,8 @@ def select_math(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[st
     if len(task_ids) != expected_tasks:
         raise ValueError(f"Math expected {expected_tasks} distinct tasks, found {len(task_ids)}")
     selected.sort(key=lambda row: (row["generation"], row["task_id"], row["candidate"], row["sample"]))
-    if args.one_error_per_task:
-        failed_by_task: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for row in selected:
-            if row["outcome"] == "FAILED":
-                failed_by_task[row["task_id"]].append(row)
-        selected = [
-            sorted(failed_by_task[task_id], key=lambda row: (row["candidate"], row["sample"]))[0]
-            for task_id in sorted(failed_by_task)
-        ]
     metadata = {
-        "selection": (
-            "one failed trajectory per task from the requested generation range"
-            if args.one_error_per_task
-            else "all trajectories from the requested generation range"
-        ),
+        "selection": "all trajectories from the requested generation range",
         "first_generation": args.first_generation,
         "last_generation": args.last_generation,
     }
@@ -294,8 +290,9 @@ def build_parser() -> argparse.ArgumentParser:
     math.add_argument("--last-generation", type=int, default=24)
     math.add_argument("--population", type=int, default=16)
     math.add_argument("--case-batch-size", type=int, default=16)
-    math.add_argument("--one-error-per-task", action="store_true")
-    math.add_argument("--one-per-outcome-per-task", action="store_true")
+    math_selection = math.add_mutually_exclusive_group()
+    math_selection.add_argument("--one-error-per-task", action="store_true")
+    math_selection.add_argument("--one-per-outcome-per-task", action="store_true")
     math.add_argument("--output-dir", type=Path, required=True)
     return parser
 
