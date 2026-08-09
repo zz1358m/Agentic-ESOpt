@@ -20,4 +20,7 @@ exec "$ROOT/sudoku-train-time/scripts/run_grpo_hyperparams.sh" "$MASK_COUNT" \
   --temperature 1.0 \
   --top-p 1.0 \
   --top-k -1 \
+  --eval-temperature 0.7 \
+  --eval-top-p 0.8 \
+  --eval-top-k 20 \
   "$@"

@@ -31,7 +31,7 @@ case "$PROFILE" in
       SIGMA_END=5e-4
     else
       SIGMA_START=1e-3
-      SIGMA_END=0
+      SIGMA_END=2.5e-4
     fi
     SIGMA_SCHEDULE=cosine
     ;;

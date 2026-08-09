@@ -16,7 +16,7 @@ Agentic-ESOpt 会把真实更新序列写入 `history.json`；Math/DocVQA 的 VE
 | --- | --- | --- | --- | --- |
 | `vanilla-es32`, mask 5/10 | 100 / 32 / 32 | `1e-3` constant | `5e-4` | `mask × 3` |
 | `vanilla-es32`, mask 15 | 100 / 32 / 32 | `5e-4` constant | `5e-4` | 45 |
-| `agentic-esopt-es32`, mask 5/10 | 100 / 32 / 32 | `1e-3 → 0` cosine | `5e-4` | `mask × 3` |
+| `agentic-esopt-es32`, mask 5/10 | 100 / 32 / 32 | `1e-3 → 2.5e-4` cosine | `5e-4` | `mask × 3` |
 | `agentic-esopt-es32`, mask 15 | 100 / 32 / 32 | `7e-4 → 5e-4` cosine | `5e-4` | 45 |
 
 全部使用全参数更新、z-score normalization、4 case workers、每 turn 64
@@ -28,15 +28,21 @@ penalty `1.0`。
 8、case batch 8、sigma `5e-4` constant、alpha `5e-4`、90 turns。复现正式
 对比应使用上面的固定 profile。
 
-固定 GRPO 入口：`scripts/sudoku/run_grpo.sh`。
+两套固定 GRPO 入口：
 
-| Parameter | 默认 profile | `run_grpo_hyperparams_t1.sh` |
+```bash
+scripts/sudoku/run_grpo.sh      # T=0.7, top-p=0.8, top-k=20
+scripts/sudoku/run_grpo_t1.sh   # T=1.0, top-p=1.0, top-k=-1
+```
+
+| Parameter | `run_grpo.sh` | `run_grpo_t1.sh` |
 | --- | --- | --- |
 | Steps / global batch / generations per prompt | 100 / 32 / 8 | 100 / 32 / 8 |
 | Rollout / train micro-batch | 8 / 2 | 8 / 2 |
-| Policy sample cap | `0`（无限） | `0`（无限） |
+| Policy batch size / total cap | `512`（循环所有完整 batch）/ 无总量上限 | 相同 |
 | LR / KL beta / clip epsilon | `1e-6` / `1e-3` / `0.2` | 相同 |
-| Sampling | `T=0.7`, `p=0.8`, `k=20` | `T=1`, `p=1`, `k=-1` |
+| Train sampling | `T=0.7`, `p=0.8`, `k=20` | `T=1`, `p=1`, `k=-1` |
+| Eval sampling | `T=0.7`, `p=0.8`, `k=20` | `T=0.7`, `p=0.8`, `k=20` |
 
 两组均使用 raw rollout-policy log probability、4 个 Accelerate 进程、
 `mask × 3` turns；训练前评测，此后每 20 steps 评测并重复 3 次。

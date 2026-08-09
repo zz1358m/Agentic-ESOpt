@@ -108,9 +108,14 @@ SUDOKU_TARGET_MASK_COUNT=15 RUN_ID=sudoku_es_m15 \
 
 SUDOKU_TARGET_MASK_COUNT=15 SUDOKU_GRPO_MODEL=/path/to/Qwen3.5-4B \
   scripts/sudoku/run_grpo.sh
+
+SUDOKU_TARGET_MASK_COUNT=15 SUDOKU_GRPO_MODEL=/path/to/Qwen3.5-4B \
+  scripts/sudoku/run_grpo_t1.sh
 ```
 
-两套 GRPO 采样参数以及 ES/GRPO 超参数见
+`run_grpo.sh` 的 rollout 使用 temperature 0.7、top-p 0.8、top-k 20；
+`run_grpo_t1.sh` 的 rollout 使用 temperature 1、top-p 1、top-k -1。两套 eval
+都固定使用 temperature 0.7、top-p 0.8、top-k 20。完整 ES/GRPO 超参数见
 [`sudoku-train-time/README.md`](sudoku-train-time/README.md)。
 
 ### Math 与 DocVQA

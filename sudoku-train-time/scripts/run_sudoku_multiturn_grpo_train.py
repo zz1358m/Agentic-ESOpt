@@ -587,10 +587,15 @@ def main() -> None:
     parser.add_argument("--rollout-micro-batch-size", type=int, default=int(os.environ.get("SUDOKU_GRPO_ROLLOUT_MICRO_BATCH", "8")))
     parser.add_argument("--train-micro-batch-size", type=int, default=int(os.environ.get("SUDOKU_GRPO_TRAIN_MICRO_BATCH", "2")))
     parser.add_argument(
+        "--policy-batch-size",
         "--max-policy-examples-per-step",
+        dest="policy_batch_size",
         type=int,
-        default=int(os.environ.get("SUDOKU_GRPO_MAX_POLICY_EXAMPLES", "0")),
-        help="Global policy mini-batch size; 0 removes the sample cap (only the distributed-alignment remainder may be dropped).",
+        default=int(os.environ.get("SUDOKU_GRPO_POLICY_BATCH_SIZE", os.environ.get("SUDOKU_GRPO_MAX_POLICY_EXAMPLES", "0"))),
+        help=(
+            "Policy examples per optimizer minibatch. Positive values process every complete minibatch; "
+            "0 forms one batch from all distributed-aligned examples. This is not a total-example cap."
+        ),
     )
     parser.add_argument("--max-turns", type=int, default=int(os.environ.get("SUDOKU_GRPO_MAX_TURNS", "90")))
     parser.add_argument("--max-new-tokens", type=int, default=int(os.environ.get("SUDOKU_GRPO_MAX_NEW_TOKENS", "64")))
@@ -732,7 +737,7 @@ def main() -> None:
         rng = random.Random(args.seed + step * 1009)
         rng.shuffle(examples)
 
-        policy_batch_size = int(args.max_policy_examples_per_step)
+        policy_batch_size = int(args.policy_batch_size)
         if policy_batch_size <= 0:
             policy_batch_size = len(examples)
         unit = max(1, world * int(args.train_micro_batch_size))

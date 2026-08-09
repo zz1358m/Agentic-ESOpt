@@ -26,7 +26,7 @@ Agentic-ESOpt/
 The portable user-facing entry points are:
 
 ```text
-scripts/sudoku/{run_es,run_grpo}.sh
+scripts/sudoku/{run_es,run_grpo,run_grpo_t1}.sh
 scripts/math/{run,run_vllm_es_4gpu,run_grpo,run_trace2skill,run_trace2skill_es}.sh
 scripts/docvqa/{start_vision_server,run,run_grpo,run_trace2skill,run_trace2skill_es}.sh
 scripts/webarena/run.sh

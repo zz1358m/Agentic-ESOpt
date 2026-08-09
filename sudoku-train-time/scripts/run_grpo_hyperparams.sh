@@ -36,7 +36,7 @@ exec env CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3}" \
   --num-generations 8 \
   --rollout-micro-batch-size 8 \
   --train-micro-batch-size 2 \
-  --max-policy-examples-per-step 0 \
+  --policy-batch-size 512 \
   --max-turns "$((MASK_COUNT * 3))" \
   --learning-rate 1e-6 \
   --beta 1e-3 \
