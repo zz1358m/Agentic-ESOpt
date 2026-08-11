@@ -19,6 +19,7 @@ import inspect
 import json
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -415,6 +416,91 @@ def rep_from_name(path: Path) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def common_random_seed(base_seed: int, task: str, size: int) -> int:
+    """Return a shard- and program-independent seed for one task setting."""
+    task_offset = {"tsp": 0, "cvrp": 10_000_000, "bpp": 20_000_000}[task]
+    return (int(base_seed) + task_offset + int(size) * 1_000) % (2**32)
+
+
+def collect_values(
+    instances: Any,
+    solver: Any,
+    *,
+    keep_going: bool,
+    seed: int,
+    instance_offset: int = 0,
+) -> tuple[list[float], dict[str, int]]:
+    values: list[float] = []
+    failure_reasons: Counter[str] = Counter()
+    for instance_index, instance in enumerate(instances):
+        try:
+            instance_seed = (int(seed) + instance_offset + instance_index) % (2**32)
+            np.random.seed(instance_seed)
+            torch.manual_seed(instance_seed)
+            value = float(solver(instance))
+            if not math.isfinite(value):
+                raise ValueError(f"non-finite evaluator result: {value}")
+            values.append(value)
+        except Exception as exc:
+            if not keep_going:
+                raise
+            message = str(exc).strip().replace("\n", " ")[:240]
+            reason = type(exc).__name__ if not message else f"{type(exc).__name__}: {message}"
+            failure_reasons[reason] += 1
+    return values, dict(sorted(failure_reasons.items()))
+
+
+def select_instances(
+    instances: Any,
+    *,
+    offset: int,
+    limit: int,
+) -> tuple[Any, int, int]:
+    """Select a contiguous instance range while preserving original indices."""
+    total = len(instances)
+    if offset < 0 or offset > total:
+        raise ValueError(f"instance offset {offset} is outside [0, {total}]")
+    stop = total if limit <= 0 else min(total, offset + limit)
+    return instances[offset:stop], total, stop
+
+
+def evaluate_setting(
+    *,
+    task: str,
+    size: int,
+    instances: Any,
+    solver: Any,
+    args: argparse.Namespace,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Evaluate one task/size while preserving common seed and slice metadata."""
+    instance_offset = getattr(args, "instance_offset", 0)
+    selected, dataset_count, instance_stop = select_instances(
+        instances,
+        offset=instance_offset,
+        limit=args.max_instances,
+    )
+    setting_seed = common_random_seed(args.seed, task, size)
+    values, failure_reasons = collect_values(
+        selected,
+        solver,
+        keep_going=args.keep_going,
+        seed=setting_seed,
+        instance_offset=instance_offset,
+    )
+    return {
+        "task": task,
+        "size": size,
+        **(extra or {}),
+        **summarize(values, len(selected), "min"),
+        "failure_reasons": failure_reasons,
+        "setting_seed": setting_seed,
+        "dataset_count": dataset_count,
+        "instance_offset": instance_offset,
+        "instance_stop": instance_stop,
+    }
+
+
 def eval_code_file(task: str, code_path: Path, args: argparse.Namespace) -> list[dict[str, Any]]:
     module = load_module(code_path)
     heuristics = get_heuristics(module)
@@ -423,54 +509,61 @@ def eval_code_file(task: str, code_path: Path, args: argparse.Namespace) -> list
     if task == "tsp":
         for size in parse_ints(args.tsp_sizes):
             data = np.load(DATA_ROOT / "tsp_aco" / f"{args.split}{size}_dataset.npy", allow_pickle=False)
-            if args.max_instances > 0:
-                data = data[: args.max_instances]
-            values = []
-            for node_pos in data:
-                try:
-                    values.append(solve_tsp(heuristics, np.asarray(node_pos), args.tsp_iterations, args.tsp_ants))
-                except Exception:
-                    if not args.keep_going:
-                        raise
-            rows.append({"task": task, "size": size, **summarize(values, len(data), "min")})
+            rows.append(
+                evaluate_setting(
+                    task=task,
+                    size=size,
+                    instances=data,
+                    solver=lambda node_pos: solve_tsp(
+                        heuristics,
+                        np.asarray(node_pos),
+                        args.tsp_iterations,
+                        args.tsp_ants,
+                    ),
+                    args=args,
+                )
+            )
 
     elif task == "cvrp":
         for size in parse_ints(args.cvrp_sizes):
             data = np.load(DATA_ROOT / "cvrp_aco" / f"{args.split}{size}_dataset.npy", allow_pickle=False)
-            if args.max_instances > 0:
-                data = data[: args.max_instances]
-            values = []
-            for instance in data:
-                try:
-                    values.append(solve_cvrp(heuristics, np.asarray(instance), args.cvrp_iterations, args.cvrp_ants, args.cvrp_capacity))
-                except Exception:
-                    if not args.keep_going:
-                        raise
-            rows.append({"task": task, "size": size, **summarize(values, len(data), "min")})
+            rows.append(
+                evaluate_setting(
+                    task=task,
+                    size=size,
+                    instances=data,
+                    solver=lambda instance: solve_cvrp(
+                        heuristics,
+                        np.asarray(instance),
+                        args.cvrp_iterations,
+                        args.cvrp_ants,
+                        args.cvrp_capacity,
+                    ),
+                    args=args,
+                )
+            )
 
     elif task == "bpp":
         for size in parse_ints(args.bpp_sizes):
             data = np.load(DATA_ROOT / "bpp_offline_aco" / f"{args.split}{size}_dataset.npz", allow_pickle=False)["demands"]
-            if args.max_instances > 0:
-                data = data[: args.max_instances]
-            values = []
-            for demand in data:
-                try:
-                    values.append(
-                        solve_bpp(
-                            heuristics,
-                            np.asarray(demand),
-                            args.bpp_mode,
-                            args.bpp_iterations,
-                            args.bpp_ants,
-                            args.bpp_sample_count,
-                            args.bpp_capacity,
-                        )
-                    )
-                except Exception:
-                    if not args.keep_going:
-                        raise
-            rows.append({"task": task, "size": size, "mode": args.bpp_mode, **summarize(values, len(data), "min")})
+            rows.append(
+                evaluate_setting(
+                    task=task,
+                    size=size,
+                    instances=data,
+                    solver=lambda demand: solve_bpp(
+                        heuristics,
+                        np.asarray(demand),
+                        args.bpp_mode,
+                        args.bpp_iterations,
+                        args.bpp_ants,
+                        args.bpp_sample_count,
+                        args.bpp_capacity,
+                    ),
+                    args=args,
+                    extra={"mode": args.bpp_mode},
+                )
+            )
 
     return rows
 
@@ -497,18 +590,43 @@ def main() -> None:
     parser.add_argument("--bpp-sample-count", type=int, default=200)
     parser.add_argument("--bpp-capacity", type=int, default=150)
     parser.add_argument("--max-instances", type=int, default=0, help="Limit instances for quick checks; 0 means all.")
+    parser.add_argument(
+        "--instance-offset",
+        type=int,
+        default=0,
+        help="Zero-based start offset used with --max-instances for parallel instance slices.",
+    )
+    parser.add_argument("--seed", type=int, default=1234, help="Seed NumPy and PyTorch ACO sampling.")
+    parser.add_argument("--shard-count", type=int, default=1, help="Number of disjoint program shards.")
+    parser.add_argument("--shard-index", type=int, default=0, help="Zero-based program shard to evaluate.")
     parser.add_argument("--keep-going", action="store_true", help="Record failures instead of stopping on the first error.")
     parser.add_argument("--output", default=str(RESULTS_ROOT / "aco_eval_results.json"))
     parser.add_argument("--csv-output", default=str(RESULTS_ROOT / "aco_eval_results.csv"))
     args = parser.parse_args()
+    if args.shard_count <= 0:
+        raise ValueError("--shard-count must be positive")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise ValueError("--shard-index must be in [0, shard-count)")
+    if args.instance_offset < 0:
+        raise ValueError("--instance-offset must be non-negative")
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     all_rows: list[dict[str, Any]] = []
     for task in [x.strip() for x in args.tasks.split(",") if x.strip()]:
         if task not in SETTINGS:
             raise ValueError(f"Unknown task: {task}")
-        for method, code_path in discover_code_files(task):
+        programs = discover_code_files(task)[args.shard_index :: args.shard_count]
+        for method, code_path in programs:
             for row in eval_code_file(task, code_path, args):
-                row.update({"method": method, "rep": rep_from_name(code_path), "code_file": str(code_path)})
+                row.update(
+                    {
+                        "method": method,
+                        "rep": rep_from_name(code_path),
+                        "code_file": str(code_path),
+                        "seed": args.seed,
+                    }
+                )
                 all_rows.append(row)
                 print(f"{method} {task} {code_path.name} size={row['size']}: mean={row['mean']} valid={row['valid_count']}/{row['count']}")
 

@@ -158,25 +158,38 @@ def normalize_math_rows(rows: list[dict[str, Any]], *, split_name: str) -> list[
     return tasks
 
 
-def load_hf_dataset_rows(dataset_name: str, *, split: str = "") -> list[dict[str, Any]]:
+def load_hf_dataset_rows(
+    dataset_name: str,
+    *,
+    config_name: str = "",
+    split: str = "",
+    revision: str = "",
+    decode_images: bool = True,
+) -> list[dict[str, Any]]:
     try:
-        from datasets import DatasetDict, load_dataset
+        from datasets import DatasetDict, Image, load_dataset
     except Exception as exc:  # pragma: no cover - runtime dependency
         raise RuntimeError("Python package 'datasets' is required for automatic HuggingFace loading.") from exc
 
+    load_args = [dataset_name]
+    if config_name:
+        load_args.append(config_name)
+    load_kwargs = {}
     if split:
-        dataset = load_dataset(dataset_name, split=split)
-        return [dict(row) for row in dataset]
-
-    dataset = load_dataset(dataset_name)
-    if isinstance(dataset, DatasetDict):
-        if "train" in dataset:
-            selected = dataset["train"]
+        load_kwargs["split"] = split
+    if revision:
+        load_kwargs["revision"] = revision
+    loaded = load_dataset(*load_args, **load_kwargs)
+    if isinstance(loaded, DatasetDict):
+        if "train" in loaded:
+            selected = loaded["train"]
         else:
-            first_key = next(iter(dataset.keys()))
-            selected = dataset[first_key]
+            first_key = next(iter(loaded.keys()))
+            selected = loaded[first_key]
     else:
-        selected = dataset
+        selected = loaded
+    if not decode_images and "image" in selected.column_names:
+        selected = selected.cast_column("image", Image(decode=False))
     return [dict(row) for row in selected]
 
 
@@ -471,19 +484,16 @@ def prepare_docvqa(args: argparse.Namespace) -> None:
             source_dir = source_path.parent
             source_description = str(source_path)
         else:
-            try:
-                from datasets import load_dataset
-            except Exception as exc:  # pragma: no cover - runtime dependency
-                raise RuntimeError("Python package 'datasets' is required to prepare DocVQA.") from exc
             print(
                 f"[load] docvqa: {args.docvqa_dataset} "
                 f"config={args.docvqa_config} split={args.docvqa_split} revision={args.docvqa_revision}"
             )
-            rows = load_dataset(
+            rows = load_hf_dataset_rows(
                 args.docvqa_dataset,
-                args.docvqa_config,
+                config_name=args.docvqa_config,
                 split=args.docvqa_split,
-                revision=args.docvqa_revision or None,
+                revision=args.docvqa_revision,
+                decode_images=False,
             )
             source_dir = ROOT
             source_description = f"{args.docvqa_dataset}/{args.docvqa_config}:{args.docvqa_split}"

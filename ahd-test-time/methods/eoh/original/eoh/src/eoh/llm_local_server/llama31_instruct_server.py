@@ -6,6 +6,8 @@ import time
 from argparse import ArgumentParser
 from pathlib import Path
 
+from batch_retry import run_with_oom_splitting
+
 
 default_model_path = "meta-llama/Llama-3.1-8B-Instruct"
 
@@ -18,6 +20,12 @@ parser.add_argument("--quantization", default=False, action="store_true", help="
 parser.add_argument("--load-in-4bit", default=False, action="store_true", help="Load the model in 4-bit")
 parser.add_argument("--dtype", choices=["auto", "float16", "bfloat16"], default="float16")
 parser.add_argument("--max-repeat-prompt", type=int, default=8)
+parser.add_argument(
+    "--seed",
+    type=int,
+    default=None,
+    help="Optional process-level PyTorch seed for reproducible sampled generation.",
+)
 parser.add_argument("--trust-remote-code", default=False, action="store_true")
 parser.add_argument("--enable-lora", default=False, action="store_true")
 parser.add_argument("--lora-r", type=int, default=8)
@@ -43,6 +51,10 @@ import torch
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, LogitsProcessor
+
+if args.seed is not None:
+    torch.manual_seed(args.seed)
+    print(f"[seed] inference_seed={args.seed}", flush=True)
 
 _repo_root = next(
     (
@@ -231,23 +243,29 @@ def _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt):
     eos_token_id = params.get("eos_token_id", _eos_token_ids(tokenizer))
     pad_token_id = params.get("pad_token_id", tokenizer.pad_token_id)
 
-    while True:
-        input_texts = [formatted_prompt] * repeat_prompt
-        inputs = tokenizer(input_texts, return_tensors="pt", padding=True)
+    input_texts = (
+        list(formatted_prompt)
+        if isinstance(formatted_prompt, (list, tuple))
+        else [formatted_prompt] * repeat_prompt
+    )
+
+    def generate_batch(batch_texts):
+        inputs = tokenizer(batch_texts, return_tensors="pt", padding=True)
         inputs = {name: value.to(_model_input_device(model)) for name, value in inputs.items()}
 
+        batch_do_sample = do_sample
         if temperature is not None and float(temperature) <= 0:
-            do_sample = False
+            batch_do_sample = False
 
         generate_kwargs = {
             "max_new_tokens": max_new_tokens,
-            "do_sample": do_sample,
+            "do_sample": batch_do_sample,
             "num_return_sequences": num_return_sequences,
             "pad_token_id": pad_token_id,
         }
         if eos_token_id is not None:
             generate_kwargs["eos_token_id"] = eos_token_id
-        if do_sample:
+        if batch_do_sample:
             if temperature is not None:
                 generate_kwargs["temperature"] = temperature
             if top_k is not None:
@@ -261,17 +279,8 @@ def _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt):
         if float(presence_penalty or 0.0) != 0.0:
             generate_kwargs["logits_processor"] = [PresencePenaltyLogitsProcessor(presence_penalty)]
 
-        try:
-            with torch.inference_mode():
-                output = model.generate(**inputs, **generate_kwargs)
-        except torch.cuda.OutOfMemoryError:
-            gc.collect()
-            if torch.cuda.device_count() > 0:
-                torch.cuda.empty_cache()
-            if repeat_prompt == 1:
-                raise
-            repeat_prompt = max(repeat_prompt // 2, 1)
-            continue
+        with torch.inference_mode():
+            output = model.generate(**inputs, **generate_kwargs)
 
         prompt_len = inputs["input_ids"].shape[1]
         content = [
@@ -289,6 +298,23 @@ def _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt):
 
         return content, int(inputs["input_ids"].numel()), int(output.numel() - inputs["input_ids"].numel())
 
+    def cleanup_after_oom():
+        gc.collect()
+        if torch.cuda.device_count() > 0:
+            torch.cuda.empty_cache()
+
+    parts = run_with_oom_splitting(
+        input_texts,
+        run_batch=generate_batch,
+        is_oom=lambda exc: isinstance(exc, torch.cuda.OutOfMemoryError),
+        on_split=cleanup_after_oom,
+    )
+    return (
+        [text for content, _, _ in parts for text in content],
+        sum(prompt_tokens for _, prompt_tokens, _ in parts),
+        sum(completion_tokens for _, _, completion_tokens in parts),
+    )
+
 
 @app.route("/completions", methods=["POST"])
 def completions():
@@ -297,7 +323,11 @@ def completions():
     params = _completion_params_from_payload(payload)
     repeat_prompt = min(int(payload.get("repeat_prompt", 1)), args.max_repeat_prompt)
 
-    formatted_prompt = _format_prompt(prompt, params)
+    formatted_prompt = (
+        [_format_prompt(item, params) for item in prompt]
+        if isinstance(prompt, list)
+        else _format_prompt(prompt, params)
+    )
     content, _, _ = _generate_from_formatted_prompt(formatted_prompt, params, repeat_prompt)
     return jsonify({"content": content})
 

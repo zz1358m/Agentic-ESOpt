@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import inspect
 import json
 import math
@@ -49,6 +50,286 @@ from algorithms.es.run_state import (  # noqa: E402
 DEFAULT_TRAIN = ROOT / "data/trace2skill/math_reasoning/dapo_evolve.jsonl"
 DEFAULT_EVAL = ROOT / "data/trace2skill/math_reasoning/dapo_test.jsonl"
 DEFAULT_AIME = ROOT / "data/trace2skill/math_reasoning/aime_2026.jsonl"
+EVAL_DATASETS = ("dapo", "aime")
+FORMAL_EVAL_ITEMS = {"dapo": 100, "aime": 30}
+FORMAL_EVAL_KEY_SEED_SHA256 = "26f2b5ee15bb079d1d16feb2261fec24a5af9e41b33bcea7d14ac5259ce6c7c5"
+FORMAL_EVAL_DATA_SHA256 = {
+    "dapo": "a0e64c93e7801957f0949ab80f5a26233ecd87a02ad5c4628de2da0692b5c4a2",
+    "aime": "abc8651f3af75ff59341b9de986fef39b1e909aa1466e3b73ee20ec9b6f7242e",
+}
+FORMAL_EVAL_SKILL_SHA256 = "481e7a67d10bac9575786f166b47f4d64f306fde0107b19c12aa1b2e7b53b275"
+
+
+def parse_eval_datasets(value: str) -> tuple[str, ...]:
+    requested = {item.strip() for item in value.split(",") if item.strip()}
+    unknown = requested - set(EVAL_DATASETS)
+    if not requested or unknown:
+        raise ValueError(
+            f"eval datasets must select from {','.join(EVAL_DATASETS)}; got {value!r}"
+        )
+    return tuple(dataset for dataset in EVAL_DATASETS if dataset in requested)
+
+
+def trajectory_seed(base_seed: int, *, row_index: int, sample_index: int) -> int:
+    return int(base_seed) + int(sample_index) * 1_000_003 + int(row_index)
+
+
+def load_eval_key_seeds(
+    path: str | Path, *, expected_sha256: str | None = None
+) -> dict[str, int]:
+    seed_path = Path(path).expanduser().resolve()
+    content = seed_path.read_bytes()
+    digest = hashlib.sha256(content).hexdigest()
+    if expected_sha256 is not None and digest != expected_sha256:
+        raise ValueError(
+            f"eval key/seed SHA256 mismatch for {seed_path}: "
+            f"expected {expected_sha256}, got {digest}"
+        )
+
+    result: dict[str, int] = {}
+    for line_number, raw_line in enumerate(content.decode("utf-8").splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        row = json.loads(raw_line)
+        if not isinstance(row, dict) or "key" not in row or "seed" not in row:
+            raise ValueError(f"invalid eval key/seed row at {seed_path}:{line_number}")
+        key = str(row["key"])
+        if key in result:
+            raise ValueError(f"duplicate key in eval key/seed file: {key}")
+        result[key] = int(row["seed"])
+    if not result:
+        raise ValueError(f"eval key/seed file is empty: {seed_path}")
+    return result
+
+
+def require_file_sha256(path: str | Path, expected_sha256: str, *, label: str) -> str:
+    resolved = Path(path).expanduser().resolve()
+    digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+    if digest != expected_sha256:
+        raise ValueError(
+            f"{label} SHA256 mismatch for {resolved}: expected {expected_sha256}, got {digest}"
+        )
+    return digest
+
+
+def validate_formal_eval_artifacts(
+    args: argparse.Namespace, eval_datasets: tuple[str, ...]
+) -> None:
+    data_paths = {"dapo": args.eval_data, "aime": args.aime_data}
+    for dataset in eval_datasets:
+        require_file_sha256(
+            data_paths[dataset],
+            FORMAL_EVAL_DATA_SHA256[dataset],
+            label=f"formal {dataset} data",
+        )
+    if args.skill_file:
+        require_file_sha256(
+            args.skill_file,
+            FORMAL_EVAL_SKILL_SHA256,
+            label="formal Math skill",
+        )
+
+
+def validate_eval_key_seed_coverage(
+    dataset: str,
+    key_seeds: dict[str, int],
+    *,
+    tasks: list[MathTask],
+    samples: int,
+) -> None:
+    expected_keys = {
+        f"{task.id}:sample{sample_index:02d}"
+        for task in tasks
+        for sample_index in range(samples)
+    }
+    missing = sorted(expected_keys - set(key_seeds))
+    if missing:
+        raise ValueError(f"{dataset}: eval key/seed file is missing keys {missing[:3]}")
+
+
+def validate_formal_eval_summary(
+    dataset: str,
+    summary: dict[str, Any],
+    *,
+    tasks: list[MathTask],
+    samples: int,
+    base_seed: int | None = None,
+    expected_seeds: dict[str, int] | None = None,
+) -> None:
+    if dataset not in FORMAL_EVAL_ITEMS:
+        raise ValueError(f"unknown formal eval dataset: {dataset}")
+    expected_items = FORMAL_EVAL_ITEMS[dataset]
+    if len(tasks) != expected_items:
+        raise ValueError(f"{dataset}: expected {expected_items} tasks, got {len(tasks)}")
+    if samples != 4:
+        raise ValueError(f"{dataset}: formal evaluation requires 4 samples, got {samples}")
+
+    rows = summary.get("scores")
+    if not isinstance(rows, list):
+        raise ValueError(f"{dataset}: formal evaluation summary is missing scores")
+    expected_count = expected_items * samples
+    if len(rows) != expected_count:
+        raise ValueError(f"{dataset}: expected {expected_count} rows, got {len(rows)}")
+
+    expected_keys = {
+        f"{task.id}:sample{sample_index:02d}"
+        for task in tasks
+        for sample_index in range(samples)
+    }
+    actual_keys = [str(row.get("key", "")) for row in rows]
+    if len(set(actual_keys)) != len(actual_keys):
+        raise ValueError(f"{dataset}: duplicate result keys")
+    if set(actual_keys) != expected_keys:
+        missing = sorted(expected_keys - set(actual_keys))[:3]
+        extra = sorted(set(actual_keys) - expected_keys)[:3]
+        raise ValueError(f"{dataset}: result key mismatch missing={missing} extra={extra}")
+
+    for row in rows:
+        for field in ("seed", "engine_index"):
+            if field not in row:
+                raise ValueError(f"{dataset}: result row {row.get('key')} is missing {field}")
+        if expected_seeds is not None:
+            expected_seed = expected_seeds[str(row["key"])]
+        elif base_seed is not None:
+            expected_seed = trajectory_seed(
+                base_seed,
+                row_index=int(row["row_index"]),
+                sample_index=int(row["sample_index"]),
+            )
+        else:
+            expected_seed = None
+        if expected_seed is not None:
+            if int(row["seed"]) != expected_seed:
+                raise ValueError(
+                    f"{dataset}: result row {row.get('key')} has seed={row['seed']}, "
+                    f"expected {expected_seed}"
+                )
+
+
+def validate_formal_eval_options(args: argparse.Namespace, eval_datasets: tuple[str, ...]) -> None:
+    if not args.formal_eval:
+        return
+    shortcut_flags = {
+        "--skip-initial-eval": bool(args.skip_initial_eval),
+        "--reuse-initial-eval-history": bool(args.reuse_initial_eval_history),
+        "--resume-history": bool(args.resume_history),
+    }
+    for flag, enabled in shortcut_flags.items():
+        if enabled:
+            raise ValueError(f"{flag} is incompatible with --formal-eval")
+    if not args.eval_key_seed_file:
+        raise ValueError("--eval-key-seed-file is required with --formal-eval")
+
+    expected_options = {
+        "eval_only": True,
+        "generations": 0,
+        "num_engines": 4,
+        "gpu_fraction": 1.0,
+        "dtype": "bfloat16",
+        "gpu_memory_utilization": 0.85,
+        "max_model_len": 131072,
+        "gdn_prefill_backend": "triton",
+        "enforce_eager": True,
+        "inference_batch_size": 16,
+        "rollout_token_budget": 131072,
+        "max_total_tokens": 0,
+        "eval_samples": 4,
+        "eval_limit": FORMAL_EVAL_ITEMS["dapo"],
+        "aime_limit": FORMAL_EVAL_ITEMS["aime"],
+        "max_turns": 50,
+        "max_tokens": 4096,
+        "vllm_default_max_tokens": 4096,
+        "trim_context": False,
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "top_k": 40,
+        "min_p": 0.0,
+        "presence_penalty": 2.0,
+        "repetition_penalty": 1.0,
+        "parameter_scope": "full",
+        "seed": 20260627,
+    }
+    for name, expected in expected_options.items():
+        actual = getattr(args, name)
+        if actual != expected:
+            raise ValueError(f"formal evaluation requires {name}={expected!r}, got {actual!r}")
+    effective_eval_seed = args.seed if args.eval_seed is None else args.eval_seed
+    if effective_eval_seed != 20260627:
+        raise ValueError(
+            f"formal evaluation requires eval_seed=20260627, got {effective_eval_seed!r}"
+        )
+
+    canonical_data = {"dapo": DEFAULT_EVAL, "aime": DEFAULT_AIME}
+    configured_data = {"dapo": Path(args.eval_data), "aime": Path(args.aime_data)}
+    for dataset in eval_datasets:
+        if configured_data[dataset].expanduser().resolve() != canonical_data[dataset].resolve():
+            raise ValueError(
+                f"formal evaluation requires canonical {dataset} data {canonical_data[dataset]}, "
+                f"got {configured_data[dataset]}"
+            )
+
+
+def validate_engine_topologies(
+    topologies: list[dict[str, Any]], *, expected_engines: int
+) -> None:
+    if len(topologies) != expected_engines:
+        raise ValueError(
+            f"engine topology expected {expected_engines} actors, got {len(topologies)}"
+        )
+    expected_indices = list(range(expected_engines))
+    actual_indices = sorted(int(row.get("engine_index", -1)) for row in topologies)
+    if actual_indices != expected_indices:
+        raise ValueError(
+            f"engine topology indices expected {expected_indices}, got {actual_indices}"
+        )
+
+    actor_visible_devices = []
+    ray_gpu_ids_seen = []
+    device_uuids = []
+    for row in topologies:
+        visible = str(row.get("actor_cuda_visible_devices", "")).strip()
+        if not visible or "," in visible:
+            raise ValueError(
+                "engine topology requires exactly one CUDA_VISIBLE_DEVICES entry per actor; "
+                f"engine={row.get('engine_index')} visible={visible!r}"
+            )
+        if int(row.get("worker_torch_device_count", -1)) != 1:
+            raise ValueError(
+                "engine topology requires one CUDA device in each vLLM worker; "
+                f"engine={row.get('engine_index')} "
+                f"count={row.get('worker_torch_device_count')!r}"
+            )
+        ray_gpu_ids = row.get("ray_gpu_ids")
+        if not isinstance(ray_gpu_ids, list) or len(ray_gpu_ids) != 1:
+            raise ValueError(
+                "engine topology requires exactly one Ray GPU ID per actor; "
+                f"engine={row.get('engine_index')} ray_gpu_ids={ray_gpu_ids!r}"
+            )
+        device_uuid = str(row.get("worker_torch_device_uuid", "")).strip()
+        if not device_uuid:
+            raise ValueError(
+                "engine topology requires a physical GPU UUID per actor; "
+                f"engine={row.get('engine_index')}"
+            )
+        actor_visible_devices.append(visible)
+        ray_gpu_ids_seen.append(str(ray_gpu_ids[0]))
+        device_uuids.append(device_uuid)
+
+    if len(set(actor_visible_devices)) != expected_engines:
+        raise ValueError(
+            "engine topology requires one distinct visible GPU per actor; "
+            f"got {actor_visible_devices}"
+        )
+    if len(set(ray_gpu_ids_seen)) != expected_engines:
+        raise ValueError(
+            "engine topology requires one distinct Ray GPU ID per actor; "
+            f"got {ray_gpu_ids_seen}"
+        )
+    if len(set(device_uuids)) != expected_engines:
+        raise ValueError(
+            "engine topology requires one distinct physical GPU UUID per actor; "
+            f"got {device_uuids}"
+        )
 
 
 def mean_valid(scores: list[float]) -> float:
@@ -138,6 +419,8 @@ def compact_rollout_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "context_trims",
         "max_context_tokens",
         "generated_tokens",
+        "seed",
+        "engine_index",
         "trajectory_tokens",
         "trace_rounds",
         "score_method",
@@ -336,8 +619,22 @@ class MathVllmActor:
             seed=int(seed),
         )
 
-    def ready(self) -> bool:
-        return True
+    def ready(self) -> dict[str, Any]:
+        import ray
+
+        worker_topologies = self.llm.collective_rpc("topology_math_es")
+        if len(worker_topologies) != 1:
+            raise RuntimeError(
+                f"TP=1 Math engine expected one vLLM worker, got {len(worker_topologies)}"
+            )
+        worker = worker_topologies[0]
+        topology = {
+            "pid": os.getpid(),
+            "ray_gpu_ids": [str(gpu_id) for gpu_id in ray.get_gpu_ids()],
+            "actor_cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", ""),
+        }
+        topology.update({f"worker_{key}": value for key, value in worker.items()})
+        return topology
 
     def init_es(self, *, parameter_scope: str, target_modules: list[str] | None, verbose: bool) -> list[dict]:
         return self.llm.collective_rpc(
@@ -502,7 +799,12 @@ class MathVllmActor:
             )
             row_index = int(job["row_index"])
             sample_index = int(job.get("sample_index", 0))
-            seed_base = int(seed) + sample_index * 1_000_003 + row_index
+            seed_base = int(
+                job.get(
+                    "seed",
+                    trajectory_seed(seed, row_index=row_index, sample_index=sample_index),
+                )
+            )
             tool_workdir = (
                 self.tool_work_root
                 / safe_workdir_name(task.id, fallback=f"row{row_index:05d}")
@@ -709,6 +1011,7 @@ class MathVllmActor:
                     "task": state["task_payload"],
                     "row_index": int(state["row_index"]),
                     "sample_index": int(state["sample_index"]),
+                    "seed": int(state["seed_base"]),
                     "score": score,
                     "answer": task.answer,
                     "prediction": extract_math_answer(completion),
@@ -764,6 +1067,7 @@ def eval_tasks_vllm(
     args: argparse.Namespace,
     label: str,
     checkpoint_path: Path | None = None,
+    key_seeds: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     jobs = [
         MathRolloutJob(task=task, row_index=row_index, sample_index=sample_index)
@@ -772,7 +1076,11 @@ def eval_tasks_vllm(
     ]
     assignments = [[] for _ in engines]
     for idx, job in enumerate(jobs):
-        assignments[idx % len(engines)].append(job_to_payload(job))
+        payload = job_to_payload(job)
+        if key_seeds is not None:
+            key = f"{job.task.id}:sample{job.sample_index:02d}"
+            payload["seed"] = key_seeds[key]
+        assignments[idx % len(engines)].append(payload)
 
     queues = [chunks(assigned, batch_size) for assigned in assignments]
     cursors = [0 for _ in engines]
@@ -838,6 +1146,7 @@ def eval_tasks_vllm(
 
 def init_ray(args: argparse.Namespace):
     import ray
+    import torch
 
     os.environ.setdefault("RAY_USAGE_STATS_ENABLED", "0")
     os.environ.setdefault("RAY_DISABLE_DOCKER_CPU_WARNING", "1")
@@ -860,7 +1169,10 @@ def init_ray(args: argparse.Namespace):
     if os.environ.get("DOCVQA_TOOL_PREFIX"):
         worker_env["DOCVQA_TOOL_PREFIX"] = os.environ["DOCVQA_TOOL_PREFIX"]
     if not ray.is_initialized():
+        num_engines = int(args.num_engines)
+        ray_cpu_count = num_engines if num_engines > 0 else max(1, torch.cuda.device_count())
         ray.init(
+            num_cpus=ray_cpu_count,
             ignore_reinit_error=True,
             include_dashboard=False,
             _node_ip_address=os.environ.get("RAY_NODE_IP_ADDRESS", "127.0.0.1"),
@@ -877,6 +1189,7 @@ def build_engines(ray, args: argparse.Namespace, skill: str, result_root: Path):
     num_engines = int(args.num_engines if args.num_engines > 0 else max(1, gpu_count))
     Actor = ray.remote(num_cpus=1, num_gpus=float(args.gpu_fraction))(MathVllmActor)
     engines = []
+    topologies = []
     for idx in range(num_engines):
         engine = Actor.remote(
             root=str(ROOT),
@@ -895,8 +1208,23 @@ def build_engines(ray, args: argparse.Namespace, skill: str, result_root: Path):
             tool_work_root=str(result_root / "tool_workdirs" / f"engine_{idx:02d}"),
         )
         engines.append(engine)
-        ray.get(engine.ready.remote())
-        print(f"[vllm_engine_ready] index={idx + 1}/{num_engines}", flush=True)
+        topology = ray.get(engine.ready.remote())
+        topology["engine_index"] = idx
+        topologies.append(topology)
+        print(
+            f"[vllm_engine_ready] index={idx + 1}/{num_engines} "
+            f"topology={json.dumps(topology, sort_keys=True)}",
+            flush=True,
+        )
+
+    if args.formal_eval:
+        validate_engine_topologies(topologies, expected_engines=num_engines)
+    topology_path = result_root / "engine_topology.json"
+    topology_path.write_text(
+        json.dumps(topologies, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"[vllm_engine_topology] path={topology_path}", flush=True)
 
     target_modules = [item.strip() for item in args.target_modules.split(",") if item.strip()] or None
     init_refs = [
@@ -985,8 +1313,31 @@ def main() -> None:
         help="Trim oldest ReAct exchanges to stay in context. Disable to cap the complete trajectory.",
     )
     parser.add_argument("--write-trace-logs", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--eval-limit", type=int, default=int(os.environ.get("MATH_EVAL_LIMIT", "100")))
-    parser.add_argument("--aime-limit", type=int, default=int(os.environ.get("MATH_AIME_LIMIT", "30")))
+    parser.add_argument(
+        "--eval-limit",
+        type=int,
+        default=int(os.environ.get("MATH_EVAL_LIMIT", str(FORMAL_EVAL_ITEMS["dapo"]))),
+    )
+    parser.add_argument(
+        "--aime-limit",
+        type=int,
+        default=int(os.environ.get("MATH_AIME_LIMIT", str(FORMAL_EVAL_ITEMS["aime"]))),
+    )
+    parser.add_argument(
+        "--eval-datasets",
+        default=os.environ.get("MATH_EVAL_DATASETS", "dapo,aime"),
+        help="Comma-separated initial-evaluation datasets: dapo, aime, or both.",
+    )
+    parser.add_argument(
+        "--formal-eval",
+        action="store_true",
+        help="Require the exact Stage 2 four-sample dataset matrix and per-row audit fields.",
+    )
+    parser.add_argument(
+        "--eval-key-seed-file",
+        default=os.environ.get("MATH_EVAL_KEY_SEED_FILE", ""),
+        help="Frozen JSONL mapping from trajectory key to generation seed.",
+    )
     parser.add_argument("--sigma-start", type=float, default=float(os.environ.get("MATH_ES_SIGMA_START", "5e-4")))
     parser.add_argument("--sigma-end", type=float, default=float(os.environ.get("MATH_ES_SIGMA_END", os.environ.get("MATH_ES_SIGMA_START", "5e-4"))))
     parser.add_argument(
@@ -1044,6 +1395,20 @@ def main() -> None:
         case_batch_size=args.case_batch_size,
         allow_zero_generations=args.eval_only,
     )
+    eval_datasets = parse_eval_datasets(args.eval_datasets)
+    if not args.eval_only and eval_datasets != EVAL_DATASETS:
+        raise ValueError("independent --eval-datasets selection is supported only with --eval-only")
+    validate_formal_eval_options(args, eval_datasets)
+    if args.formal_eval:
+        validate_formal_eval_artifacts(args, eval_datasets)
+    formal_key_seeds = (
+        load_eval_key_seeds(
+            args.eval_key_seed_file,
+            expected_sha256=FORMAL_EVAL_KEY_SEED_SHA256,
+        )
+        if args.formal_eval
+        else None
+    )
 
     sigma_warmup_steps = resolve_warmup_steps(args.generations, args.sigma_warmup_steps)
     skill = ""
@@ -1053,8 +1418,31 @@ def main() -> None:
             skill = skill_path.read_text(encoding="utf-8")
 
     train_env = None if args.eval_only else MathReasoningEnv(args.train_data, skill_file=args.skill_file)
-    eval_env = MathReasoningEnv(args.eval_data, limit=args.eval_limit, skill_file=args.skill_file)
-    aime_env = MathReasoningEnv(args.aime_data, limit=args.aime_limit, skill_file=args.skill_file)
+    eval_env = (
+        MathReasoningEnv(args.eval_data, limit=args.eval_limit, skill_file=args.skill_file)
+        if "dapo" in eval_datasets
+        else None
+    )
+    aime_env = (
+        MathReasoningEnv(args.aime_data, limit=args.aime_limit, skill_file=args.skill_file)
+        if "aime" in eval_datasets
+        else None
+    )
+    if formal_key_seeds is not None:
+        if eval_env is not None:
+            validate_eval_key_seed_coverage(
+                "dapo",
+                formal_key_seeds,
+                tasks=eval_env.tasks,
+                samples=args.eval_samples,
+            )
+        if aime_env is not None:
+            validate_eval_key_seed_coverage(
+                "aime",
+                formal_key_seeds,
+                tasks=aime_env.tasks,
+                samples=args.eval_samples,
+            )
     result_subdir = os.environ.get("MATH_ES_RESULT_SUBDIR", "runs/math_es_vllm")
     result_root = ROOT / result_subdir / args.run_id
     result_root.mkdir(parents=True, exist_ok=True)
@@ -1067,7 +1455,8 @@ def main() -> None:
         f"max_total_tokens={args.max_total_tokens} "
         f"gpu_fraction={args.gpu_fraction} "
         f"population={args.population} train_samples={args.train_samples} "
-        f"eval_samples={args.eval_samples} max_turns={args.max_turns} "
+        f"eval_samples={args.eval_samples} eval_datasets={','.join(eval_datasets)} "
+        f"formal_eval={args.formal_eval} max_turns={args.max_turns} "
         f"max_model_len={args.max_model_len} trim_context={args.trim_context} "
         f"max_tokens={args.max_tokens} vllm_default_max_tokens={args.vllm_default_max_tokens} "
         f"sampling=(temperature={args.temperature}, top_p={args.top_p}, top_k={args.top_k}, "
@@ -1099,9 +1488,19 @@ def main() -> None:
                 "max_model_len": args.max_model_len,
                 "trim_context": args.trim_context,
                 "eval_samples": args.eval_samples,
+                "eval_datasets": list(eval_datasets),
+                "formal_eval": args.formal_eval,
                 "final_eval_samples": args.final_eval_samples,
                 "seed": args.seed,
                 "eval_seed": args.seed if args.eval_seed is None else args.eval_seed,
+                "eval_key_seed_file": (
+                    str(Path(args.eval_key_seed_file).expanduser().resolve())
+                    if args.eval_key_seed_file
+                    else ""
+                ),
+                "eval_key_seed_sha256": (
+                    FORMAL_EVAL_KEY_SEED_SHA256 if args.formal_eval else ""
+                ),
                 "history_file": str(history_path),
                 "backend": "vllm",
             }
@@ -1171,31 +1570,64 @@ def main() -> None:
 
         if not args.skip_initial_eval:
             eval_seed = args.seed if args.eval_seed is None else args.eval_seed
-            dapo_eval = eval_tasks_vllm(
-                ray=ray,
-                engines=engines,
-                tasks=eval_env.tasks,
-                batch_size=args.inference_batch_size,
-                samples=args.eval_samples,
-                seed=eval_seed,
-                trace_dir=(result_root / "trace_logs" / "dapo_eval") if args.write_trace_logs else None,
-                args=args,
-                label="dapo_initial",
-                checkpoint_path=result_root / "partial_dapo_initial.json",
-            )
-            aime_eval = eval_tasks_vllm(
-                ray=ray,
-                engines=engines,
-                tasks=aime_env.tasks,
-                batch_size=args.inference_batch_size,
-                samples=args.eval_samples,
-                seed=eval_seed,
-                trace_dir=(result_root / "trace_logs" / "aime_eval") if args.write_trace_logs else None,
-                args=args,
-                label="aime_initial",
-                checkpoint_path=result_root / "partial_aime_initial.json",
-            )
-            history.append({"generation": -1, "dapo_eval": dapo_eval, "aime_eval": aime_eval})
+            initial_eval: dict[str, Any] = {"generation": -1}
+            if eval_env is not None:
+                dapo_eval = eval_tasks_vllm(
+                    ray=ray,
+                    engines=engines,
+                    tasks=eval_env.tasks,
+                    batch_size=args.inference_batch_size,
+                    samples=args.eval_samples,
+                    seed=eval_seed,
+                    trace_dir=(result_root / "trace_logs" / "dapo_eval") if args.write_trace_logs else None,
+                    args=args,
+                    label="dapo_initial",
+                    checkpoint_path=result_root / "partial_dapo_initial.json",
+                    key_seeds=formal_key_seeds,
+                )
+                if args.formal_eval:
+                    validate_formal_eval_summary(
+                        "dapo",
+                        dapo_eval,
+                        tasks=eval_env.tasks,
+                        samples=args.eval_samples,
+                        expected_seeds=formal_key_seeds,
+                    )
+                    print(
+                        f"[formal_eval_validated] dataset=dapo "
+                        f"rows={FORMAL_EVAL_ITEMS['dapo'] * args.eval_samples}",
+                        flush=True,
+                    )
+                initial_eval["dapo_eval"] = dapo_eval
+            if aime_env is not None:
+                aime_eval = eval_tasks_vllm(
+                    ray=ray,
+                    engines=engines,
+                    tasks=aime_env.tasks,
+                    batch_size=args.inference_batch_size,
+                    samples=args.eval_samples,
+                    seed=eval_seed,
+                    trace_dir=(result_root / "trace_logs" / "aime_eval") if args.write_trace_logs else None,
+                    args=args,
+                    label="aime_initial",
+                    checkpoint_path=result_root / "partial_aime_initial.json",
+                    key_seeds=formal_key_seeds,
+                )
+                if args.formal_eval:
+                    validate_formal_eval_summary(
+                        "aime",
+                        aime_eval,
+                        tasks=aime_env.tasks,
+                        samples=args.eval_samples,
+                        expected_seeds=formal_key_seeds,
+                    )
+                    print(
+                        f"[formal_eval_validated] dataset=aime "
+                        f"rows={FORMAL_EVAL_ITEMS['aime'] * args.eval_samples}",
+                        flush=True,
+                    )
+                initial_eval["aime_eval"] = aime_eval
+            history.append(initial_eval)
             atomic_write_history(history_path, history)
         if args.eval_only:
             return

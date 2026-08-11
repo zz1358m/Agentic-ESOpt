@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "transformers": {
+    "class": "transformers.models.qwen3_next.modeling_qwen3_next.Qwen3NextForCausalLM",
+    "parameters": 4205751296,
+    "dtype": "torch.bfloat16"
+  },
+  "vllm": {
+    "version": "0.19.1",
+    "parameter_scope": "full",
+    "tensors": 330,
+    "parameters": 4205751296
+  },
+  "history": {
+    "updates": 25,
+    "first_generation": 0,
+    "last_generation": 24,
+    "stored_weight_mismatches": 0
+  },
+  "sha256": {
+    "model.safetensors-00001-of-00002.safetensors": "4563e49054b3d71920bea9c302e350d3fac9184f0c5d19e823c2f1c3183c7283",
+    "model.safetensors-00002-of-00002.safetensors": "5aee21fccbdca7441612716b6e10abe7bce08763880acb3645e21ec0abc3f9fd"
+  }
+}

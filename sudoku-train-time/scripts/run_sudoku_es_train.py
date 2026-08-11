@@ -492,11 +492,22 @@ def main() -> None:
     parser.add_argument("--history-file", default=os.environ.get("SUDOKU_ES_HISTORY_FILE", ""))
     parser.add_argument("--resume-history", default=os.environ.get("SUDOKU_ES_RESUME_HISTORY", ""))
     parser.add_argument("--resume-generations", type=int, default=int(os.environ.get("SUDOKU_ES_RESUME_GENERATIONS", "-1")))
+    parser.add_argument(
+        "--eval-only",
+        action="store_true",
+        help="Evaluate the loaded checkpoint directly without initializing or updating ES state.",
+    )
+    parser.add_argument(
+        "--result-root",
+        default="",
+        help="Explicit output directory. Defaults to runs/sudoku_es/<run-id>.",
+    )
     args = parser.parse_args()
     validate_es_run_shape(
         generations=args.generations,
         population=args.population,
         case_batch_size=args.case_batch_size,
+        allow_zero_generations=args.eval_only,
     )
     if args.max_turns <= 0:
         args.max_turns = args.mask_count * 3
@@ -507,11 +518,48 @@ def main() -> None:
         raise ValueError("No ES endpoints provided.")
     top_k = args.top_k if args.top_k > 0 else None
     min_p = args.min_p if args.min_p >= 0 else None
-    train_env = SudokuEnv(args.train_data, mask_count=args.mask_count)
     eval_env = SudokuEnv(args.eval_data, limit=args.eval_limit, mask_count=args.mask_count)
-    result_root = ROOT / "runs/sudoku_es" / args.run_id
+    train_env = None if args.eval_only else SudokuEnv(args.train_data, mask_count=args.mask_count)
+    result_root = (
+        Path(args.result_root).expanduser().resolve()
+        if args.result_root
+        else ROOT / "runs/sudoku_es" / args.run_id
+    )
     result_root.mkdir(parents=True, exist_ok=True)
     history_path = Path(args.history_file).expanduser().resolve() if args.history_file else result_root / "history.json"
+
+    if args.eval_only:
+        history = [
+            {
+                "config": {
+                    "mode": "checkpoint_eval_only",
+                    "mask_count": args.mask_count,
+                    "max_turns": args.max_turns,
+                    "eval_count": len(eval_env.tasks),
+                    "eval_repeats": args.eval_repeats,
+                    "batched_eval": args.batched_eval,
+                    "endpoint_batch_size": args.endpoint_batch_size,
+                    "model": args.model,
+                    "endpoints": endpoints,
+                }
+            }
+        ]
+        eval_result = run_eval_repeated(
+            args=args,
+            env=eval_env,
+            endpoints=endpoints,
+            top_k=top_k,
+            min_p=min_p,
+        )
+        history.append({"generation": -1, "eval": eval_result})
+        atomic_write_history(history_path, history)
+        print(
+            f"[eval] generation=-1 split=eval repeats={eval_result['repeat_count']} "
+            f"solved_avg={eval_result['solved_average']:.2f}/{eval_result['count']} "
+            f"average={eval_result['average']:.6f} std={eval_result['average_std']:.6f}",
+            flush=True,
+        )
+        return
 
     for endpoint in endpoints:
         init = post_json(f"{endpoint}/es/init", {"parameter_scope": args.parameter_scope, "verbose": True}, timeout=args.timeout)

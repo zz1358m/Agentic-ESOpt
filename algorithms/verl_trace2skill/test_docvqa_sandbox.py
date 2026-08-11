@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -8,13 +9,44 @@ from unittest import mock
 
 from PIL import Image, ImageDraw, ImageFont
 
-from algorithms.verl_trace2skill.docvqa_sandbox import run_sandboxed_bash
+from algorithms.verl_trace2skill.docvqa_sandbox import (
+    _apparmor_prefix,
+    _runtime_prefixes,
+    run_sandboxed_bash,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class DocVQASandboxTests(unittest.TestCase):
+    def test_explicit_apparmor_profile_wraps_only_the_sandbox_process(self) -> None:
+        with mock.patch.dict(
+            "os.environ",
+            {"DOCVQA_BWRAP_APPARMOR_PROFILE": "busybox"},
+            clear=False,
+        ), mock.patch(
+            "algorithms.verl_trace2skill.docvqa_sandbox.shutil.which",
+            return_value="/usr/sbin/aa-exec",
+        ):
+            prefix = _apparmor_prefix()
+
+        self.assertEqual(prefix, ["/usr/sbin/aa-exec", "-p", "busybox", "--"])
+
+    def test_explicit_tool_prefix_takes_precedence_over_service_python(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tool_prefix = Path(tmpdir) / "ocr-tools"
+            tool_prefix.mkdir()
+            with mock.patch.dict(
+                "os.environ",
+                {"DOCVQA_TOOL_PREFIX": str(tool_prefix)},
+                clear=False,
+            ):
+                prefixes = _runtime_prefixes()
+
+        self.assertEqual(prefixes[0], tool_prefix)
+        self.assertIn(Path(sys.prefix).absolute(), prefixes)
+
     def test_exposes_only_virtual_document_and_hides_host_secret(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -140,7 +172,8 @@ class DocVQASandboxTests(unittest.TestCase):
             )
 
         self.assertEqual(result.returncode, 0, result.text)
-        self.assertIn(str(Path(sys.prefix).absolute()), result.text)
+        expected_prefix = os.environ.get("DOCVQA_TOOL_PREFIX") or sys.prefix
+        self.assertIn(str(Path(expected_prefix).absolute()), result.text)
 
     def test_uses_running_python_prefix_when_conda_prefix_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -150,7 +183,13 @@ class DocVQASandboxTests(unittest.TestCase):
             image.write_bytes(b"not-an-image")
             (stale_prefix / "bin").mkdir(parents=True)
 
-            with mock.patch.dict("os.environ", {"CONDA_PREFIX": str(stale_prefix)}):
+            with mock.patch.dict(
+                "os.environ",
+                {
+                    "CONDA_PREFIX": str(stale_prefix),
+                    "DOCVQA_TOOL_PREFIX": "",
+                },
+            ):
                 result = run_sandboxed_bash(
                     "python -c 'import sys; print(sys.executable)'",
                     image_path=image,

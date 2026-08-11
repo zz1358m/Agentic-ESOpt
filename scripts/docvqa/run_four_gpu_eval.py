@@ -5,14 +5,17 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
 import signal
+import shutil
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -23,9 +26,19 @@ from gpu_visibility import (  # noqa: E402
     cuda_visible_devices,
     manifest as gpu_manifest,
     resolve_physical_gpus,
+    sglang_visible_device,
 )
 
 SERVED_MODEL = "qwen35-4b-docvqa"
+
+
+def sandbox_configuration(environment: Mapping[str, str]) -> dict[str, str]:
+    return {
+        "tool_prefix": environment.get("DOCVQA_TOOL_PREFIX", ""),
+        "bwrap_apparmor_profile": environment.get(
+            "DOCVQA_BWRAP_APPARMOR_PROFILE", ""
+        ),
+    }
 
 
 def resolve_eval_gpus(
@@ -53,8 +66,10 @@ def server_command(
     context_length: int = 131072,
     memory_fraction: float = 0.82,
     served_model: str = SERVED_MODEL,
+    disable_cuda_graph: bool = False,
+    disable_overlap_schedule: bool = False,
 ) -> list[str]:
-    return [
+    command = [
         python,
         "-m",
         "sglang.launch_server",
@@ -66,14 +81,122 @@ def server_command(
         "127.0.0.1",
         "--port",
         str(port),
+        "--nccl-port",
+        str(port + 1000),
         "--tp-size",
         "1",
         "--context-length",
         str(context_length),
         "--mem-fraction-static",
         str(memory_fraction),
+        "--max-mamba-cache-size",
+        "16",
         "--trust-remote-code",
     ]
+    if disable_cuda_graph:
+        command.append("--disable-cuda-graph")
+    if disable_overlap_schedule:
+        command.append("--disable-overlap-schedule")
+    return command
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def prepare_skill_evidence(
+    skill_file: Path | None,
+    out_dir: Path,
+    *,
+    task_name: str,
+) -> tuple[Path | None, dict[str, Any]]:
+    """Freeze the exact optional skill consumed by an evaluation run."""
+    if skill_file is None:
+        return None, {
+            "skill_enabled": False,
+            "source_path": None,
+            "record_path": None,
+            "sha256": None,
+            "bytes": 0,
+            "injection_position": None,
+        }
+    source = skill_file.expanduser().resolve()
+    if not source.is_file():
+        raise FileNotFoundError(source)
+    recorded = (out_dir.expanduser().resolve() / "evidence" / f"{task_name}_skill" / "SKILL.md")
+    recorded.parent.mkdir(parents=True, exist_ok=True)
+    if source != recorded:
+        shutil.copy2(source, recorded)
+    source_hash = _sha256(source)
+    if _sha256(recorded) != source_hash:
+        raise RuntimeError(f"recorded skill hash mismatch: {recorded}")
+    return recorded, {
+        "skill_enabled": True,
+        "source_path": str(source),
+        "record_path": str(recorded),
+        "sha256": source_hash,
+        "bytes": source.stat().st_size,
+        "injection_position": "system_prompt_after_task_protocol",
+    }
+
+
+def evaluator_command(
+    *,
+    python: str,
+    evaluator: Path,
+    endpoints: list[str],
+    model_path: Path,
+    docvqa_root: Path,
+    data_path: Path,
+    out_dir: Path,
+    samples: int,
+    limit: int,
+    concurrency: int,
+    seed: int,
+    resume: bool,
+    docvqa_skill_file: Path | None = None,
+) -> list[str]:
+    command = [
+        python,
+        str(evaluator),
+        "--base-urls",
+        ",".join(endpoints),
+        "--model",
+        SERVED_MODEL,
+        "--tokenizer-path",
+        str(model_path),
+        "--docvqa-root",
+        str(docvqa_root),
+        "--docvqa-data",
+        str(data_path),
+        "--out-dir",
+        str(out_dir),
+        "--datasets",
+        "docvqa",
+        "--samples",
+        str(samples),
+        "--docvqa-limit",
+        str(limit),
+        "--concurrency",
+        str(concurrency),
+        "--seed",
+        str(seed),
+        "--docvqa-max-turns",
+        "50",
+        "--docvqa-max-total-tokens",
+        "32768",
+        "--max-errors",
+        "1",
+    ]
+    if docvqa_skill_file is not None:
+        command.extend(["--docvqa-skill-file", str(docvqa_skill_file)])
+    if resume:
+        command.append("--resume")
+    return command
 
 
 def _request_json(url: str, payload: dict[str, Any] | None = None, timeout: float = 30.0) -> Any:
@@ -122,6 +245,50 @@ def wait_for_servers(
             f"GPU {physical_gpus[index]}:\n{_tail(log_paths[index], 20)}" for index in sorted(pending)
         )
         raise TimeoutError(f"SGLang replicas did not become ready: {sorted(pending)}\n{details}")
+
+
+def _process_group_exists(pgid: int) -> bool:
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def terminate_server_process_groups(
+    processes: list[subprocess.Popen[Any]],
+    *,
+    grace_period: float = 30.0,
+) -> None:
+    """Stop complete SGLang groups even when their launcher exited first."""
+    if grace_period < 0:
+        raise ValueError("grace_period must be non-negative")
+    pgids = {process.pid for process in processes}
+    for pgid in pgids:
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+
+    deadline = time.monotonic() + grace_period
+    remaining = {pgid for pgid in pgids if _process_group_exists(pgid)}
+    while remaining and time.monotonic() < deadline:
+        time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+        remaining = {pgid for pgid in remaining if _process_group_exists(pgid)}
+
+    for pgid in remaining:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    for process in processes:
+        if process.poll() is None:
+            try:
+                process.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
+                pass
 
 
 def preflight(
@@ -239,6 +406,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--docvqa-root", type=Path, required=True)
     parser.add_argument("--docvqa-data", type=Path)
+    parser.add_argument("--docvqa-skill-file", type=Path)
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--port-base", type=int, default=18080)
     parser.add_argument("--samples", type=int, default=4)
@@ -287,6 +455,11 @@ def main() -> None:
     )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    recorded_skill, skill_metadata = prepare_skill_evidence(
+        args.docvqa_skill_file,
+        args.out_dir,
+        task_name="docvqa",
+    )
     result_path = args.out_dir / "outputs/docvqa.jsonl"
     expected_results = args.limit * args.samples
     ports = [args.port_base + offset for offset in range(len(identities))]
@@ -306,6 +479,8 @@ def main() -> None:
         "limit": args.limit,
         "seed": args.seed,
         "data_path": str(data_path),
+        "sandbox": sandbox_configuration(os.environ),
+        "skill": skill_metadata,
     }
     if args.resume and (result_path.exists() or manifest_path.exists()):
         validate_manifest_fingerprint(manifest_path, manifest_fingerprint)
@@ -330,7 +505,7 @@ def main() -> None:
             log_path = logs_dir / f"gpu{gpu}.log"
             handle = log_path.open("ab", buffering=0)
             env = os.environ.copy()
-            env["CUDA_VISIBLE_DEVICES"] = identity.uuid
+            env["CUDA_VISIBLE_DEVICES"] = sglang_visible_device(identity)
             env["TRACE2SKILL_EAGER_PATCH_DENSE_QWEN3NEXT"] = "1"
             env["TRITON_CACHE_DIR"] = str((logs_dir / "triton_cache" / f"gpu{gpu}").resolve())
             Path(env["TRITON_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
@@ -384,6 +559,8 @@ def main() -> None:
             "limit": args.limit,
             "seed": args.seed,
             "data_path": str(data_path),
+            "sandbox": sandbox_configuration(os.environ),
+            "skill": skill_metadata,
             "protocol": "paper_react_cli",
             "max_react_turns": 50,
             "max_total_tokens": 32768,
@@ -393,40 +570,21 @@ def main() -> None:
         )
 
         evaluator = Path(__file__).resolve().parents[1] / "trace2skill" / "run_trace2skill_vllm_eval16.py"
-        command = [
-            args.python,
-            str(evaluator),
-            "--base-urls",
-            ",".join(endpoints),
-            "--model",
-            SERVED_MODEL,
-            "--tokenizer-path",
-            str(model_path),
-            "--docvqa-root",
-            str(docvqa_root),
-            "--docvqa-data",
-            str(data_path),
-            "--out-dir",
-            str(args.out_dir),
-            "--datasets",
-            "docvqa",
-            "--samples",
-            str(args.samples),
-            "--docvqa-limit",
-            str(args.limit),
-            "--concurrency",
-            str(selected_concurrency),
-            "--seed",
-            str(args.seed),
-            "--docvqa-max-turns",
-            "50",
-            "--docvqa-max-total-tokens",
-            "32768",
-            "--max-errors",
-            "1",
-        ]
-        if args.resume:
-            command.append("--resume")
+        command = evaluator_command(
+            python=args.python,
+            evaluator=evaluator,
+            endpoints=endpoints,
+            model_path=model_path,
+            docvqa_root=docvqa_root,
+            data_path=data_path,
+            out_dir=args.out_dir,
+            samples=args.samples,
+            limit=args.limit,
+            concurrency=selected_concurrency,
+            seed=args.seed,
+            resume=args.resume,
+            docvqa_skill_file=recorded_skill,
+        )
         subprocess.run(command, check=True, env=os.environ.copy())
         validate_results(
             result_path,
@@ -434,17 +592,7 @@ def main() -> None:
             expected_keys=expected_keys,
         )
     finally:
-        for process in processes:
-            if process.poll() is None:
-                os.killpg(process.pid, signal.SIGTERM)
-        deadline = time.monotonic() + 30.0
-        for process in processes:
-            remaining = max(0.0, deadline - time.monotonic())
-            try:
-                process.wait(timeout=remaining)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
+        terminate_server_process_groups(processes)
         for handle in handles:
             handle.close()
 

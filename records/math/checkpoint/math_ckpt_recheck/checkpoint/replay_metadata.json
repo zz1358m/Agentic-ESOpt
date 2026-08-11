@@ -1,0 +1,41 @@
+{
+  "base_model": "/mnt/hdd/zhi/meta-llama/Qwen3.5-4B-text",
+  "history": "/mnt/hdd/zhi/runs/math_es_vllm/math_es_qwen35_4b_25gen_trace2skill_dapo400_test100_aime30_turn50_tok4096_eval1_cosine_resume_gen0_20260805_1645/history.json",
+  "updates": 25,
+  "generations": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "es_parameter_info": {
+    "ok": true,
+    "parameter_scope": "full",
+    "n_tensors": 330,
+    "total_params": 4205751296
+  },
+  "format_stage": "huggingface_safetensors",
+  "hf_tensor_count": 378,
+  "hf_total_size": 8411504128
+}

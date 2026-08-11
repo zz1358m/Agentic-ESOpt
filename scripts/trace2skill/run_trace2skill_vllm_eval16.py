@@ -101,6 +101,7 @@ class DatasetSpec:
     enable_thinking: bool
     max_tokens: int
     limit: int | None = None
+    seed: int | None = None
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -538,8 +539,11 @@ def math_react_messages(
     if prompt_profile == "matched-agentic":
         messages = build_math_messages(str(row.get("question", "")))
     elif prompt_profile == "repo-react-v1":
+        system = REPO_REACT_V1_MATH_SYSTEM
+        if skill_text.strip():
+            system += "\n\nAdditional skill instructions:\n" + skill_text.strip()
         messages = [
-            {"role": "system", "content": REPO_REACT_V1_MATH_SYSTEM},
+            {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": (
@@ -549,6 +553,7 @@ def math_react_messages(
                 ),
             },
         ]
+        return messages
     elif prompt_profile == "trace2skill-upstream":
         messages = [
             {"role": "system", "content": TRACE2SKILL_UPSTREAM_MATH_SYSTEM},
@@ -570,9 +575,7 @@ def docvqa_react_messages(
     row: dict[str, Any], docvqa_root: Path, skill_text: str = ""
 ) -> list[dict[str, Any]]:
     del docvqa_root
-    return append_skill_to_system_message(
-        build_docvqa_messages(str(row.get("question", ""))), skill_text
-    )
+    return build_docvqa_messages(str(row.get("question", "")), skill_text)
 
 
 def response_text(response_json: dict[str, Any]) -> str:
@@ -741,6 +744,7 @@ async def run_math_react(
     row: dict[str, Any],
     row_index: int,
     sample_index: int,
+    base_seed: int,
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], str | None]:
     react_prompt = getattr(args, "math_react_prompt", "matched-agentic")
@@ -753,7 +757,7 @@ async def run_math_react(
     total_usage: dict[str, Any] | None = None
     used_bash = False
     seed_base = sample_seed(
-        base_seed=args.seed,
+        base_seed=base_seed,
         row_index=row_index,
         sample_index=sample_index,
     )
@@ -884,6 +888,7 @@ async def run_docvqa_react(
     row: dict[str, Any],
     row_index: int,
     sample_index: int,
+    base_seed: int,
     docvqa_root: Path,
     args: argparse.Namespace,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]], str | None]:
@@ -898,7 +903,7 @@ async def run_docvqa_react(
     used_tool = False
     last_completion = ""
     seed_base = sample_seed(
-        base_seed=args.seed,
+        base_seed=base_seed,
         row_index=row_index,
         sample_index=sample_index,
     )
@@ -1101,6 +1106,7 @@ async def request_one(
     row: dict[str, Any],
     row_index: int,
     sample_index: int,
+    base_seed: int,
     docvqa_root: Path,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
@@ -1121,6 +1127,7 @@ async def request_one(
                 row=row,
                 row_index=row_index,
                 sample_index=sample_index,
+                base_seed=base_seed,
                 args=args,
             )
         else:
@@ -1131,6 +1138,7 @@ async def request_one(
                 row=row,
                 row_index=row_index,
                 sample_index=sample_index,
+                base_seed=base_seed,
                 docvqa_root=docvqa_root,
                 args=args,
             )
@@ -1175,6 +1183,11 @@ async def request_one(
             "answers": answers,
             "image": row.get("image", ""),
             "mode": "paper_react_cli",
+            "prompt_messages": docvqa_react_messages(
+                row,
+                docvqa_root,
+                args.docvqa_skill_text,
+            ),
             "react_error": react_error,
             "react_steps": react_steps or [],
             "anls": anls,
@@ -1192,7 +1205,7 @@ async def request_one(
         "row_index": row_index,
         "sample_index": sample_index,
         "seed": sample_seed(
-            base_seed=args.seed,
+            base_seed=base_seed,
             row_index=row_index,
             sample_index=sample_index,
         ),
@@ -1202,6 +1215,10 @@ async def request_one(
         "completion": completion,
         "latency_s": latency,
         "error": error,
+        "endpoint": chat_url.removesuffix("/chat/completions"),
+        "termination_reason": (
+            "request_error" if error else react_error or "final_answer"
+        ),
         "usage": usage,
         **extra,
     }
@@ -1273,6 +1290,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
     summary_path = args.out_dir / "summaries" / f"{dataset.name}.summary.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.parent.mkdir(parents=True, exist_ok=True)
+    dataset_seed = args.seed if dataset.seed is None else dataset.seed
 
     done = (
         prepare_resume_output(
@@ -1324,6 +1342,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
                 sample_index=sample_index,
                 samples=args.samples,
             )
+            endpoint_index = chat_urls.index(chat_url)
             async with semaphore:
                 if abort_event.is_set():
                     return
@@ -1335,9 +1354,11 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
                     row=row,
                     row_index=row_index,
                     sample_index=sample_index,
+                    base_seed=dataset_seed,
                     docvqa_root=args.docvqa_root,
                     args=args,
-            )
+                )
+                rec["endpoint_index"] = endpoint_index
             async with write_lock:
                 if args.trace_log_dir is not None:
                     rec["trace_log"] = str(
@@ -1368,6 +1389,7 @@ async def run_dataset(dataset: DatasetSpec, args: argparse.Namespace) -> dict[st
             "data": str(dataset.path),
             "items": len(rows),
             "samples": args.samples,
+            "seed": dataset_seed,
             "expected_records": len(rows) * args.samples,
             "enable_thinking": dataset.enable_thinking,
             "mode": "paper_react_cli" if dataset.kind in ("math", "docvqa") else None,
@@ -1403,6 +1425,7 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             enable_thinking=False,
             max_tokens=args.math_max_tokens,
             limit=min(args.math_limit, 100) if args.math_limit > 0 else 100,
+            seed=args.dapo_seed,
         ),
         "dapo_evolve": DatasetSpec(
             name="dapo_evolve",
@@ -1418,6 +1441,7 @@ def build_datasets(args: argparse.Namespace) -> list[DatasetSpec]:
             enable_thinking=False,
             max_tokens=args.math_max_tokens,
             limit=args.math_limit if args.math_limit > 0 else None,
+            seed=args.aime_seed,
         ),
         "docvqa": DatasetSpec(
             name="docvqa",
@@ -1483,6 +1507,9 @@ async def main_async(args: argparse.Namespace) -> None:
         "trace_log_dir": str(args.trace_log_dir) if args.trace_log_dir else None,
         "datasets": [spec.name for spec in specs],
         "samples": args.samples,
+        "dataset_seeds": {
+            spec.name: args.seed if spec.seed is None else spec.seed for spec in specs
+        },
         "limits": {spec.name: spec.limit for spec in specs if spec.limit is not None},
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "math_tool_cwd": str(args.math_tool_cwd),
@@ -1518,6 +1545,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--request-retries", type=int, default=3)
     parser.add_argument("--max-errors", type=int, default=32)
     parser.add_argument("--seed", type=int, default=20260629)
+    parser.add_argument("--dapo-seed", type=int)
+    parser.add_argument("--aime-seed", type=int)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--top-k", type=int, default=40)

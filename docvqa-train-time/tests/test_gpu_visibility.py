@@ -96,6 +96,15 @@ class GpuVisibilityTests(unittest.TestCase):
         self.assertEqual([identity.index for identity in identities], [3, 4, 5, 6])
         self.assertEqual(MODULE.cuda_visible_devices(identities), expected)
 
+    def test_sglang_child_uses_numeric_physical_index(self) -> None:
+        identity = MODULE.GpuIdentity(
+            index=7,
+            uuid="GPU-target-7",
+            name="NVIDIA A100-SXM4-80GB",
+        )
+
+        self.assertEqual(MODULE.sglang_visible_device(identity), "7")
+
 
 if __name__ == "__main__":
     unittest.main()

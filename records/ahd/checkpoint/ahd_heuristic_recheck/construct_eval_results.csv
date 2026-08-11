@@ -1,0 +1,5 @@
+method,task,program,setting,objective,count,valid_count,failure_count,mean,std,min,max,asp_set_size,candidate_mode,seconds
+EoH+AgenticESOpt1000,tsp,construct_tsp_k1_rep1_final_best_code.py,N=50,min,1000,1000,0,6.4581593740754775,0.409873364425677,5.199737062918384,7.900171530867182,,,
+EoH+AgenticESOpt1000,tsp,construct_tsp_k1_rep1_final_best_code.py,N=100,min,1000,1000,0,8.963778365863739,0.42329723786641316,7.812364611385564,10.677898063356029,,,
+EoH+AgenticESOpt1000,tsp,construct_tsp_k1_rep2_final_best_code.py,N=50,min,1000,1000,0,6.456528515982292,0.41571019944517484,5.15223990200181,7.849177939380922,,,
+EoH+AgenticESOpt1000,tsp,construct_tsp_k1_rep2_final_best_code.py,N=100,min,1000,1000,0,9.008867022329772,0.44452503183722075,7.712406582069763,10.466044670778624,,,

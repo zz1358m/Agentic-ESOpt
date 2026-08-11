@@ -20,6 +20,30 @@ SPEC.loader.exec_module(MODULE)
 
 
 class MathEvaluatorProtocolTests(unittest.TestCase):
+    def test_repo_math_skill_uses_the_original_injection_boundary(self) -> None:
+        messages = MODULE.math_react_messages(
+            {"question": "What is 20+22?"},
+            "repo-react-v1",
+            "Verify the arithmetic with Python.",
+        )
+
+        self.assertIn(
+            "Additional skill instructions:\nVerify the arithmetic with Python.",
+            messages[0]["content"],
+        )
+        self.assertNotIn("<task_skill>", messages[0]["content"])
+
+    def test_docvqa_skill_uses_the_original_protocol_injection(self) -> None:
+        messages = MODULE.docvqa_react_messages(
+            {"question": "What is the invoice number?"},
+            Path("/unused"),
+            "Anchor the label first.",
+        )
+
+        self.assertIn("Anchor the label first.", messages[0]["content"])
+        self.assertIn("bash/OCR", messages[0]["content"])
+        self.assertNotIn("<task_skill>", messages[0]["content"])
+
     def test_evaluator_accepts_only_bash_with_nonempty_command(self) -> None:
         valid = MODULE.parse_react_action(
             'Action: {"name":"bash","arguments":{"command":"python -c \'print(42)\'"}}'
@@ -77,6 +101,7 @@ class MathEvaluatorAsyncTests(unittest.IsolatedAsyncioTestCase):
                     row={"question": "20+22", "answer": "42"},
                     row_index=0,
                     sample_index=0,
+                    base_seed=1,
                     args=args,
                 )
             )

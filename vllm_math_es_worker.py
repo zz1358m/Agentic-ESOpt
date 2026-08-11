@@ -7,6 +7,7 @@ This module is imported inside vLLM worker processes via
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Iterable, Sequence
 
 import torch
@@ -153,6 +154,31 @@ def _apply_dipu_update(
 
 
 class WorkerExtension:
+    def topology_math_es(self) -> dict:
+        device_count = torch.cuda.device_count()
+        current_device = torch.cuda.current_device() if device_count else None
+        properties = (
+            torch.cuda.get_device_properties(current_device)
+            if current_device is not None
+            else None
+        )
+        return {
+            "pid": os.getpid(),
+            "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", ""),
+            "torch_device_count": device_count,
+            "torch_current_device": current_device,
+            "torch_device_name": properties.name if properties is not None else None,
+            "torch_device_uuid": (
+                str(properties.uuid) if properties is not None else None
+            ),
+            "torch_device_pci": (
+                f"{properties.pci_domain_id:04x}:{properties.pci_bus_id:02x}:"
+                f"{properties.pci_device_id:02x}"
+                if properties is not None
+                else None
+            ),
+        }
+
     @torch.no_grad()
     def init_math_es(
         self,

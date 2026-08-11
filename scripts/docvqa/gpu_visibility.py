@@ -131,6 +131,11 @@ def cuda_visible_devices(identities: list[GpuIdentity]) -> str:
     return ",".join(identity.uuid for identity in identities)
 
 
+def sglang_visible_device(identity: GpuIdentity) -> str:
+    """Return the numeric CUDA selector required by SGLang/vLLM 0.5/0.10."""
+    return str(identity.index)
+
+
 def manifest(identities: list[GpuIdentity]) -> dict[str, object]:
     return {
         "physical_gpu_ids": [identity.index for identity in identities],

@@ -1,0 +1,59 @@
+{
+  "results_root": "/home/bayp/Agentic-ESOpt/ahd-test-time/results",
+  "programs": [
+    {
+      "method": "EoH+AgenticESOpt1000",
+      "task": "tsp",
+      "program": "/home/bayp/Agentic-ESOpt/ahd-test-time/results/EoH+AgenticESOpt1000/TSP_construct/construct_tsp_k1_rep1_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.4581593740754775,
+          "std": 0.409873364425677,
+          "min": 5.199737062918384,
+          "max": 7.900171530867182
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 8.963778365863739,
+          "std": 0.42329723786641316,
+          "min": 7.812364611385564,
+          "max": 10.677898063356029
+        }
+      }
+    },
+    {
+      "method": "EoH+AgenticESOpt1000",
+      "task": "tsp",
+      "program": "/home/bayp/Agentic-ESOpt/ahd-test-time/results/EoH+AgenticESOpt1000/TSP_construct/construct_tsp_k1_rep2_final_best_code.py",
+      "results": {
+        "N=50": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 6.456528515982292,
+          "std": 0.41571019944517484,
+          "min": 5.15223990200181,
+          "max": 7.849177939380922
+        },
+        "N=100": {
+          "objective": "min",
+          "count": 1000,
+          "valid_count": 1000,
+          "failure_count": 0,
+          "mean": 9.008867022329772,
+          "std": 0.44452503183722075,
+          "min": 7.712406582069763,
+          "max": 10.466044670778624
+        }
+      }
+    }
+  ]
+}

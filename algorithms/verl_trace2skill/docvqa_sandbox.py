@@ -26,14 +26,15 @@ def _python_runtime_prefix() -> Path:
 
 
 def _runtime_prefixes() -> list[Path]:
-    prefixes = [_python_runtime_prefix()]
-    conda_prefix = os.environ.get("CONDA_PREFIX")
-    if conda_prefix:
-        prefixes.append(Path(conda_prefix))
+    prefixes: list[Path] = []
     tool_prefix = os.environ.get("DOCVQA_TOOL_PREFIX")
     if tool_prefix:
-        prefixes.append(Path(tool_prefix))
-    return prefixes
+        prefixes.append(Path(tool_prefix).absolute())
+    prefixes.append(_python_runtime_prefix())
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        prefixes.append(Path(conda_prefix).absolute())
+    return list(dict.fromkeys(prefixes))
 
 
 def _bwrap_executable(explicit: str | Path | None = None) -> str:
@@ -50,6 +51,18 @@ def _bwrap_executable(explicit: str | Path | None = None) -> str:
             if candidate.is_file():
                 return str(candidate)
     return ""
+
+
+def _apparmor_prefix() -> list[str]:
+    profile = os.environ.get("DOCVQA_BWRAP_APPARMOR_PROFILE", "").strip()
+    if not profile:
+        return []
+    executable = shutil.which("aa-exec")
+    if not executable:
+        raise RuntimeError(
+            "DOCVQA_BWRAP_APPARMOR_PROFILE requires the 'aa-exec' executable"
+        )
+    return [executable, "-p", profile, "--"]
 
 
 def _existing_runtime_roots(extra: tuple[Path, ...]) -> list[Path]:
@@ -121,7 +134,14 @@ def run_sandboxed_bash(
             raise ValueError("memory_limit_gib must be positive or None")
         memory_limit_kib = max(1024, int(memory_limit_gib * 1024 * 1024))
         command = f"ulimit -v {memory_limit_kib}; {command}"
-    args = [bwrap, "--unshare-all", "--new-session", "--die-with-parent", "--clearenv"]
+    args = [
+        *_apparmor_prefix(),
+        bwrap,
+        "--unshare-all",
+        "--new-session",
+        "--die-with-parent",
+        "--clearenv",
+    ]
     made_dirs: set[str] = set()
     for root in roots:
         for parent in _parent_dirs(root):
