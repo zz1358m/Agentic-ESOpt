@@ -1,7 +1,0 @@
-repository: zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt
-resolved_revision: 93a69fe544cd034a79fa4bf6fe14f4190a10d6d7
-resolved_at_utc: 2026-08-10
-resolution_method: huggingface_hub.HfApi.model_info(...).sha
-recovery_mode: direct checkpoint / zero history replay
-source_commit: aadb6b1b98acf99d8ffec124b61c23c9a341ceed
-approved_topology: physical GPUs 3,4,5,6 (four TP=1 replicas; enforced by fixed-commit evaluator)

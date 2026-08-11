@@ -1,5 +1,0 @@
-Attempted CLI (failed before download because the installed hf shim points to a deleted Ray virtualenv):
-hf download zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt --revision 93a69fe544cd034a79fa4bf6fe14f4190a10d6d7 --local-dir /home/bayp/Agentic-ESOpt/records/math/checkpoint/math_ckpt_recheck/checkpoint
-
-Actual pinned download command:
-python -c "from huggingface_hub import snapshot_download; print(snapshot_download(repo_id='zz1358m/Qwen3.5-4B-MATH-ReAct-Agentic-ESOpt', revision='93a69fe544cd034a79fa4bf6fe14f4190a10d6d7', local_dir='/home/bayp/Agentic-ESOpt/records/math/checkpoint/math_ckpt_recheck/checkpoint'))"
