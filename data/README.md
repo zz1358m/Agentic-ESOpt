@@ -42,10 +42,12 @@ Place the
 [VAB-WebArena-Lite at `9055fc2`](https://github.com/THUDM/VisualAgentBench/tree/9055fc299c366ef34700d1710215fb60a0d8c35e/VAB-WebArena-Lite)
 runtime at `data/webarena/vab-lite`, including the generated 812-task
 `config_files/wa/test_webarena` directory and 165-task
-`config_files/wa/test_webarena_lite` directory. Then prepare the released
-split metadata:
+`config_files/wa/test_webarena_lite` directory. Install the released Qwen
+action prompt and the `local_completion` provider used to call the local model
+servers, then prepare the released split metadata:
 
 ```bash
+python webarena-train-time/scripts/install_vab_extensions.py
 python webarena-train-time/scripts/prepare_webarena_nonlite_split.py
 python webarena-train-time/scripts/prepare_vab_webarena_lite_split.py
 ```

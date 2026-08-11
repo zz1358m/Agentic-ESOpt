@@ -14,8 +14,13 @@ Trace2Skill source and the SkillOpt WebArena rollout runtime as described in
 `data/README.md`, then validate the external data with:
 
 ```bash
+python webarena-train-time/scripts/install_vab_extensions.py
 python scripts/check_data.py --task webarena --strict
 ```
+
+The installer adds the tracked Qwen action prompt and the
+`local_completion` provider adapter to the ignored VAB checkout. Use
+`--check` to verify that both extensions are installed without changing it.
 
 Start four model replicas before training or evaluation:
 

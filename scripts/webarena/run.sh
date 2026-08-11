@@ -50,6 +50,13 @@ MIN_P="${WEBARENA_MIN_P:-0.0}"
 PRESENCE_PENALTY="${WEBARENA_PRESENCE_PENALTY:-1.5}"
 REPETITION_PENALTY="${WEBARENA_REPETITION_PENALTY:-1.0}"
 
+VAB_ROOT="${VAB_ROOT:-$ROOT/data/webarena/vab-lite}"
+if ! "$PY" "$ROOT/webarena-train-time/scripts/install_vab_extensions.py" \
+  --vab-root "$VAB_ROOT" --check >/dev/null; then
+  echo "VAB extensions are missing. Run: python webarena-train-time/scripts/install_vab_extensions.py" >&2
+  exit 2
+fi
+
 NO_FINETUNE_TRACE_RUN_ID="${TRACE2SKILL_NO_FINETUNE_RUN_ID:-webarena_trace2skill_no-finetune}"
 AGENTIC_TRACE_RUN_ID="${TRACE2SKILL_AGENTIC_ESOPT_RUN_ID:-webarena_trace2skill_agentic_esopt}"
 NO_FINETUNE_SKILL_FILE="${TRACE2SKILL_NO_FINETUNE_SKILL_FILE:-$ROOT/runs/trace2skill_webarena_sft/$NO_FINETUNE_TRACE_RUN_ID/skill/SKILL.md}"

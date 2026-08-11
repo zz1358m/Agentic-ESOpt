@@ -37,6 +37,12 @@ CHECKS = (
     Check("webarena", "VAB checkout", "data/webarena/vab-lite", "nonempty_dir"),
     Check(
         "webarena",
+        "Qwen prompt and local_completion provider",
+        "data/webarena/vab-lite",
+        "vab_extensions",
+    ),
+    Check(
+        "webarena",
         "released original WebArena source",
         "data/webarena/vab-lite/config_files/wa/test_webarena.raw.json",
         "canonical_json",
@@ -142,9 +148,38 @@ def inspect_webarena_split_contract() -> tuple[bool, str]:
     return True, "582 train + 65 validation + 165 held-out; disjoint and covers original task_id 0..811"
 
 
+def inspect_vab_extensions() -> tuple[bool, str]:
+    vab_root = ROOT / "data/webarena/vab-lite"
+    extensions = ROOT / "webarena-train-time/vab_extensions"
+    overlays = {
+        extensions / "local_completion.py": vab_root / "llms/providers/local_completion.py",
+        extensions / "p_webrl_chat_qwen_action.json": (
+            vab_root / "agent/prompts/jsons/p_webrl_chat_qwen_action.json"
+        ),
+    }
+    for source, target in overlays.items():
+        if not target.is_file():
+            return False, f"missing {target.relative_to(ROOT)}"
+        if source.read_bytes() != target.read_bytes():
+            return False, f"{target.relative_to(ROOT)} differs from the released extension"
+
+    markers = {
+        vab_root / "llms/utils.py": "from llms.providers.local_completion import",
+        vab_root / "llms/lm_config.py": '"local_completion"',
+        vab_root / "llms/tokenizers.py": '"local_completion"',
+        vab_root / "run.py": 'parser.add_argument("--repetition_penalty"',
+    }
+    for path, marker in markers.items():
+        if not path.is_file() or marker not in path.read_text(encoding="utf-8"):
+            return False, f"integration patch missing from {path.relative_to(ROOT)}"
+    return True, "released prompt, provider, and VAB integration patch installed"
+
+
 def inspect(check: Check) -> tuple[bool, str]:
     if check.kind == "webarena_split_contract":
         return inspect_webarena_split_contract()
+    if check.kind == "vab_extensions":
+        return inspect_vab_extensions()
     path = ROOT / check.path
     if not path.exists():
         return False, "missing"

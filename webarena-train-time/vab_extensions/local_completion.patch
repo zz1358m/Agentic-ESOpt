@@ -1,0 +1,97 @@
+diff --git a/llms/utils.py b/llms/utils.py
+--- a/llms/utils.py
++++ b/llms/utils.py
+@@ -15,4 +15,8 @@ from llms import (
+     lm_config,
+ )
+-
++from llms.providers.local_completion import (
++    generate_from_local_chat_completion,
++    generate_from_local_completion,
++)
++
+ APIInput = str | list[Any] | dict[str, Any]
+@@ -25,7 +29,38 @@ def call_llm(
+     base_url = None
+ ) -> str:
+     response: str
+-    if lm_config.provider == "openai":
++    if lm_config.provider == "local_completion":
++        endpoint = base_url or lm_config.gen_config.get("model_endpoint")
++        if not endpoint:
++            raise ValueError("local_completion requires --planner_ip or model_endpoint")
++        if isinstance(prompt, list):
++            response = generate_from_local_chat_completion(
++                messages=prompt,
++                endpoint=endpoint,
++                model=lm_config.model,
++                temperature=lm_config.gen_config["temperature"],
++                max_tokens=lm_config.gen_config["max_tokens"],
++                top_p=lm_config.gen_config["top_p"],
++                top_k=lm_config.gen_config["top_k"],
++                min_p=lm_config.gen_config["min_p"],
++                presence_penalty=lm_config.gen_config["presence_penalty"],
++                repetition_penalty=lm_config.gen_config["repetition_penalty"],
++            )
++        else:
++            assert isinstance(prompt, str)
++            response = generate_from_local_completion(
++                prompt=prompt,
++                endpoint=endpoint,
++                temperature=lm_config.gen_config["temperature"],
++                max_tokens=lm_config.gen_config["max_tokens"],
++                top_p=lm_config.gen_config["top_p"],
++                top_k=lm_config.gen_config["top_k"],
++                min_p=lm_config.gen_config["min_p"],
++                presence_penalty=lm_config.gen_config["presence_penalty"],
++                repetition_penalty=lm_config.gen_config["repetition_penalty"],
++                stop_token=lm_config.gen_config["stop_token"],
++            )
++    elif lm_config.provider == "openai":
+         if lm_config.mode == "chat":
+             assert isinstance(prompt, list)
+             response = generate_from_openai_chat_completion(
+diff --git a/llms/lm_config.py b/llms/lm_config.py
+--- a/llms/lm_config.py
++++ b/llms/lm_config.py
+@@ -34,9 +34,13 @@ def construct_llm_config(args: argparse.Namespace) -> LMConfig:
+     llm_config = LMConfig(
+         provider=args.provider, model=args.model, mode=args.mode
+     )
+-    if args.provider in ["openai", "google", "api", "finetune"]:
++    if args.provider in ["openai", "google", "api", "finetune", "local_completion"]:
+         llm_config.gen_config["temperature"] = args.temperature
+         llm_config.gen_config["top_p"] = args.top_p
++        llm_config.gen_config["top_k"] = args.top_k
++        llm_config.gen_config["min_p"] = args.min_p
++        llm_config.gen_config["presence_penalty"] = args.presence_penalty
++        llm_config.gen_config["repetition_penalty"] = args.repetition_penalty
+         llm_config.gen_config["context_length"] = args.context_length
+         llm_config.gen_config["max_tokens"] = args.max_tokens
+         llm_config.gen_config["stop_token"] = args.stop_token
+diff --git a/llms/tokenizers.py b/llms/tokenizers.py
+--- a/llms/tokenizers.py
++++ b/llms/tokenizers.py
+@@ -17,7 +17,7 @@ class Tokenizer(object):
+             self.tokenizer.add_special_tokens = False  # type: ignore[attr-defined]
+             self.tokenizer.add_bos_token = False  # type: ignore[attr-defined]
+             self.tokenizer.add_eos_token = False  # type: ignore[attr-defined]
+-        elif provider in ["google", "api", "finetune"]:
++        elif provider in ["google", "api", "finetune", "local_completion"]:
+             self.tokenizer = None  # Not used for input length computation, as Gemini is based on characters
+         else:
+             raise NotImplementedError
+diff --git a/run.py b/run.py
+--- a/run.py
++++ b/run.py
+@@ -185,6 +185,10 @@ def config() -> argparse.Namespace:
+     parser.add_argument("--mode", type=str, default="chat")
+     parser.add_argument("--temperature", type=float, default=1.0)
+     parser.add_argument("--top_p", type=float, default=0.9)
++    parser.add_argument("--top_k", type=int, default=None)
++    parser.add_argument("--min_p", type=float, default=None)
++    parser.add_argument("--presence_penalty", type=float, default=0.0)
++    parser.add_argument("--repetition_penalty", type=float, default=1.0)
+     parser.add_argument("--context_length", type=int, default=0)
+     parser.add_argument("--max_tokens", type=int, default=384)
+     parser.add_argument("--stop_token", type=str, default=None)
