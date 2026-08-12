@@ -135,6 +135,11 @@ class FourMethodESAdapterTest(unittest.TestCase):
             history = json.loads((root / "history.json").read_text(encoding="utf-8"))
             self.assertEqual([record["sigma"] for record in history], [0.1, 0.0])
             self.assertEqual([record["sigma_schedule"] for record in history], ["cosine", "cosine"])
+            self.assertEqual([record["engine_count"] for record in history], [2, 2])
+            self.assertEqual([record["generation_concurrency"] for record in history], [2, 2])
+            self.assertEqual([record["evaluation_concurrency"] for record in history], [2, 2])
+            candidate_audit = json.loads((root / "operator_candidates.json").read_text(encoding="utf-8"))
+            self.assertEqual([record["candidate_count"] for record in candidate_audit], [4, 4])
 
             replay_clients = [new_client(), new_client()]
             replay = self.make_interface(
@@ -152,6 +157,39 @@ class FourMethodESAdapterTest(unittest.TestCase):
                 parameter_vector(replay_clients[0].model),
                 parameter_vector(replay_clients[1].model),
             )
+
+    def test_cpu_evaluator_audit_records_four_real_processes(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            interface = self.make_interface([], root / "history.json")
+            interface.n_p = 4
+            interface.timeout = 5
+            del interface._evaluate_offspring_batch_with_timeout
+            interface.current_operator = "m1"
+            def evaluate(code):
+                import time
+
+                time.sleep(0.1)
+                return float(code)
+
+            interface.interface_eval = SimpleNamespace(evaluate=evaluate)
+            interface.evaluator_audit_path = root / "evaluator_processes.json"
+            interface.evaluator_audit = []
+            pairs = [
+                (None, {"code": str(value), "objective": None})
+                for value in (1, 2, 3, 4)
+            ]
+
+            self.assertEqual(interface._evaluate_offspring_batch_with_timeout(pairs), [1.0, 2.0, 3.0, 4.0])
+            audit = json.loads((root / "evaluator_processes.json").read_text(encoding="utf-8"))
+            self.assertEqual(audit[0]["configured_workers"], 4)
+            self.assertEqual(audit[0]["max_concurrent_processes"], 4)
+            self.assertEqual(len(set(audit[0]["process_pids"])), 4)
+            self.assertEqual(len(audit[0]["process_intervals_monotonic"]), 4)
+            self.assertEqual(audit[0]["timed_out_process_intervals_monotonic"], [])
+            latest_start = max(interval[0] for interval in audit[0]["process_intervals_monotonic"])
+            earliest_finish = min(interval[1] for interval in audit[0]["process_intervals_monotonic"])
+            self.assertLess(latest_start, earliest_finish)
 
 
 if __name__ == "__main__":

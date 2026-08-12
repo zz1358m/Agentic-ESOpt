@@ -89,6 +89,12 @@ def parse_args() -> argparse.Namespace:
         default=float(os.environ.get("LLM_LOCAL_TIMEOUT", "600")),
     )
     parser.add_argument("--es-engine-urls", default=os.environ.get("ES_ENGINE_URLS", ""))
+    parser.add_argument(
+        "--es-max-workers",
+        type=int,
+        default=(int(os.environ["ES_MAX_WORKERS"]) if "ES_MAX_WORKERS" in os.environ else None),
+        help="Concurrent model-ES generation workers; defaults to the legacy evaluator-worker cap.",
+    )
     parser.add_argument("--es-operators", default=os.environ.get("ES_OPERATORS", "e1,e2,m1,m2"))
     parser.add_argument("--es-directions", type=int, default=int(os.environ.get("ES_DIRECTIONS", "10")))
     parser.add_argument(
@@ -241,6 +247,13 @@ def main() -> None:
                 "http://127.0.0.1:11015/completions",
                 "http://127.0.0.1:11016/completions",
             ]
+        es_max_workers = (
+            args.es_max_workers
+            if args.es_max_workers is not None
+            else min(args.evaluation_workers, len(es_engine_urls))
+        )
+        if es_max_workers <= 0 or es_max_workers > len(es_engine_urls):
+            raise ValueError("--es-max-workers must be between 1 and the ES engine count")
         sample_es = args.method == "sample_es"
         es_total_generations = args.sample_generations if sample_es else args.ec_generations
         es_warmup_steps = args.es_sigma_warmup_steps
@@ -262,7 +275,7 @@ def main() -> None:
             llm_local_url=es_engine_urls[0],
             llm_es_enabled=True,
             llm_es_engine_urls=es_engine_urls,
-            llm_es_max_workers=min(args.evaluation_workers, len(es_engine_urls)),
+            llm_es_max_workers=es_max_workers,
             llm_es_operators=es_operators,
             llm_es_directions=args.sample_batch_size if sample_es else args.es_directions,
             llm_es_sigma=args.es_sigma_start,

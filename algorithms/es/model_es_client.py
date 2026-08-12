@@ -56,7 +56,7 @@ class ModelESClient:
         reward_normalization_ddof: int = 0,
         reward_normalization_eps: float = 1e-8,
     ):
-        return self._post(
+        result = self._post(
             "/es/update",
             {
                 "seeds": [int(seed) for seed in seeds],
@@ -67,6 +67,8 @@ class ModelESClient:
                 "reward_normalization_eps": float(reward_normalization_eps),
             },
         )
+        result.setdefault("endpoint", self.base_url)
+        return result
 
     def status(self):
         return self._post("/es/status", {})

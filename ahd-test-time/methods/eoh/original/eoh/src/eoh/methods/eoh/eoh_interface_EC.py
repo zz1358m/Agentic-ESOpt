@@ -9,6 +9,7 @@ import concurrent.futures
 import multiprocessing as mp
 import os
 import random
+import queue as queue_module
 import threading
 from pathlib import Path
 
@@ -64,6 +65,12 @@ class InterfaceEC():
             output_root = Path(getattr(self.paras, "exp_output_path", "./")).expanduser().resolve()
             self.model_es_history_path = output_root / "results" / "es" / "history.json"
         self.model_es_history = []
+        output_root = Path(getattr(self.paras, "exp_output_path", "./")).expanduser().resolve()
+        self.candidate_audit_path = output_root / "results" / "history" / "operator_candidates.json"
+        self.evaluator_audit_path = output_root / "results" / "es" / "evaluator_processes.json"
+        self.candidate_audit = []
+        self.evaluator_audit = []
+        self.current_operator = None
 
         if self.llm_use_local and not self.model_es_enabled:
             local_urls = [url.strip() for url in str(self.llm_local_url).split(",") if url.strip()]
@@ -402,10 +409,15 @@ class InterfaceEC():
         queue = ctx.Queue()
         results = [self.invalid_objective] * len(pairs)
         running = {}
+        evaluator_pids = []
+        evaluator_intervals = []
+        timeout_intervals = []
+        received_indices = set()
         next_idx = 0
         max_workers = max(1, int(self.n_p))
 
         def run_eval(idx, code, out_queue):
+            child_started_at = time.monotonic()
             try:
                 with open(os.devnull, "w") as devnull:
                     old_stdout = os.dup(1)
@@ -413,14 +425,16 @@ class InterfaceEC():
                     try:
                         os.dup2(devnull.fileno(), 1)
                         os.dup2(devnull.fileno(), 2)
-                        out_queue.put((idx, self.interface_eval.evaluate(code)))
+                        fitness = self.interface_eval.evaluate(code)
                     finally:
                         os.dup2(old_stdout, 1)
                         os.dup2(old_stderr, 2)
                         os.close(old_stdout)
                         os.close(old_stderr)
             except Exception:
-                out_queue.put((idx, None))
+                fitness = None
+            finally:
+                out_queue.put((idx, fitness, child_started_at, time.monotonic()))
 
         def launch_more():
             nonlocal next_idx
@@ -435,18 +449,22 @@ class InterfaceEC():
                 proc = ctx.Process(target=run_eval, args=(next_idx, code, queue))
                 proc.daemon = True
                 proc.start()
-                running[next_idx] = (proc, time.time())
+                started_at = time.monotonic()
+                running[next_idx] = (proc, started_at)
+                evaluator_pids.append(proc.pid)
                 next_idx += 1
 
         launch_more()
         while running:
             while True:
                 try:
-                    idx, fitness = queue.get_nowait()
+                    idx, fitness, child_started_at, child_finished_at = queue.get_nowait()
                 except Exception:
                     break
                 if fitness is not None and np.isfinite(float(fitness)):
                     results[idx] = fitness
+                received_indices.add(idx)
+                evaluator_intervals.append((child_started_at, child_finished_at))
 
             for idx, (proc, started_at) in list(running.items()):
                 if not proc.is_alive():
@@ -454,18 +472,78 @@ class InterfaceEC():
                     running.pop(idx, None)
                     launch_more()
                     continue
-                if time.time() - started_at >= self.timeout:
+                if time.monotonic() - started_at >= self.timeout:
                     proc.terminate()
                     proc.join(2)
                     if proc.is_alive():
                         proc.kill()
                         proc.join()
+                    timeout_intervals.append((started_at, time.monotonic()))
                     results[idx] = self.invalid_objective
                     running.pop(idx, None)
                     launch_more()
             time.sleep(0.1)
 
+        # A child can put its result after the loop's first queue drain and
+        # exit before the next iteration. Drain once more after every child is
+        # joined so that final result is not silently converted to invalid.
+        drain_deadline = time.monotonic() + 2.0
+        while len(received_indices) < len(evaluator_pids) and time.monotonic() < drain_deadline:
+            try:
+                idx, fitness, child_started_at, child_finished_at = queue.get(timeout=0.1)
+            except queue_module.Empty:
+                continue
+            if fitness is not None and np.isfinite(float(fitness)):
+                results[idx] = fitness
+            received_indices.add(idx)
+            evaluator_intervals.append((child_started_at, child_finished_at))
+
+        events = []
+        for started_at, finished_at in evaluator_intervals:
+            events.append((started_at, 1))
+            events.append((finished_at, -1))
+        concurrent = 0
+        peak_concurrent = 0
+        for _, delta in sorted(events, key=lambda event: (event[0], event[1])):
+            concurrent += delta
+            peak_concurrent = max(peak_concurrent, concurrent)
+
+        if not hasattr(self, "evaluator_audit"):
+            self.evaluator_audit = []
+            self.evaluator_audit_path = self.model_es_history_path.with_name("evaluator_processes.json")
+        self.evaluator_audit.append({
+            "generation": int(getattr(self, "current_generation_index", 0)),
+            "operator": self.current_operator,
+            "configured_workers": max_workers,
+            "max_concurrent_processes": peak_concurrent,
+            "process_pids": evaluator_pids,
+            "process_intervals_monotonic": evaluator_intervals,
+            "timed_out_process_intervals_monotonic": timeout_intervals,
+            "candidate_count": len(pairs),
+        })
+        atomic_write_history(self.evaluator_audit_path, self.evaluator_audit)
         return results
+
+    def _record_candidate_batch(self, operator, offsprings):
+        if not hasattr(self, "candidate_audit"):
+            self.candidate_audit = []
+            self.candidate_audit_path = self.model_es_history_path.with_name("operator_candidates.json")
+        self.candidate_audit.append({
+            "generation": int(getattr(self, "current_generation_index", 0)),
+            "operator": operator,
+            "candidate_count": len(offsprings),
+            "code_count": sum(
+                1 for offspring in offsprings
+                if isinstance(offspring, dict) and offspring.get("code") is not None
+            ),
+            "finite_objective_count": sum(
+                1 for offspring in offsprings
+                if isinstance(offspring, dict)
+                and offspring.get("objective") is not None
+                and np.isfinite(float(offspring["objective"]))
+            ),
+        })
+        atomic_write_history(self.candidate_audit_path, self.candidate_audit)
 
     def _prepare_code_for_evaluation(self, code):
         if not self.use_numba:
@@ -980,6 +1058,9 @@ class InterfaceEC():
             "invalid_reward_strategy": getattr(
                 self.paras, "llm_es_invalid_reward_strategy", "current"
             ),
+            "engine_count": len(self.model_es_clients),
+            "generation_concurrency": max_workers,
+            "evaluation_concurrency": max(1, int(self.n_p)),
             "update_applied": update_applied,
             "update": update_info,
         }
@@ -1007,8 +1088,15 @@ class InterfaceEC():
 
     
     def get_algorithm(self, pop, operator, offspring_count=None):
+        self.current_operator = operator
         if self._operator_uses_model_es(operator):
-            return self._get_algorithm_with_model_es(pop, operator, offspring_count=offspring_count)
+            parents, offsprings = self._get_algorithm_with_model_es(
+                pop,
+                operator,
+                offspring_count=offspring_count,
+            )
+            self._record_candidate_batch(operator, offsprings)
+            return parents, offsprings
 
         if offspring_count is None:
             offspring_count = self._operator_offspring_count(operator)
@@ -1093,6 +1181,7 @@ class InterfaceEC():
             out_off.append(off)
             if self.debug:
                 print(f">>> check offsprings: \n {off}")
+        self._record_candidate_batch(operator, out_off)
         return out_p, out_off
     # def get_algorithm(self,pop,operator, pop_size, n_p):
         
