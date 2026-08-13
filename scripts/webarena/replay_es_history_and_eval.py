@@ -21,6 +21,22 @@ except Exception:  # pragma: no cover
     SummaryWriter = None
 
 
+def contains_fuzzy_match(value: object) -> bool:
+    if isinstance(value, dict):
+        return "fuzzy_match" in value or any(contains_fuzzy_match(item) for item in value.values())
+    if isinstance(value, list):
+        return any(contains_fuzzy_match(item) for item in value)
+    return False
+
+
+def count_fuzzy_tasks(config_dir: Path, task_ids: list[int]) -> int:
+    count = 0
+    for task_id in task_ids:
+        config = json.loads((config_dir / f"{task_id}.json").read_text(encoding="utf-8"))
+        count += int(contains_fuzzy_match(config.get("eval", {})))
+    return count
+
+
 def update_endpoint(endpoint: str, seeds: list[int], rewards: list[float], alpha: float, normalization: str) -> dict:
     update = post_json(
         f"{endpoint}/es/update",
@@ -193,16 +209,39 @@ def main() -> None:
 
     allowed_sites = {site.strip() for site in args.sites.split(",") if site.strip()}
     eval_task_ids = load_tasks(Path(args.eval_split), allowed_sites, args.eval_limit)
+    eval_config_dir = Path(args.config_dir)
+    fuzzy_task_count = count_fuzzy_tasks(eval_config_dir, eval_task_ids)
+    if len(eval_task_ids) == 165 and fuzzy_task_count != 40:
+        raise RuntimeError(
+            f"Expected 40 fuzzy tasks in the 165-task released split, found {fuzzy_task_count}."
+        )
     skill_file = Path(args.skill_file) if args.skill_file else None
     if skill_file is not None and not skill_file.is_file():
         raise FileNotFoundError(skill_file)
+    evaluation_protocol = {
+        "task_count": len(eval_task_ids),
+        "fuzzy_task_count": fuzzy_task_count,
+        "judge_model": "gpt-4.1-mini",
+        "temperature": 0,
+        "judge_failure_policy": "abort_incomplete_repeat",
+        "api_failures_scored_as_zero": False,
+    }
+    (result_root / "evaluation_protocol.json").write_text(
+        json.dumps(evaluation_protocol, indent=2) + "\n",
+        encoding="utf-8",
+    )
     eval_records = []
+    print(
+        f"[evaluator] fuzzy_tasks={fuzzy_task_count} judge_model=gpt-4.1-mini "
+        "temperature=0 judge_failure_policy=abort_incomplete_repeat",
+        flush=True,
+    )
     for repeat in range(1, args.eval_repeats + 1):
         run_name = f"eval_after_replay_{generations:03d}_repeat_{repeat:02d}"
         eval_rec = eval_tasks_distributed(
             endpoints=endpoints,
             task_ids=eval_task_ids,
-            config_dir=Path(args.config_dir),
+            config_dir=eval_config_dir,
             result_root=result_root,
             run_name=run_name,
             skill_file=skill_file,
@@ -224,6 +263,11 @@ def main() -> None:
         )
         write_eval_scalars(writer, f"eval/repeat_{repeat:02d}", eval_rec, generations)
         print(f"[eval_summary] {json.dumps(eval_rec, ensure_ascii=False)}", flush=True)
+        if eval_rec["valid_count"] != eval_rec["count"]:
+            raise RuntimeError(
+                "Final evaluation is incomplete after judge retries: "
+                f"{eval_rec['invalid_task_ids']}"
+            )
 
     averages = [float(record["average"]) for record in eval_records]
     mean = sum(averages) / len(averages) if averages else -1.0
@@ -233,6 +277,7 @@ def main() -> None:
         "available_generations": len(source_history),
         "generations": generations,
         "eval_repeats": args.eval_repeats,
+        "evaluator": evaluation_protocol,
         "run_averages": averages,
         "mean": mean,
         "std": math.sqrt(variance),

@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 EXTENSIONS = ROOT / "webarena-train-time" / "vab_extensions"
 PATCH = EXTENSIONS / "local_completion.patch"
+JUDGE_PATCH = EXTENSIONS / "evaluation_judge.patch"
 OVERLAYS = {
     EXTENSIONS / "local_completion.py": Path("llms/providers/local_completion.py"),
     EXTENSIONS / "p_webrl_chat_qwen_action.json": Path(
@@ -25,6 +26,10 @@ PATCH_MARKERS = {
     Path("llms/tokenizers.py"): '"local_completion"',
     Path("run.py"): 'parser.add_argument("--repetition_penalty"',
 }
+JUDGE_MODEL_EXPRESSION = 'model="gpt-4.1-mini"'
+LEGACY_CONFIGURABLE_JUDGE_EXPRESSION = (
+    'model=os.environ.get("WEBRL_EVAL_MODEL", "gpt-4.1-mini")'
+)
 
 
 def same_file(left: Path, right: Path) -> bool:
@@ -48,15 +53,31 @@ def patch_state(vab_root: Path) -> str:
     return "missing"
 
 
-def git_apply(vab_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def git_apply(vab_root: Path, patch: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["git", "apply", *args, str(PATCH)],
+        ["git", "apply", *args, str(patch)],
         cwd=vab_root,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
     )
+
+
+def judge_patch_state(vab_root: Path) -> str:
+    helper = vab_root / "evaluation_harness/helper_functions.py"
+    if not helper.is_file():
+        raise FileNotFoundError(f"VAB evaluator source file not found: {helper}")
+    text = helper.read_text(encoding="utf-8")
+    model_sites = text.count(JUDGE_MODEL_EXPRESSION)
+    configurable_sites = text.count(LEGACY_CONFIGURABLE_JUDGE_EXPRESSION)
+    if model_sites == 2:
+        return "installed"
+    if configurable_sites == 2 and model_sites == 0:
+        return "legacy-configurable"
+    if model_sites == 0 and configurable_sites == 0:
+        return "missing"
+    return "partial"
 
 
 def overlay_conflicts(vab_root: Path) -> list[tuple[Path, Path]]:
@@ -73,13 +94,19 @@ def check(vab_root: Path) -> tuple[bool, list[str]]:
     state = patch_state(vab_root)
     patch_ok = state == "installed"
     messages.append(f"VAB local_completion patch: {state}")
+    judge_state = judge_patch_state(vab_root)
+    judge_ok = judge_state == "installed"
+    messages.append(
+        "VAB GPT judge patch: "
+        f"{judge_state} (hard-coded gpt-4.1-mini)"
+    )
     overlays_ok = True
     for source, relative_target in OVERLAYS.items():
         target = vab_root / relative_target
         installed = same_file(source, target)
         overlays_ok &= installed
         messages.append(f"VAB overlay {relative_target}: {'installed' if installed else 'missing or different'}")
-    return patch_ok and overlays_ok, messages
+    return patch_ok and judge_ok and overlays_ok, messages
 
 
 def install(vab_root: Path, force: bool) -> None:
@@ -90,6 +117,25 @@ def install(vab_root: Path, force: bool) -> None:
             "VAB files to VisualAgentBench commit 9055fc2 or complete the patch manually."
         )
 
+    judge_state = judge_patch_state(vab_root)
+    if judge_state == "partial":
+        raise RuntimeError(
+            "The VAB GPT judge patch is only partially installed. Restore "
+            "evaluation_harness/helper_functions.py to the VAB overlay from "
+            "VisualAgentBench commit 9055fc2, then rerun this installer."
+        )
+
+    if judge_state == "legacy-configurable":
+        helper = vab_root / "evaluation_harness/helper_functions.py"
+        text = helper.read_text(encoding="utf-8").replace(
+            LEGACY_CONFIGURABLE_JUDGE_EXPRESSION,
+            JUDGE_MODEL_EXPRESSION,
+        )
+        if "os." not in text:
+            text = text.replace("import os\n", "", 1)
+        helper.write_text(text, encoding="utf-8")
+        judge_state = "installed"
+
     conflicts = overlay_conflicts(vab_root)
     if conflicts and not force:
         paths = ", ".join(str(target) for _, target in conflicts)
@@ -99,14 +145,26 @@ def install(vab_root: Path, force: bool) -> None:
         )
 
     if state == "missing":
-        result = git_apply(vab_root, "--check")
+        result = git_apply(vab_root, PATCH, "--check")
         if result.returncode != 0:
             raise RuntimeError(
                 "The VAB integration patch does not apply cleanly. Expected the "
                 "VAB-WebArena-Lite overlay from VisualAgentBench commit 9055fc2.\n"
                 + result.stdout.strip()
             )
-        result = git_apply(vab_root)
+        result = git_apply(vab_root, PATCH)
+        if result.returncode != 0:
+            raise RuntimeError(result.stdout.strip())
+
+    if judge_state == "missing":
+        result = git_apply(vab_root, JUDGE_PATCH, "--check")
+        if result.returncode != 0:
+            raise RuntimeError(
+                "The VAB GPT judge patch does not apply cleanly. Expected the "
+                "VAB-WebArena-Lite overlay from VisualAgentBench commit 9055fc2.\n"
+                + result.stdout.strip()
+            )
+        result = git_apply(vab_root, JUDGE_PATCH)
         if result.returncode != 0:
             raise RuntimeError(result.stdout.strip())
 

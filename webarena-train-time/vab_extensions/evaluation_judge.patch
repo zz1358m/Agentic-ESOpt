@@ -1,0 +1,11 @@
+diff --git a/evaluation_harness/helper_functions.py b/evaluation_harness/helper_functions.py
+--- a/evaluation_harness/helper_functions.py
++++ b/evaluation_harness/helper_functions.py
+@@ -601,2 +601,2 @@ def llm_fuzzy_match(pred: str, reference: str, question: str) -> float:
+-        model="gpt-4-1106-preview",
++        model="gpt-4.1-mini",
+         messages=messages,
+@@ -636,2 +636,2 @@ def llm_ua_match(pred: str, reference: str, question: str) -> float:
+-        model="gpt-4-1106-preview",
++        model="gpt-4.1-mini",
+         messages=messages,

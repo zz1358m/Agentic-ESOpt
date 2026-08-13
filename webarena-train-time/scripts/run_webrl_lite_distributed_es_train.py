@@ -128,10 +128,13 @@ def eval_tasks_distributed(
 
     scores = [{"task_id": task_id, "score": scores_by_task[task_id]} for task_id in task_ids]
     valid = [row["score"] for row in scores if row["score"] >= 0.0]
+    invalid_task_ids = [row["task_id"] for row in scores if row["score"] < 0.0]
     return {
         "run_name": run_name,
         "count": len(scores),
         "valid_count": len(valid),
+        "invalid_count": len(invalid_task_ids),
+        "invalid_task_ids": invalid_task_ids,
         "average": sum(valid) / len(valid) if valid else -1.0,
         "max": max(valid) if valid else -1.0,
         "scores": scores,
@@ -355,6 +358,7 @@ def main() -> None:
         f"parameter_scope={args.parameter_scope} "
         f"replay_generations={args.replay_generations} "
         f"replay_source={replay_source_root or ''} "
+        "judge_model=gpt-4.1-mini "
         f"train_config_dir={train_config_dir or ''} eval_config_dir={config_dir} "
         f"tensorboard_dir={tensorboard_dir if writer is not None else ''}",
         flush=True,
@@ -375,6 +379,7 @@ def main() -> None:
         "seed": args.seed,
         "replay_generations": args.replay_generations,
         "replay_source": str(replay_source_root) if replay_source_root else "",
+        "judge_model": "gpt-4.1-mini",
     }
     (result_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     if args.eval_only:

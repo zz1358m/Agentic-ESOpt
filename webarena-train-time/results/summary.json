@@ -7,6 +7,14 @@
     "top_p": 0.8,
     "top_k": 20
   },
+  "evaluation_protocol": {
+    "fuzzy_task_count": 40,
+    "fuzzy_answer_task_count": 36,
+    "fuzzy_program_html_task_count": 4,
+    "judge_model": "gpt-4.1-mini",
+    "judge_temperature": 0,
+    "judge_performs_agent_actions": false
+  },
   "results": [
     {
       "setting": "noskill-no-finetune",

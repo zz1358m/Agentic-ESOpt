@@ -244,13 +244,14 @@ def run_episode(
         for key in ("DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY"):
             env.pop(key, None)
         api_key_path = ROOT / "apikey"
+        openai_api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not openai_api_key and api_key_path.exists():
+            openai_api_key = api_key_path.read_text().strip()
         env.update(
             {
                 "DATASET": "webarena",
                 **WEB_URLS,
-                "OPENAI_API_KEY": api_key_path.read_text().strip() if api_key_path.exists() else "dummy",
-                # This is the VAB benchmark grader, not a Trace2Skill analysis/evolution model.
-                "WEBRL_EVAL_MODEL": os.environ.get("WEBRL_EVAL_MODEL", "gpt-4.1-mini"),
+                "OPENAI_API_KEY": openai_api_key or "dummy",
                 "PYTHONPATH": str(VAB),
             }
         )
@@ -332,6 +333,14 @@ def run_episode(
             (result_dir / "timeout.log").write_text(output, encoding="utf-8")
             return 0.0
         (result_dir / "run.log").write_text(proc.stdout)
+        judge_error_markers = (
+            "[OpenAI Error]",
+            "Maximum number of retries",
+        )
+        if any(marker in proc.stdout for marker in judge_error_markers):
+            # A judge/API failure is not an agent failure. Return a distinct
+            # invalid score so final evaluation aborts instead of scoring 0.
+            return -1.0
         action_paths = sorted((result_dir / "actions").glob("*.json"))
         if not action_paths:
             return 0.0
