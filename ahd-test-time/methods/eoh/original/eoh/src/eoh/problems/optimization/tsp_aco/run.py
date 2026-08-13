@@ -5,10 +5,26 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy.spatial import distance_matrix
 
-from .aco import ACO
 from ..settings_prompts import SettingsPrompts
+
+
+def _resolve_repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "algorithms" / "ahd" / "aco_tsp_evaluator.py").is_file():
+            return parent
+    raise RuntimeError("Could not resolve Agentic-ESOpt repository root.")
+
+
+REPO_ROOT = _resolve_repo_root()
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from algorithms.ahd.aco_tsp_evaluator import (
+    seed_aco_random_stream,
+    select_heuristic_function,
+    solve_tsp_instance,
+)
 
 
 def _resolve_root() -> Path:
@@ -30,10 +46,7 @@ def _resolve_instances(root: Path, split: str, problem_size: int) -> np.ndarray:
 
 
 def _get_heuristic_name(module) -> str:
-    for name in ["heuristics", "heuristics_v1", "heuristics_v2", "heuristics_v3"]:
-        if callable(getattr(module, name, None)):
-            return name
-    raise AttributeError("No heuristic function found.")
+    return select_heuristic_function(module)[0]
 
 
 class TSPACO:
@@ -42,6 +55,7 @@ class TSPACO:
         self.prompts = SettingsPrompts("tsp_aco")
         self.n_iterations = 100
         self.n_ants = 30
+        self.evaluation_seed = int(getattr(paras, "evaluation_seed", 1234))
 
         split = str(getattr(paras, "data_split", "train"))
         data_root = _resolve_root()
@@ -52,14 +66,12 @@ class TSPACO:
         self.node_positions = _resolve_instances(data_root, split, self.problem_size).astype(float)
 
     def solve(self, node_pos, heuristics):
-        dist_mat = distance_matrix(node_pos, node_pos)
-        dist_mat[np.diag_indices_from(dist_mat)] = 1
-        heu = np.asarray(heuristics(dist_mat.copy()), dtype=float) + 1e-9
-        if heu.shape != dist_mat.shape:
-            raise ValueError("Heuristic shape mismatch.")
-        heu[heu < 1e-9] = 1e-9
-        aco = ACO(dist_mat, heu, n_ants=self.n_ants)
-        return float(aco.run(self.n_iterations))
+        return solve_tsp_instance(
+            heuristics,
+            np.asarray(node_pos),
+            n_iterations=self.n_iterations,
+            n_ants=self.n_ants,
+        )
 
     def evaluate(self, code_string):
         try:
@@ -72,7 +84,12 @@ class TSPACO:
                 heuristics = getattr(heuristic_module, _get_heuristic_name(heuristic_module))
 
                 objs = []
-                for node_pos in self.node_positions:
+                for instance_index, node_pos in enumerate(self.node_positions):
+                    seed_aco_random_stream(
+                        getattr(self, "evaluation_seed", 1234)
+                        + self.problem_size * 1_000
+                        + instance_index
+                    )
                     objs.append(self.solve(node_pos, heuristics))
                 return float(np.mean(objs))
         except Exception:

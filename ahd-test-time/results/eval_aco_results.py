@@ -19,6 +19,7 @@ import inspect
 import json
 import math
 import re
+import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,14 +27,24 @@ from typing import Any
 
 import numpy as np
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 try:
     import torch
     from torch.distributions import Categorical
 except ImportError as exc:  # pragma: no cover - surfaced at runtime.
     raise SystemExit("ACO eval requires torch. Install torch or run in the project env.") from exc
 
+from algorithms.ahd.aco_tsp_evaluator import (
+    FrozenTspAco,
+    seed_aco_random_stream,
+    select_heuristic_function,
+    solve_tsp_instance,
+)
 
-ROOT = Path(__file__).resolve().parents[2]
+
 RESULTS_ROOT = ROOT / "ahd-test-time" / "results"
 DATA_ROOT = ROOT / "data" / "ahd" / "datasets"
 
@@ -68,18 +79,7 @@ def load_module(path: Path) -> Any:
 
 
 def get_heuristics(module: Any) -> Any:
-    names = ["heuristics", "heuristics_v1", "heuristics_v2", "heuristics_v3", "heuristics_v4"]
-    for name in names:
-        if hasattr(module, name):
-            candidate = getattr(module, name)
-            if callable(candidate):
-                return candidate
-    for name in dir(module):
-        if name.startswith("heuristics_v"):
-            candidate = getattr(module, name)
-            if callable(candidate):
-                return candidate
-    raise AttributeError("Candidate module has no heuristics function.")
+    return select_heuristic_function(module)[1]
 
 
 def pairwise_distances(points: np.ndarray) -> np.ndarray:
@@ -96,53 +96,7 @@ def sanitize_heuristic(heuristic: np.ndarray, shape: tuple[int, int]) -> np.ndar
     return heuristic
 
 
-class TspAco:
-    def __init__(self, distances: np.ndarray, heuristic: np.ndarray, n_ants: int = 30, decay: float = 0.9):
-        self.problem_size = len(distances)
-        self.distances = torch.tensor(distances, dtype=torch.float32)
-        self.heuristic = torch.tensor(heuristic, dtype=torch.float32)
-        self.n_ants = n_ants
-        self.decay = decay
-        self.pheromone = torch.ones_like(self.distances)
-        self.lowest_cost = float("inf")
-
-    @torch.no_grad()
-    def run(self, n_iterations: int) -> float:
-        for _ in range(n_iterations):
-            paths = self.gen_path()
-            costs = self.gen_path_costs(paths)
-            best_cost = costs.min().item()
-            if best_cost < self.lowest_cost:
-                self.lowest_cost = best_cost
-            self.update_pheromone(paths, costs)
-        return float(self.lowest_cost)
-
-    def gen_path(self) -> torch.Tensor:
-        start = torch.randint(low=0, high=self.problem_size, size=(self.n_ants,))
-        mask = torch.ones((self.n_ants, self.problem_size), dtype=torch.float32)
-        mask[torch.arange(self.n_ants), start] = 0
-        paths = [start]
-        prev = start
-        for _ in range(self.problem_size - 1):
-            dist = self.pheromone[prev] * self.heuristic[prev] * mask
-            actions = Categorical(dist).sample()
-            paths.append(actions)
-            prev = actions
-            mask[torch.arange(self.n_ants), actions] = 0
-        return torch.stack(paths)
-
-    def gen_path_costs(self, paths: torch.Tensor) -> torch.Tensor:
-        u = paths.T
-        v = torch.roll(u, shifts=1, dims=1)
-        return torch.sum(self.distances[u, v], dim=1)
-
-    def update_pheromone(self, paths: torch.Tensor, costs: torch.Tensor) -> None:
-        self.pheromone *= self.decay
-        for i in range(self.n_ants):
-            path = paths[:, i]
-            cost = costs[i]
-            self.pheromone[path, torch.roll(path, shifts=1)] += 1.0 / cost
-            self.pheromone[torch.roll(path, shifts=1), path] += 1.0 / cost
+TspAco = FrozenTspAco
 
 
 class CvrpAco:
@@ -341,10 +295,12 @@ class BppAco:
 
 
 def solve_tsp(heuristics: Any, node_pos: np.ndarray, n_iterations: int, n_ants: int) -> float:
-    dist = pairwise_distances(node_pos)
-    dist[np.diag_indices_from(dist)] = 1
-    heuristic = sanitize_heuristic(heuristics(dist.copy()), dist.shape)
-    return TspAco(dist, heuristic, n_ants=n_ants).run(n_iterations)
+    return solve_tsp_instance(
+        heuristics,
+        node_pos,
+        n_iterations=n_iterations,
+        n_ants=n_ants,
+    )
 
 
 def solve_cvrp(heuristics: Any, instance: np.ndarray, n_iterations: int, n_ants: int, capacity: int) -> float:
@@ -435,8 +391,7 @@ def collect_values(
     for instance_index, instance in enumerate(instances):
         try:
             instance_seed = (int(seed) + instance_offset + instance_index) % (2**32)
-            np.random.seed(instance_seed)
-            torch.manual_seed(instance_seed)
+            seed_aco_random_stream(instance_seed)
             value = float(solver(instance))
             if not math.isfinite(value):
                 raise ValueError(f"non-finite evaluator result: {value}")

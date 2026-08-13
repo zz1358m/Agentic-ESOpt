@@ -153,6 +153,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=int(os.environ.get("EVALUATION_WORKERS", "4")),
     )
+    parser.add_argument(
+        "--evaluation-seed",
+        type=int,
+        default=int(os.environ.get("AHD_EVALUATION_SEED", "1234")),
+        help="Seed shared by ACO-TSP training, validation, and final evaluation.",
+    )
     parser.add_argument("--sample-total", type=int, default=int(os.environ.get("SAMPLE_TOTAL", "1000")))
     parser.add_argument(
         "--sample-batch-size",
@@ -207,6 +213,8 @@ def main() -> None:
         raise ValueError("sample generations must be positive.")
     if args.evaluation_workers <= 0:
         raise ValueError("evaluation workers must be positive.")
+    if args.evaluation_seed < 0 or args.evaluation_seed >= 2**32:
+        raise ValueError("evaluation seed must be in [0, 2**32).")
 
     es_sigma_end = args.es_sigma_end
     if es_sigma_end is None:
@@ -312,6 +320,7 @@ def main() -> None:
             exp_continue_path=args.continue_path,
             exp_continue_id=args.continue_id,
             eva_invalid_objective=float("inf"),
+            evaluation_seed=args.evaluation_seed,
             exp_debug_mode=False,
         )
     else:
@@ -356,6 +365,7 @@ def main() -> None:
                 )
             ),
             eva_invalid_objective=float("inf"),
+            evaluation_seed=args.evaluation_seed,
             llm_local_timeout=args.llm_local_timeout,
             exp_debug_mode=False,
         )

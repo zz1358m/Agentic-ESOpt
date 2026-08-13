@@ -21,8 +21,11 @@ ES_SIGMA_SCHEDULE="${ES_SIGMA_SCHEDULE:-cosine}"
 ES_SIGMA_WARMUP_STEPS="${ES_SIGMA_WARMUP_STEPS:-0}"
 ES_SEED="${ES_SEED:-2024}"
 ES_INVALID_REWARD_STRATEGY="${ES_INVALID_REWARD_STRATEGY:-current}"
+AHD_EVALUATION_SEED="${AHD_EVALUATION_SEED:-1234}"
+export AHD_EVALUATION_SEED
 STAMP="${STAMP:-$(date -u +%Y%m%d_%H%M%S)}"
 RUNNER="$ROOT/ahd-test-time/scripts/run_eoh_ahd.py"
+ACO_TSP_VALIDATION_GATE="$ROOT/scripts/ahd/aco_tsp_validation_gate.py"
 
 usage() {
   echo "usage: $0 {eoh|sample|agentic-esopt-eoh|agentic-esopt-sample}" >&2
@@ -92,6 +95,26 @@ for task in "${TASKS[@]}"; do
           --run-id "$run_id"
         ;;
     esac
+    if [ "$MODE" = "agentic-esopt-sample" ] && [ "$task" = "aco_tsp" ]; then
+      generation=$((BUDGET / BATCH_SIZE))
+      mapfile -d '' run_roots < <(
+        find "$ROOT/cache/active_runs" -mindepth 1 -maxdepth 1 -type d \
+          -name "*_${run_id}" -print0
+      )
+      if [ "${#run_roots[@]}" -ne 1 ]; then
+        echo "expected exactly one completed ACO-TSP run root for run_id=$run_id; found ${#run_roots[@]}" >&2
+        exit 1
+      fi
+      population_json="${run_roots[0]}/results/pops_best/population_generation_${generation}.json"
+      if [ ! -f "$population_json" ]; then
+        echo "final ACO-TSP population artifact not found: $population_json" >&2
+        exit 1
+      fi
+      validation_root="${run_roots[0]}/frozen_validation"
+      "$PY" -u "$ACO_TSP_VALIDATION_GATE" \
+        --population-json "$population_json" \
+        --output "$validation_root/validation.json"
+    fi
     echo "[done] mode=$MODE task=$task rep=$rep"
   done
 done

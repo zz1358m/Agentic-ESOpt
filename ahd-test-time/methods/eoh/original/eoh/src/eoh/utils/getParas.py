@@ -84,6 +84,7 @@ class Paras():
         self.eva_timeout = 30
         self.eva_numba_decorator = False
         self.eva_invalid_objective = float("inf")
+        self.evaluation_seed = 1234
 
 
     def set_parallel(self):
