@@ -1,0 +1,284 @@
+{
+  "status": "passed",
+  "sourceConsistency": [
+    {
+      "check": "Math curves equal parsed training history",
+      "status": "passed"
+    },
+    {
+      "check": "DocVQA curves equal parsed training history",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 5 public curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 5 GRPO \u00b7 recommended sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 5 GRPO \u00b7 exploration sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 10 public curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 10 GRPO \u00b7 recommended sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 10 GRPO \u00b7 exploration sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 15 public curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 15 GRPO \u00b7 recommended sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 15 GRPO \u00b7 exploration sampling curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku mask 15 Vanilla ES curves match every parsed log point",
+      "status": "passed"
+    },
+    {
+      "check": "Sudoku favorable eligible case maximizes three-repeat base-to-final gain and links five same-case outputs",
+      "status": "passed"
+    },
+    {
+      "check": "WebArena public curve matches every CSV evaluation row",
+      "status": "passed"
+    },
+    {
+      "check": "WebArena favorable eligible case maximizes three-repeat No Skill-to-ESOpt gain and improves monotonically in training",
+      "status": "passed"
+    },
+    {
+      "check": "WebArena selected cases retain all four settings and three repeats",
+      "status": "passed"
+    },
+    {
+      "check": "AHD public configurations map to retained final heuristics",
+      "status": "passed"
+    },
+    {
+      "check": "AHD default curve matches every parsed search generation",
+      "status": "passed"
+    },
+    {
+      "check": "AHD aco_tsp Stage 3 recheck has an execution-side PASS pending final review",
+      "status": "passed"
+    },
+    {
+      "check": "AHD ACO-TSP frozen test provides a complete TSP-50 single-instance minimum",
+      "status": "passed"
+    },
+    {
+      "check": "AHD ACO-TSP frozen test evaluates the generation-50 heuristic code modulo surrounding whitespace",
+      "status": "passed"
+    },
+    {
+      "check": "AHD ACO-TSP Stage 3 execution-side PASS exposes a sub-6 objective across three distinct heuristic versions",
+      "status": "passed"
+    },
+    {
+      "check": "AHD favorable eligible case has a lower final objective and larger gain than the other accepted multi-version code replay",
+      "status": "passed"
+    },
+    {
+      "check": "Scaling payload contains one row for each 4B/9B by G=8/16 setting",
+      "status": "passed"
+    },
+    {
+      "check": "sudoku.json row 'PPO' matches main.tex tab:sudoku-agentic-summary cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "sudoku.json row 'GRPO' matches main.tex tab:sudoku-agentic-summary cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "sudoku.json row 'Vanilla ES' matches main.tex tab:sudoku-agentic-summary cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "sudoku.json row 'Agentic ESOpt' matches main.tex tab:sudoku-agentic-summary cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'No Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'GRPO' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'Agentic ESOpt' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'GRPO + Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "math.json row 'Agentic ESOpt + Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'No Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'GRPO' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'Agentic ESOpt' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'GRPO + Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "docvqa.json row 'Agentic ESOpt + Trace2Skill' matches main.tex tab:math-docvqa cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "webarena.json row 'No Skill' matches main.tex tab:webarena cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "webarena.json row 'Agentic ESOpt' matches main.tex tab:webarena cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "webarena.json row 'Trace2Skill' matches main.tex tab:webarena cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "webarena.json row 'Agentic ESOpt + Trace2Skill' matches main.tex tab:webarena cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "ahd.json row 'EoH' matches main.tex tab:ahd-construct cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "ahd.json row 'Agentic ESOpt + EoH' matches main.tex tab:ahd-construct cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "ahd.json row 'EoH' matches main.tex tab:ahd-construct cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "ahd.json row 'Agentic ESOpt + EoH' matches main.tex tab:ahd-construct cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "scaling.json row '4B' matches main.tex tab:population-scaling cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "scaling.json row '4B' matches main.tex tab:population-scaling cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "scaling.json row '9B' matches main.tex tab:population-scaling cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "scaling.json row '9B' matches main.tex tab:population-scaling cell by cell",
+      "status": "passed"
+    },
+    {
+      "check": "Public paper PDF copied from a manuscript build newer than main.tex",
+      "status": "passed"
+    }
+  ],
+  "publicPayloads": {
+    "ahd.json": {
+      "curves": 73,
+      "curvePoints": 1850,
+      "checkpoints": 1800,
+      "selectedCases": 144,
+      "finalResultRows": 4,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    },
+    "docvqa.json": {
+      "curves": 2,
+      "curvePoints": 45,
+      "checkpoints": 41,
+      "selectedCases": 2,
+      "finalResultRows": 6,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    },
+    "math.json": {
+      "curves": 3,
+      "curvePoints": 33,
+      "checkpoints": 26,
+      "selectedCases": 4,
+      "finalResultRows": 6,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    },
+    "scaling.json": {
+      "curves": 0,
+      "curvePoints": 0,
+      "checkpoints": 0,
+      "selectedCases": 0,
+      "finalResultRows": 4,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    },
+    "sudoku.json": {
+      "curves": 24,
+      "curvePoints": 1118,
+      "checkpoints": 0,
+      "selectedCases": 3,
+      "finalResultRows": 4,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    },
+    "webarena.json": {
+      "curves": 1,
+      "curvePoints": 7,
+      "checkpoints": 0,
+      "selectedCases": 6,
+      "finalResultRows": 4,
+      "privatePathScan": "passed",
+      "localEndpointScan": "passed",
+      "contactPatternScan": "passed"
+    }
+  },
+  "publishedAssets": {
+    "selectedDocumentImages": 2,
+    "paperPdfs": 1,
+    "rawLogDownloads": 0
+  }
+}

@@ -2,6 +2,11 @@
 
 [English](README.md)
 
+[项目网页](https://zz1358m.github.io/Agentic-ESOpt/) ·
+[论文](https://zz1358m.github.io/Agentic-ESOpt/paper/) ·
+[代码](https://github.com/zz1358m/Agentic-ESOpt) ·
+[模型权重](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
+
 Agentic-ESOpt 使用带随机种子、可重放的进化策略，根据智能体 rollout
 奖励优化语言模型权重。本仓库包含共享优化器、任务运行脚本、对比基线、
 Trace2Skill 流程，以及五类智能体任务中保留的实验日志。
@@ -57,6 +62,7 @@ docvqa-train-time/          DocVQA 环境、运行脚本和日志
 webarena-train-time/        WebArena 环境、集成和日志
 ahd-test-time/              EoH/AHD 运行时、评测器和程序
 data/                       稳定的数据约定和小型源数据
+website/                    交互式论文网页与公开证据
 ```
 
 简要入口映射见 [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md)，每个维护中运行入口的

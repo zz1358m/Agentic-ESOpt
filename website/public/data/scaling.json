@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "task": "scaling",
+    "title": "Model-size and ES Population Scaling",
+    "method": "Vanilla ES",
+    "sourceFiles": [
+      "paper scaling ablation"
+    ],
+    "note": "Sudoku Mask-15 Vanilla-ES ablation over model sizes 4B/9B and ES population sizes G=8/16. G means perturbation directions per update, not physical compute nodes."
+  },
+  "configurations": [
+    {
+      "axis": "modelSize",
+      "values": [
+        "4B",
+        "9B"
+      ]
+    },
+    {
+      "axis": "esPopulationSize",
+      "symbol": "G",
+      "values": [
+        8,
+        16
+      ],
+      "meaning": "perturbation directions per ES update"
+    }
+  ],
+  "curves": [],
+  "checkpoints": [],
+  "cases": [],
+  "finalResults": [
+    {
+      "model": "4B",
+      "population": 8,
+      "best": 5.1,
+      "final": 2.95
+    },
+    {
+      "model": "4B",
+      "population": 16,
+      "best": 35.42,
+      "final": 22.92,
+      "bestRelative": 594.5,
+      "finalRelative": 677.0
+    },
+    {
+      "model": "9B",
+      "population": 8,
+      "best": 30.21,
+      "final": 30.21
+    },
+    {
+      "model": "9B",
+      "population": 16,
+      "best": 37.5,
+      "final": 30.21,
+      "bestRelative": 24.1,
+      "finalRelative": 0.0
+    }
+  ]
+}
