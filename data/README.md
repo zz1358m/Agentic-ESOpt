@@ -43,8 +43,9 @@ Place the
 runtime at `data/webarena/vab-lite`, including the generated 812-task
 `config_files/wa/test_webarena` directory and 165-task
 `config_files/wa/test_webarena_lite` directory. Install the released Qwen
-action prompt and the `local_completion` provider used to call the local model
-servers, then prepare the released split metadata:
+action prompt, the `local_completion` provider used to call the local model
+servers, and the fixed `gpt-4.1-mini` benchmark-judge patch, then prepare the
+released split metadata:
 
 ```bash
 python webarena-train-time/scripts/install_vab_extensions.py

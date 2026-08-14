@@ -128,7 +128,7 @@ GPU memory utilization 0.82。
 | `trace2skill_no-finetune distill` | fixed base weights; 70 skill steps, 8 tasks/step, 8 rollouts/task, at most one positive + one usable negative per task, skill update every step, eval every 10 steps, 32 rollout workers, 16 analysis workers, empty initial skill, seed `20260605` |
 | `trace2skill_agentic_esopt distill` | all completed generations and all trajectories from the NoSkill ES run, HTML limit 12000, empty initial skill, committed WebArena success/error prompts, `gpt-5.4-nano`, 16 analysis workers, medium analysis/skill/consolidation effort, seed `20260721`, unlimited skill lines/tokens and zero references |
 | `trace2skill_agentic_esopt test` | 重放同一份 NoSkill Agentic-ESOpt history，只在最终评测时注入蒸馏后的 `SKILL.md`；蒸馏后不再执行 ES update |
-| all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn |
+| all `test` stages | reset/init clean replicas, replay zero or all selected ES updates, 3 repeats over all 165 tasks, 8 workers/replica, 30 turns, 2048 tokens/turn; 40 fuzzy tasks use `gpt-4.1-mini` judge at temperature 0, evaluator failures abort the incomplete repeat and never become score 0 |
 
 训练和最终评测统一使用 `T=0.7`、top-p `0.8`、top-k `20`、min-p
 `0.0`、presence penalty `1.5`、repetition penalty `1.0`。训练使用从原始

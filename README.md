@@ -246,6 +246,14 @@ checkouts, and service setup are listed in
 [`data/README.md`](data/README.md) and
 [`webarena-train-time/README.md`](webarena-train-time/README.md).
 
+Of the 165 WebArena-Lite tasks, 40 use the benchmark's GPT fuzzy/semantic
+grader. The released protocol fixes that judge to `gpt-4.1-mini` at
+temperature `0`; it is separate from the local Qwen browser policy. Use
+`scripts/webarena/run_final_eval_suite.sh` to reproduce all four three-run
+evaluations. Judge API failures are retried and are never silently scored as
+incorrect answers; an incomplete repeat aborts instead of rerunning a
+state-changing task.
+
 ### AHD
 
 Install the EoH runtime, start the model endpoints, and run one task:

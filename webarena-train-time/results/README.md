@@ -4,6 +4,13 @@ All four settings use Qwen3.5-27B and the 165-task WebArena-Lite evaluation
 split. Each reported result is a three-run mean with temperature 0.7, top-p
 0.8, and top-k 20.
 
+Exactly 40 of the 165 tasks use VAB's GPT fuzzy/semantic evaluator (36 answer
+matches and 4 programmatic HTML matches). All archived runs used
+`gpt-4.1-mini` with temperature 0 as the judge. This judge only grades the
+final state/answer; Qwen3.5-27B remains the browser policy. Re-evaluations must
+use the same judge. A missing or failed judge call is an evaluator failure,
+not a zero-scored agent answer.
+
 | Setting | Three-run mean | Reported gain |
 |---|---:|---:|
 | NoSkill-No-Finetune | 29.5% | — |

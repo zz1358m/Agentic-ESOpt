@@ -18,9 +18,9 @@ python webarena-train-time/scripts/install_vab_extensions.py
 python scripts/check_data.py --task webarena --strict
 ```
 
-The installer adds the tracked Qwen action prompt and the
-`local_completion` provider adapter to the ignored VAB checkout. Use
-`--check` to verify that both extensions are installed without changing it.
+The installer adds the tracked Qwen action prompt, the `local_completion`
+provider adapter, and the fixed benchmark-judge configuration to the ignored
+VAB checkout. Use `--check` to verify all three without changing it.
 
 Start four model replicas before training or evaluation:
 
@@ -95,6 +95,38 @@ by the released experiments, and all 560 case positions consumed by the
 70-update Agentic-ESOpt run (generations 0–69, batch size 8) match the archived
 training log exactly.
 
+## Evaluation protocol and GPT judge
+
+WebArena-Lite does not score every task with deterministic rules. Exactly 40
+of the 165 held-out configs contain a `fuzzy_match`: 36 in answer matching and
+4 in programmatic HTML matching. These 40 tasks send only the agent's final
+answer, the task, and the reference answer to the benchmark judge. The local
+Qwen policy still performs every browser action; the judge does not act for
+the agent or see intermediate policy prompts.
+
+The released results hard-code the judge to `gpt-4.1-mini` with temperature
+`0`. Only the API credential is configurable:
+
+```bash
+export OPENAI_API_KEY=...  # or store the key in ./apikey
+```
+
+This differs from the obsolete `gpt-4-1106-preview` literal in the upstream
+VAB overlay. `install_vab_extensions.py` applies and verifies the tracked
+judge patch so a clean installation uses the released protocol. There is no
+environment or CLI override for the judge model. All
+checkpoints in a comparison must use the same judge model and prompt. Results
+from a different judge are not strict same-protocol comparisons.
+
+An OpenAI/judge API failure is an evaluator failure, not an incorrect agent
+answer. The OpenAI client handles transient retries while the original page is
+still open. If the judge still fails, final evaluation aborts the incomplete
+repeat; it never reruns a state-changing agent task or silently converts a
+judge failure to score `0`. The
+`evaluation_protocol.json` records the judge model, temperature, and failure
+policy before the first task starts; `eval_summary.json` is emitted only after
+all requested repeats complete.
+
 ## Reproduce the two trajectory-to-skill pipelines
 
 Trace2Skill-No-Finetune keeps the base model fixed. It repeatedly collects
@@ -128,7 +160,16 @@ history and injects its ES-trajectory skill only while evaluating.
 
 Run the four clean final evaluations. Every `test` resets and initializes the
 model servers first; Agentic-ESOpt tests then replay every update in the given
-history before evaluation.
+history before evaluation. The suite command below performs all four settings
+sequentially, with three repeats each, and preserves separate result folders:
+
+```bash
+OPENAI_API_KEY=... \
+WEBARENA_ES_HISTORY_FILE=runs/webrl_lite_full_es/webarena_noskill_es/history.json \
+scripts/webarena/run_final_eval_suite.sh
+```
+
+The equivalent individual commands are:
 
 ```bash
 scripts/webarena/run.sh noskill_no-finetune test
@@ -164,7 +205,8 @@ reasoning effort for analysis/evolution/consolidation.
 
 Final evaluation uses three runs over all 165 held-out tasks with temperature
 `0.7`, top-p `0.8`, top-k `20`, min-p `0.0`, presence penalty `1.5`, repetition
-penalty `1.0`, and 30 browser steps.
+penalty `1.0`, and 30 browser steps. The separate GPT judge uses
+`gpt-4.1-mini`, temperature `0`, and the 40 fuzzy-match tasks described above.
 
 The ES trainer is intentionally NoSkill-only. Trace2Skill-Agentic-ESOpt exposes
 only `distill` and `test`; neither stage performs an ES update.
