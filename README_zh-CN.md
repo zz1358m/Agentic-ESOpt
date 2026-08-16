@@ -7,9 +7,58 @@
 [代码](https://github.com/zz1358m/Agentic-ESOpt) ·
 [模型权重](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
 
-Agentic-ESOpt 使用带随机种子、可重放的进化策略，根据智能体 rollout
-奖励优化语言模型权重。本仓库包含共享优化器、任务运行脚本、对比基线、
-Trace2Skill 流程，以及五类智能体任务中保留的实验日志。
+Agentic-ESOpt 是一个面向长程 LLM 智能体的全参数、无反向传播微调框架。
+它使用进化策略（ES）在当前模型附近采样参数扰动，根据智能体在环境中的
+标量奖励评估扰动模型，再执行在线的奖励加权更新。整个更新过程只进行前向
+计算，GPU 显存需求与模型推理相当。
+
+本仓库包含共享优化器、任务运行脚本、对比基线、Trace2Skill 流程、已发布
+模型权重，以及五类智能体任务中保留的实验日志。所有维护中的
+Agentic-ESOpt 入口都使用带随机种子、可重放的扰动，因此可以在新启动的
+模型服务上重新应用完整优化历史。
+
+## 为什么使用 Agentic-ESOpt？💡
+
+![智能体推理、Agentic RL 与 Agentic-ESOpt 总览](assets/readme/figure1-overview.png)
+
+*图 1：长程智能体推理会产生更长、分支更多的轨迹，并使外部记忆、工具和
+技能愈发重要。Agentic RL 不仅训练显存开销较大，还需要跨越多个交互轮次
+分配信用。Agentic-ESOpt 改用轨迹级黑盒反馈，从而以较低显存完成全参数优化，
+并支持 prompt 与参数协同演化。*
+
+Agentic-ESOpt 主要围绕以下三个特性设计：
+
+- **模型可扩展性：** ES 不需要保存用于反向传播的激活值和优化器状态，
+  因而能以推理级 GPU 显存执行全参数更新。
+- **优化灵活性：** 标量奖励接口可以直接与技能演化和测试时搜索组合，
+  包括 Trace2Skill 和 EoH。
+- **长程可扩展性：** 每条完整轨迹归因于一个一致的参数扰动，无需把终局
+  奖励逐轮分解。
+
+### 主要结果
+
+| 场景 | 论文报告的主要结果 |
+| --- | --- |
+| 长程 Sudoku | 在 Qwen3.5-4B 的 15-turn 设置中，Agentic-ESOpt 比最强的同等计算量 GRPO 基线高 12.50 个百分点。 |
+| Math 与 DocVQA | Agentic-ESOpt 平均比 Qwen3.5-4B 基础模型高 13.7 个百分点，比 Agentic GRPO 高 8.3 个百分点。 |
+| WebArena-Lite | Qwen3.5-27B 在不使用 skill 时从 29.47% 提升到 36.16%；与 Trace2Skill 结合后从 33.94% 提升到 36.36%。 |
+| 自动启发式设计 | 在测试时计算实验中，Agentic-ESOpt 在 36 组对比中的 28 组优于对应基线。 |
+
+## 工作原理 ⚙️
+
+![Agentic-ESOpt 详细流程](assets/readme/figure2-workflow.png)
+
+*图 2：Agentic-ESOpt 采样一组扰动模型，评估它们产生的完整智能体轨迹，
+对标量奖励进行归一化，再执行奖励加权的 ES 更新。扰动尺度由余弦调度控制；
+同一批轨迹还可以用于基于 LLM 或启发式方法的 prompt 更新。*
+
+在每一代优化中，Agentic-ESOpt 会：
+
+1. 在当前 LLM 附近采样 `G` 个由随机种子确定的参数扰动；
+2. 让扰动后的智能体在任务环境中运行并收集轨迹级标量奖励；
+3. 在当前种群内归一化奖励，并执行奖励加权的 ES 参数更新；
+4. 通过余弦调度衰减扰动尺度，并把种子、奖励、调度和更新写入
+   `history.json`。
 
 ## 包含内容 🧭
 
@@ -21,8 +70,7 @@ Trace2Skill 流程，以及五类智能体任务中保留的实验日志。
 | WebArena | Agentic-ESOpt、Trace2Skill、Trace2Skill + Agentic-ESOpt |
 | AHD | EoH、独立采样及其 Agentic-ESOpt 版本 |
 
-共享实现位于 [`algorithms/es/`](algorithms/es/)。每个维护中的 Agentic-ESOpt 运行都会把带种子的
-扰动、奖励、调度和更新记录到 `history.json`，可以在新启动的模型服务上重放。
+共享实现位于 [`algorithms/es/`](algorithms/es/)。
 
 ## 已发布 Checkpoint 🤗
 

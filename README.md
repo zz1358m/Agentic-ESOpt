@@ -7,10 +7,66 @@
 [Code](https://github.com/zz1358m/Agentic-ESOpt) ·
 [Checkpoints](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
 
-Agentic-ESOpt optimizes language-model weights from agent rollouts using
-seeded, replayable evolution strategies. This repository contains the shared
-optimizer, task runners, comparison baselines, Trace2Skill workflows, and
-curated experiment logs for five agentic settings.
+Agentic-ESOpt is a full-parameter, backpropagation-free framework for
+fine-tuning long-horizon LLM agents with evolution strategies (ES). It samples
+perturbations around the current model, evaluates the resulting agents with
+scalar environment rewards, and applies an online reward-weighted update. The
+entire update is forward-only and requires only inference-level GPU memory.
+
+This repository contains the shared optimizer, task runners, comparison
+baselines, Trace2Skill workflows, released checkpoints, and curated experiment
+logs for five agentic settings. Every maintained Agentic-ESOpt runner uses
+seeded, replayable perturbations so that an optimization history can be applied
+again on a fresh model server.
+
+## Why Agentic-ESOpt? 💡
+
+![Agentic reasoning, Agentic RL, and Agentic-ESOpt overview](assets/readme/figure1-overview.png)
+
+*Figure 1. Long-horizon agentic reasoning produces longer, more branching
+trajectories and makes external memory, tools, and skills increasingly
+important. Agentic RL pays high training-memory costs and must assign credit
+across many turns. Agentic-ESOpt instead uses trajectory-level black-box
+feedback, enabling minimal-memory full-parameter optimization and flexible
+prompt-parameter co-evolution.*
+
+Agentic-ESOpt is designed around three properties:
+
+- **Model scalability:** full-parameter updates require only inference-level
+  GPU memory because ES does not store activations or optimizer states for
+  backpropagation.
+- **Optimization flexibility:** the scalar-reward interface composes directly
+  with skill evolution and test-time search, including Trace2Skill and EoH.
+- **Long-horizon scalability:** each completed trajectory is attributed to one
+  coherent parameter perturbation, avoiding turn-by-turn reward decomposition.
+
+### Results at a glance
+
+| Setting | Main result reported in the paper |
+| --- | --- |
+| Long-horizon Sudoku | On the 15-turn setting with Qwen3.5-4B, Agentic-ESOpt outperforms the strongest matched GRPO baseline by 12.50 percentage points. |
+| Math and DocVQA | Agentic-ESOpt improves over the Qwen3.5-4B base model by 13.7 points on average and over Agentic GRPO by 8.3 points. |
+| WebArena-Lite | Qwen3.5-27B improves from 29.47% to 36.16% without skills; combining Agentic-ESOpt with Trace2Skill improves 33.94% to 36.36%. |
+| Automatic heuristic design | Agentic-ESOpt improves its matched baseline in 28 of 36 test-time settings. |
+
+## How it works ⚙️
+
+![Detailed Agentic-ESOpt workflow](assets/readme/figure2-workflow.png)
+
+*Figure 2. Agentic-ESOpt samples a population of perturbed models, evaluates
+their complete agent rollouts, normalizes the scalar rewards, and applies a
+reward-weighted ES update. A cosine schedule controls the perturbation scale,
+while the same rollouts can also drive an LLM- or heuristic-based prompt
+update.*
+
+At each generation, Agentic-ESOpt:
+
+1. samples `G` seeded parameter perturbations around the current LLM;
+2. runs the perturbed agents in the task environment and collects scalar
+   trajectory rewards;
+3. normalizes rewards within the population and applies the weighted ES update;
+4. decays the perturbation scale with a cosine schedule and records the seeds,
+   rewards, schedule, and update in `history.json`.
 
 ## What is included 🧭
 
@@ -22,9 +78,7 @@ curated experiment logs for five agentic settings.
 | WebArena | Agentic-ESOpt, Trace2Skill, and Trace2Skill + Agentic-ESOpt |
 | AHD | EoH, independent sampling, and their Agentic-ESOpt variants |
 
-The shared implementation is under [`algorithms/es/`](algorithms/es/). Every maintained
-Agentic-ESOpt runner records seeded perturbations, rewards, schedules, and
-updates in `history.json`, which can be replayed on a fresh model server.
+The shared implementation is under [`algorithms/es/`](algorithms/es/).
 
 ## Released checkpoints 🤗
 
