@@ -1,7 +1,0 @@
-node_modules/
-dist/
-.vite/
-.external-data/
-*.log
-__pycache__/
-*.py[cod]

@@ -2,8 +2,8 @@
 
 [简体中文](README_zh-CN.md)
 
-[Project website](https://zz1358m.github.io/Agentic-ESOpt/) ·
-[Paper](https://zz1358m.github.io/Agentic-ESOpt/paper/) ·
+[Project website](https://zz1358m.github.io/Project-Agentic-ESOpt/) ·
+[Paper](https://zz1358m.github.io/Project-Agentic-ESOpt/paper/) ·
 [Code](https://github.com/zz1358m/Agentic-ESOpt) ·
 [Checkpoints](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
 
@@ -65,7 +65,6 @@ docvqa-train-time/          DocVQA environment, runners, and logs
 webarena-train-time/        WebArena environment, integrations, and logs
 ahd-test-time/              EoH/AHD runtime, evaluators, and programs
 data/                       stable data contracts and small source data
-website/                    interactive paper website and public evidence
 ```
 
 See [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md) for the compact entry-point map

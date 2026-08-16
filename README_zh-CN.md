@@ -2,8 +2,8 @@
 
 [English](README.md)
 
-[项目网页](https://zz1358m.github.io/Agentic-ESOpt/) ·
-[论文](https://zz1358m.github.io/Agentic-ESOpt/paper/) ·
+[项目网页](https://zz1358m.github.io/Project-Agentic-ESOpt/) ·
+[论文](https://zz1358m.github.io/Project-Agentic-ESOpt/paper/) ·
 [代码](https://github.com/zz1358m/Agentic-ESOpt) ·
 [模型权重](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
 
@@ -62,7 +62,6 @@ docvqa-train-time/          DocVQA 环境、运行脚本和日志
 webarena-train-time/        WebArena 环境、集成和日志
 ahd-test-time/              EoH/AHD 运行时、评测器和程序
 data/                       稳定的数据约定和小型源数据
-website/                    交互式论文网页与公开证据
 ```
 
 简要入口映射见 [`PROJECT_LAYOUT.md`](PROJECT_LAYOUT.md)，每个维护中运行入口的
