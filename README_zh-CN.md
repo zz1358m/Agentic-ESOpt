@@ -1,6 +1,6 @@
 <h1 align="center">
   <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">
-    <img src="assets/readme/brand/agentic-esopt-wordmark.png" alt="Agentic ESOpt" width="900">
+    <img src="assets/readme/brand/agentic-esopt-wordmark.png" alt="Agentic ESOpt" width="675">
   </a>
 </h1>
 
