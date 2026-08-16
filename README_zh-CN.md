@@ -1,11 +1,18 @@
-# Agentic-ESOpt 🚀
+<h1 align="center">
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">
+    <img src="assets/readme/brand/agentic-esopt-wordmark.png" alt="Agentic ESOpt" width="900">
+  </a>
+</h1>
 
-[English](README.md)
+<p align="center"><strong>以最小 GPU 显存微调长程大语言模型智能体</strong></p>
 
-[项目网页](https://zz1358m.github.io/Project-Agentic-ESOpt/) ·
-[论文](https://zz1358m.github.io/Project-Agentic-ESOpt/paper/) ·
-[代码](https://github.com/zz1358m/Agentic-ESOpt) ·
-[模型权重](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
+<p align="center">
+  <a href="README.md">English</a> ·
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">项目网页</a> ·
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/paper/">论文</a> ·
+  <a href="https://github.com/zz1358m/Agentic-ESOpt">代码</a> ·
+  <a href="https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection">模型权重</a>
+</p>
 
 Agentic-ESOpt 是一个面向长程 LLM 智能体的全参数、无反向传播微调框架。
 它使用进化策略（ES）在当前模型附近采样参数扰动，根据智能体在环境中的

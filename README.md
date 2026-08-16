@@ -1,11 +1,18 @@
-# Agentic-ESOpt 🚀
+<h1 align="center">
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">
+    <img src="assets/readme/brand/agentic-esopt-wordmark.png" alt="Agentic ESOpt" width="900">
+  </a>
+</h1>
 
-[简体中文](README_zh-CN.md)
+<p align="center"><strong>Fine-Tuning Long-Horizon LLM Agents with Minimal GPU Memory Requirements</strong></p>
 
-[Project website](https://zz1358m.github.io/Project-Agentic-ESOpt/) ·
-[Paper](https://zz1358m.github.io/Project-Agentic-ESOpt/paper/) ·
-[Code](https://github.com/zz1358m/Agentic-ESOpt) ·
-[Checkpoints](https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection)
+<p align="center">
+  <a href="README_zh-CN.md">简体中文</a> ·
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">Project website</a> ·
+  <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/paper/">Paper</a> ·
+  <a href="https://github.com/zz1358m/Agentic-ESOpt">Code</a> ·
+  <a href="https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection">Checkpoints</a>
+</p>
 
 Agentic-ESOpt is a full-parameter, backpropagation-free framework for
 fine-tuning long-horizon LLM agents with evolution strategies (ES). It samples
