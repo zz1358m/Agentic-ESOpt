@@ -9,7 +9,7 @@
 <p align="center">
   <a href="README.md">English</a> ·
   <a href="https://zz1358m.github.io/Project-Agentic-ESOpt/">项目网页</a> ·
-  <a href="https://www.alphaxiv.org/pdf/2608.agentic-esopt-long-horizon-llmv1">论文</a> ·
+  <a href="https://arxiv.org/abs/2608.17310">论文</a> ·
   <a href="https://github.com/zz1358m/Agentic-ESOpt">代码</a> ·
   <a href="https://huggingface.co/collections/zz1358m/agentic-esopt-checkpoints-collection">模型权重</a>
 </p>
